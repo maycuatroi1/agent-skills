@@ -5,8 +5,7 @@ Agent skills for AI coding agents, following the [Agent Skills](https://agentski
 ## Installation
 
 ```bash
-npm install -g skillfish
-skillfish add maycuatroi1/agent-skills
+npx skillfish add maycuatroi1/agent-skills
 ```
 
 ## Available Skills
