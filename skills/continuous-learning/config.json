@@ -1,0 +1,20 @@
+{
+  "min_session_length": 10,
+  "extraction_threshold": "medium",
+  "auto_approve": false,
+  "claude_model": "claude-haiku-4-5",
+  "patterns_to_detect": [
+    "error_resolution",
+    "user_corrections",
+    "workarounds",
+    "debugging_techniques",
+    "project_specific"
+  ],
+  "ignore_patterns": [
+    "simple_typos",
+    "one_time_fixes",
+    "external_api_issues"
+  ],
+  "max_summary_chars": 40000,
+  "claude_timeout_seconds": 300
+}
