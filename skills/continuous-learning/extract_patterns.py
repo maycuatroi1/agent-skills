@@ -44,8 +44,8 @@ def extract_text(msg):
             elif t == "tool_use":
                 name = item.get("name", "?")
                 inp = item.get("input") or {}
-                cmd = inp.get("command") or inp.get("file_path") or inp.get("pattern") or ""
-                parts.append(f"[tool:{name} {str(cmd)[:200]}]")
+                hint = inp.get("command") or inp.get("file_path") or inp.get("pattern") or ""
+                parts.append(f"[tool:{name} {str(hint)[:300]}]")
             elif t == "tool_result":
                 tc = item.get("content", "")
                 if isinstance(tc, list):
@@ -72,30 +72,114 @@ def build_summary(messages, max_chars):
     return joined
 
 
-def build_prompt(summary, config):
+def deep_merge(base, override):
+    out = dict(base)
+    for k, v in (override or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def load_project_config(cwd):
+    candidates = [
+        Path(cwd) / ".claude" / "continuous-learning.json",
+        Path(cwd) / ".claude" / "continuous_learning.json",
+    ]
+    for p in candidates:
+        if p.exists():
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                print(f"failed to load project config {p}: {e}", file=sys.stderr)
+    return {}
+
+
+def autodetect_cli(cwd):
+    root = Path(cwd)
+    for name in ("lms", "cli", "run", "dev", "bin/cli"):
+        p = root / name
+        if p.is_file() and os.access(p, os.X_OK):
+            return {"entrypoint": f"./{name}", "autodetected": True}
+    pkg = root / "package.json"
+    if pkg.exists():
+        try:
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+            scripts = list((data.get("scripts") or {}).keys())
+            if scripts:
+                return {
+                    "entrypoint": "npm run <script>",
+                    "framework": "npm scripts",
+                    "existing_groups": scripts[:15],
+                    "autodetected": True,
+                }
+        except Exception:
+            pass
+    makefile = root / "Makefile"
+    if makefile.exists():
+        return {"entrypoint": "make <target>", "framework": "Makefile", "autodetected": True}
+    return None
+
+
+def build_prompt(summary, config, project_cli):
     detect = ", ".join(config.get("patterns_to_detect", []))
     ignore = ", ".join(config.get("ignore_patterns", []))
     threshold = config.get("extraction_threshold", "medium")
-    return f"""You analyze a Claude Code session transcript and extract reusable patterns worth saving as Agent Skills.
+
+    cli_section = ""
+    if project_cli and project_cli.get("entrypoint"):
+        cli_section = f"""
+PROJECT CLI CONTEXT:
+- Entrypoint: {project_cli.get("entrypoint")}
+- Framework: {project_cli.get("framework", "unknown")}
+- Module dir: {project_cli.get("module_dir", "(unspecified)")}
+- Existing groups/commands: {project_cli.get("existing_groups", [])}
+- Notes: {project_cli.get("notes", "")}
+
+Produce "cli_suggestions" whenever you see a shell/tool-use pattern repeated (2+ times) with
+structural similarity (same shape, different args). Propose a subcommand that fits this CLI's
+conventions. Reuse existing groups when relevant; propose a new group only when no fit exists.
+"""
+    else:
+        cli_section = "\nNo project CLI detected. Set cli_suggestions to [].\n"
+
+    return f"""You analyze a Claude Code session transcript and extract two kinds of reusable artifacts:
+(A) SKILLS — Agent Skill markdown files for non-obvious, reusable patterns.
+(B) CLI_SUGGESTIONS — proposals to turn repeated shell/tool patterns into project CLI subcommands.
 
 RULES:
-- Only extract patterns that are NON-OBVIOUS and REUSABLE across future sessions.
-- Skip ephemeral one-off fixes, simple typos, and issues caused by external APIs.
-- Threshold is "{threshold}" (low = extract liberally, medium = selective, high = only high-value).
-- Focus on: {detect}
+- Only extract items that are NON-OBVIOUS and REUSABLE in FUTURE sessions.
+- Skip ephemeral one-offs, simple typos, external-API outages.
+- Threshold: "{threshold}" (low = extract liberally, medium = selective, high = only high-value).
+- Focus: {detect}
 - Ignore: {ignore}
-
-OUTPUT FORMAT:
-Return ONLY a JSON array. No prose, no code fences, no explanation.
-Each element:
+{cli_section}
+OUTPUT FORMAT — return ONLY a single JSON object. No prose, no code fences.
 {{
-  "name": "kebab-case-skill-name",
-  "description": "one-line trigger description for skill frontmatter, written to match future requests",
-  "pattern_type": "one of the detect categories",
-  "body": "full markdown body for the skill, including When to use / How / Example sections"
+  "skills": [
+    {{
+      "name": "kebab-case",
+      "description": "one-line trigger-style description for frontmatter",
+      "pattern_type": "one of the focus categories",
+      "body": "markdown body with When-to-use / How / Example sections"
+    }}
+  ],
+  "cli_suggestions": [
+    {{
+      "name": "kebab-case-suggestion-name",
+      "command_path": "<entrypoint> <group> <subcommand> [ARGS]",
+      "rationale": "what repeated pattern this replaces, why it's worth a subcommand",
+      "occurrences": 3,
+      "observed_calls": ["...actual command 1...", "...actual command 2..."],
+      "proposed_location": "e.g. cli/modules/debug.py (add to existing debug group)",
+      "implementation_sketch": "```python\\n@debug.command(\\"...\\")\\n...\\n```"
+    }}
+  ]
 }}
 
-If nothing worth saving: return [].
+If nothing worth saving: return {{"skills": [], "cli_suggestions": []}}.
 
 === TRANSCRIPT ===
 {summary}
@@ -117,42 +201,61 @@ def call_claude(prompt, config):
         )
     except subprocess.TimeoutExpired:
         print("claude -p timed out", file=sys.stderr)
-        return []
+        return {"skills": [], "cli_suggestions": []}
     except FileNotFoundError:
         print("claude CLI not found in PATH", file=sys.stderr)
-        return []
+        return {"skills": [], "cli_suggestions": []}
     if proc.returncode != 0:
         print(f"claude -p failed rc={proc.returncode}: {proc.stderr[:500]}", file=sys.stderr)
-        return []
-    return parse_patterns(proc.stdout)
+        return {"skills": [], "cli_suggestions": []}
+    return parse_output(proc.stdout)
 
 
-def parse_patterns(output):
+def parse_output(output):
+    empty = {"skills": [], "cli_suggestions": []}
+    if not output or not output.strip():
+        return empty
     output = output.strip()
-    if not output:
-        return []
-    fenced = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", output, re.DOTALL)
+
+    fenced = re.search(r"```(?:json)?\s*([\{\[].*?[\]\}])\s*```", output, re.DOTALL)
+    candidates = []
     if fenced:
-        output = fenced.group(1)
-    match = re.search(r"\[\s*(?:\{.*?\}\s*,?\s*)*\]", output, re.DOTALL)
-    if not match:
-        return []
-    try:
-        data = json.loads(match.group(0))
-    except json.JSONDecodeError:
-        return []
-    if not isinstance(data, list):
-        return []
-    return [p for p in data if isinstance(p, dict) and p.get("name") and p.get("body")]
+        candidates.append(fenced.group(1))
+    candidates.append(output)
+    obj_match = re.search(r"\{[\s\S]*\}", output)
+    if obj_match:
+        candidates.append(obj_match.group(0))
+    arr_match = re.search(r"\[[\s\S]*\]", output)
+    if arr_match:
+        candidates.append(arr_match.group(0))
+
+    for raw in candidates:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            skills = data.get("skills") or []
+            suggestions = data.get("cli_suggestions") or []
+            return {
+                "skills": [s for s in skills if isinstance(s, dict) and s.get("name") and s.get("body")],
+                "cli_suggestions": [c for c in suggestions if isinstance(c, dict) and c.get("name")],
+            }
+        if isinstance(data, list):
+            return {
+                "skills": [s for s in data if isinstance(s, dict) and s.get("name") and s.get("body")],
+                "cli_suggestions": [],
+            }
+    return empty
 
 
 def sanitize_name(name):
-    s = re.sub(r"[^a-z0-9-]+", "-", name.lower()).strip("-")
+    s = re.sub(r"[^a-z0-9-]+", "-", (name or "").lower()).strip("-")
     return s or "unnamed"
 
 
 def save_skill(skill, base_dir, auto_approve, session_id):
-    target = Path(base_dir) / ("learned" if auto_approve else "learned/_pending")
+    target = Path(base_dir) / "skills" / ("learned" if auto_approve else "learned/_pending")
     target.mkdir(parents=True, exist_ok=True)
     name = sanitize_name(skill["name"])
     skill_dir = target / name
@@ -174,8 +277,48 @@ def save_skill(skill, base_dir, auto_approve, session_id):
     return skill_dir
 
 
+def save_cli_suggestion(sug, base_dir, auto_approve, session_id, project_cli):
+    target = Path(base_dir) / "cli-suggestions" / ("accepted" if auto_approve else "_pending")
+    target.mkdir(parents=True, exist_ok=True)
+    name = sanitize_name(sug["name"])
+    out_file = target / f"{name}.md"
+    if out_file.exists():
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out_file = target / f"{name}-{stamp}.md"
+
+    observed = sug.get("observed_calls") or []
+    observed_md = "\n".join(f"- `{str(c)[:400]}`" for c in observed) or "- (none captured)"
+    framework = (project_cli or {}).get("framework", "unknown")
+    entrypoint = (project_cli or {}).get("entrypoint", "?")
+    sketch = sug.get("implementation_sketch") or ""
+    if sketch and "```" not in sketch:
+        sketch = f"```\n{sketch}\n```"
+
+    frontmatter = (
+        "---\n"
+        f"name: {name}\n"
+        f'command_path: "{sug.get("command_path", "")}"\n'
+        f"occurrences: {sug.get('occurrences', 0)}\n"
+        f'framework: "{framework}"\n'
+        f'entrypoint: "{entrypoint}"\n'
+        f'proposed_location: "{sug.get("proposed_location", "")}"\n'
+        f"learned_at: {datetime.now().isoformat(timespec='seconds')}\n"
+        f"source_session: {session_id}\n"
+        "---\n\n"
+    )
+    body = (
+        f"# CLI Suggestion: `{sug.get('command_path', name)}`\n\n"
+        f"## Why\n{sug.get('rationale', '(no rationale)')}\n\n"
+        f"## Observed calls ({sug.get('occurrences', 0)}x)\n{observed_md}\n\n"
+        f"## Proposed location\n`{sug.get('proposed_location', '(unspecified)')}`\n\n"
+        f"## Implementation sketch\n{sketch}\n"
+    )
+    out_file.write_text(frontmatter + body, encoding="utf-8")
+    return out_file
+
+
 def mark_processed(base_dir, session_id):
-    processed = Path(base_dir) / "learned" / ".processed"
+    processed = Path(base_dir) / "skills" / "learned" / ".processed"
     processed.mkdir(parents=True, exist_ok=True)
     (processed / session_id).write_text(datetime.now().isoformat(timespec="seconds"))
 
@@ -189,10 +332,15 @@ def main():
     args = parser.parse_args()
 
     with open(args.config, "r", encoding="utf-8") as f:
-        config = json.load(f)
+        global_config = json.load(f)
 
-    base = Path(args.cwd) / ".claude" / "skills"
-    processed_marker = base / "learned" / ".processed" / args.session_id
+    project_config = load_project_config(args.cwd)
+    config = deep_merge(global_config, project_config)
+
+    project_cli = (project_config.get("cli") if project_config else None) or autodetect_cli(args.cwd)
+
+    base = Path(args.cwd) / ".claude"
+    processed_marker = base / "skills" / "learned" / ".processed" / args.session_id
     if processed_marker.exists():
         print(f"session {args.session_id} already processed")
         return
@@ -206,27 +354,37 @@ def main():
         return
 
     summary = build_summary(real, int(config.get("max_summary_chars", 40000)))
-    prompt = build_prompt(summary, config)
-    patterns = call_claude(prompt, config)
+    prompt = build_prompt(summary, config, project_cli)
+    result = call_claude(prompt, config)
 
-    if not patterns:
-        print("no patterns extracted")
+    skills = result.get("skills", [])
+    suggestions = result.get("cli_suggestions", [])
+    if not skills and not suggestions:
+        print("no patterns or CLI suggestions extracted")
         mark_processed(base, args.session_id)
         return
 
     auto = bool(config.get("auto_approve", False))
-    saved = []
-    for p in patterns:
+    saved_skills = []
+    for p in skills:
         try:
-            path = save_skill(p, base, auto, args.session_id)
-            saved.append(str(path))
+            saved_skills.append(str(save_skill(p, base, auto, args.session_id)))
         except Exception as e:
-            print(f"failed to save {p.get('name')!r}: {e}", file=sys.stderr)
+            print(f"failed to save skill {p.get('name')!r}: {e}", file=sys.stderr)
+
+    saved_suggestions = []
+    for s in suggestions:
+        try:
+            saved_suggestions.append(str(save_cli_suggestion(s, base, auto, args.session_id, project_cli)))
+        except Exception as e:
+            print(f"failed to save suggestion {s.get('name')!r}: {e}", file=sys.stderr)
 
     mark_processed(base, args.session_id)
-    print(f"saved {len(saved)} learned skill(s):")
-    for s in saved:
-        print(f"  {s}")
+    print(f"saved {len(saved_skills)} skill(s), {len(saved_suggestions)} CLI suggestion(s)")
+    for s in saved_skills:
+        print(f"  skill: {s}")
+    for s in saved_suggestions:
+        print(f"  cli:   {s}")
 
 
 if __name__ == "__main__":

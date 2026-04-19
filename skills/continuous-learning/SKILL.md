@@ -1,18 +1,45 @@
 ---
 name: continuous-learning
-description: Auto-extract reusable patterns from Claude Code sessions and save them as learned skills into the current project's .claude/skills/learned/ directory. Use when setting up the Stop hook, reviewing/curating learned skills, tuning extraction thresholds, or explaining how session-end learning works.
+description: Auto-extract reusable patterns AND repeated command patterns from Claude Code sessions. Saves learned Agent Skills into {cwd}/.claude/skills/learned/ and proposes new subcommands for the project's CLI into {cwd}/.claude/cli-suggestions/_pending/. Use when setting up the Stop hook, reviewing learned skills or CLI suggestions, tuning thresholds, wiring a project CLI config, or explaining how session-end learning works.
 allowed-tools: Bash, Read, Edit, Write
 ---
 
 # Continuous Learning
 
-Runs at session end (via Stop hook). Analyzes the transcript with `claude -p`, extracts reusable patterns, and writes them as Agent Skills into the **current project's** `.claude/skills/learned/` — not `~/.claude/` — so the knowledge syncs across devices via the project's git repo.
+Runs at session end (via Stop hook). Analyzes the transcript with `claude -p` and writes two kinds of artifacts into the **current project's** `.claude/`:
 
-## Why project-local learned skills
+1. **Learned skills** → `.claude/skills/learned/` — reusable patterns, gotchas, debugging techniques worth saving as Agent Skills.
+2. **CLI suggestions** → `.claude/cli-suggestions/_pending/` — repeated shell/tool patterns that should become a subcommand of the project's own CLI (e.g. `./lms debug class-info`).
 
-- User syncs per-project `.claude/` folders across devices through GitHub
-- Patterns learned while working on project X are most relevant to project X
+Everything lives inside the project so it syncs across devices via the project's git repo.
+
+## Why project-local
+
+- Per-project `.claude/` folders sync across devices through GitHub
+- Patterns learned in project X are most relevant to project X
+- CLI suggestions are intrinsically per-project (each project has its own CLI)
 - No global namespace pollution
+
+## Project CLI detection
+
+If `{cwd}/.claude/continuous-learning.json` exists, it's merged over the global config. Use it to tell the extractor about the project's CLI:
+
+```json
+{
+  "cli": {
+    "entrypoint": "./lms",
+    "framework": "click (python)",
+    "module_dir": "cli/modules/",
+    "existing_groups": ["check", "debug", "dokploy"],
+    "existing_subcommands": {
+      "debug": ["class-info", "activity-info", "course-permission"]
+    },
+    "notes": "Click-based. Each group is cli/modules/<group>.py. Register in cli/main.py."
+  }
+}
+```
+
+Without explicit config, the extractor auto-detects common shapes (`./lms`, `./cli`, `Makefile`, `package.json` scripts). When no CLI is found, `cli_suggestions` is skipped.
 
 ## Files in this skill
 
@@ -57,8 +84,46 @@ chmod +x /home/binhna/git/agent-skills/skills/continuous-learning/evaluate-sessi
    - Skips if transcript has fewer messages than `min_session_length`
    - Skips if `{cwd}/.claude/skills/learned/.processed/<session_id>` already exists
    - Builds compact session summary, calls `claude -p` with extraction prompt
-   - Writes each pattern to `{cwd}/.claude/skills/learned/<name>/SKILL.md`
-   - When `auto_approve=false`, writes to `.../_pending/` for manual review
+   - Writes each skill to `{cwd}/.claude/skills/learned/<name>/SKILL.md`
+   - Writes each CLI suggestion to `{cwd}/.claude/cli-suggestions/_pending/<name>.md`
+   - When `auto_approve=false` (default), skills land in `skills/learned/_pending/` and CLI suggestions in `cli-suggestions/_pending/` for manual review
+
+## CLI suggestion format
+
+Each suggestion is a markdown file with frontmatter and sections:
+
+```md
+---
+name: debug-query-model
+command_path: "./lms debug query-model <MODEL>"
+occurrences: 3
+framework: "click (python)"
+entrypoint: "./lms"
+proposed_location: "cli/modules/debug.py"
+---
+
+# CLI Suggestion: `./lms debug query-model <MODEL>`
+
+## Why
+Ran `python manage.py shell -c "from X.models import Y; ..."` 3 times across different models.
+
+## Observed calls (3x)
+- `export ENV_FILE_NAME=.hust.env && python manage.py shell -c "from elearning.models import Course; print(Course.objects.count())"`
+- ...
+
+## Proposed location
+`cli/modules/debug.py`
+
+## Implementation sketch
+```python
+@debug.command("query-model")
+@click.argument("model")
+def query_model(model):
+    ...
+```
+```
+
+Review, then either copy the sketch into the CLI module or delete the suggestion file.
 
 ## Config
 
