@@ -8,6 +8,14 @@ Agent skills for AI coding agents, following the [Agent Skills](https://agentski
 npx skillfish add maycuatroi1/agent-skills
 ```
 
+## Setup global style rules
+
+Append style rules (no em-dash / en-dash / smart quotes) to `~/.claude/CLAUDE.md` so every Claude Code session on this machine follows them. Idempotent, safe to re-run on every new device:
+
+```bash
+python3 setup.py
+```
+
 ## Available Skills
 
 | Skill | Description |
