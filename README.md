@@ -25,6 +25,7 @@ python3 setup.py
 | `credentials-utils` | Read/list/refresh/sync credentials in `~/.omelet.json`. Get values by nested key path, list with masked output, refresh rclone OAuth token, sync across machines via GitHub private repo + `gh` CLI |
 | `create-slide` | Generate `.pptx` decks from a TypeScript content file via the open-source [`omelet-slide-generator`](https://github.com/maycuatroi1/omelet-slide-generator) (28 layouts, 3 themes, native OMML math, Shiki code highlighting) |
 | `dokploy-cli` | Manage Dokploy services (apps, compose, postgres/mysql/mongo/redis, domains, env vars, deploys) via the official [`@dokploy/cli`](https://github.com/Dokploy/cli). 449 commands across 32 groups. One-shot setup: `bash skills/dokploy-cli/scripts/install.sh` (npm install + ~/.omelet.json check + shell rc + smoke test, idempotent) |
+| `life-cli` | Personal life management via the [`red-life`](https://github.com/maycuatroi1/red-life) `life` CLI (todo, calendar, plan, journal, people, places, notes, health, fb, mail; Firestore-backed). Compact skill: discovers commands at runtime via `life --help` |
 
 ## Requirements
 
