@@ -27,6 +27,7 @@ python3 setup.py
 | `dokploy-cli` | Manage Dokploy services (apps, compose, postgres/mysql/mongo/redis, domains, env vars, deploys) via the official [`@dokploy/cli`](https://github.com/Dokploy/cli). 449 commands across 32 groups. One-shot setup: `bash skills/dokploy-cli/scripts/install.sh` (npm install + ~/.omelet.json check + shell rc + smoke test, idempotent) |
 | `life-cli` | Personal life management via the [`red-life`](https://github.com/maycuatroi1/red-life) `life` CLI (todo, calendar, plan, journal, people, places, notes, health, fb, mail; Firestore-backed). Compact skill: discovers commands at runtime via `life --help` |
 | `add-tasks` | Add todos via the `life` CLI with auto-managed context: fetches the referenced source (Google Sheets CSV export, Docs, GitHub, web), extracts the relevant rows, attaches the link + a self-contained summary to the todo |
+| `gitnexus` | Code-intelligence tool (CLI + MCP) for any git repo or multi-repo workspace via [`gitnexus`](https://github.com/abhigyanpatwari/GitNexus). Builds a knowledge graph for impact analysis, flow tracing, call-graph-aware rename, and cross-repo queries. One-shot setup: `bash skills/gitnexus/scripts/install.sh` (global install + MCP setup, idempotent); index a whole workspace: `bash skills/gitnexus/scripts/index-workspace.sh <root> <group>` |
 
 ## Requirements
 
@@ -36,6 +37,7 @@ python3 setup.py
 - `python3` + `gh` CLI + `~/.omelet.json` — for `credentials-utils`
 - Node.js 18+ (`npx`) — for `create-slide`
 - Node.js 18+ + `npm i -g @dokploy/cli` + `~/.omelet.json` (`dokploy_url`, `dokploy_api_key`) — for `dokploy-cli`
+- Node.js 18+ (`npm i -g gitnexus`) - for `gitnexus` (optional `python3`/`make`/`g++` to also parse Dart/Kotlin/Swift)
 
 ## License
 
