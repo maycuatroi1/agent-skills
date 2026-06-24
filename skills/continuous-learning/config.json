@@ -16,5 +16,15 @@
     "external_api_issues"
   ],
   "max_summary_chars": 40000,
-  "claude_timeout_seconds": 300
+  "claude_timeout_seconds": 300,
+  "curator": {
+    "enabled": true,
+    "interval_hours": 168,
+    "stale_after_days": 30,
+    "archive_after_days": 90,
+    "consolidate": false,
+    "auto_consolidate": false,
+    "model": "claude-haiku-4-5",
+    "backup_keep": 5
+  }
 }

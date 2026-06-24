@@ -30,7 +30,7 @@ if [ ! -f "$TRANSCRIPT" ]; then
 fi
 
 LOG="/tmp/continuous-learning-${SESSION_ID}.log"
-PROCESSED_DIR="$CWD/.claude/skills/learned/.processed"
+PROCESSED_DIR="$CWD/.claude/skills/.learned/.processed"
 if [ -f "$PROCESSED_DIR/$SESSION_ID" ]; then
   exit 0
 fi

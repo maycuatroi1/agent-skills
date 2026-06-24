@@ -8,6 +8,9 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import curate
+
 
 def load_transcript(path):
     messages = []
@@ -255,13 +258,19 @@ def sanitize_name(name):
 
 
 def save_skill(skill, base_dir, auto_approve, session_id):
-    target = Path(base_dir) / "skills" / ("learned" if auto_approve else "learned/_pending")
-    target.mkdir(parents=True, exist_ok=True)
     name = sanitize_name(skill["name"])
+    if auto_approve:
+        target = Path(base_dir) / "skills"
+        state = "active"
+    else:
+        target = curate.pending_dir(base_dir)
+        state = "pending"
+    target.mkdir(parents=True, exist_ok=True)
     skill_dir = target / name
     if skill_dir.exists():
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        skill_dir = target / f"{name}-{stamp}"
+        name = f"{name}-{stamp}"
+        skill_dir = target / name
     skill_dir.mkdir(parents=True)
     desc = (skill.get("description") or "").replace("\n", " ").strip()
     frontmatter = (
@@ -269,11 +278,13 @@ def save_skill(skill, base_dir, auto_approve, session_id):
         f"name: {skill_dir.name}\n"
         f"description: {desc}\n"
         f"pattern_type: {skill.get('pattern_type', 'unknown')}\n"
+        "learned: true\n"
         f"learned_at: {datetime.now().isoformat(timespec='seconds')}\n"
         f"source_session: {session_id}\n"
         "---\n\n"
     )
     (skill_dir / "SKILL.md").write_text(frontmatter + skill["body"].rstrip() + "\n", encoding="utf-8")
+    curate.register_skill(base_dir, skill_dir.name, state, session_id, desc)
     return skill_dir
 
 
@@ -318,7 +329,7 @@ def save_cli_suggestion(sug, base_dir, auto_approve, session_id, project_cli):
 
 
 def mark_processed(base_dir, session_id):
-    processed = Path(base_dir) / "skills" / "learned" / ".processed"
+    processed = curate.processed_dir(base_dir)
     processed.mkdir(parents=True, exist_ok=True)
     (processed / session_id).write_text(datetime.now().isoformat(timespec="seconds"))
 
@@ -340,17 +351,27 @@ def main():
     project_cli = (project_config.get("cli") if project_config else None) or autodetect_cli(args.cwd)
 
     base = Path(args.cwd) / ".claude"
-    processed_marker = base / "skills" / "learned" / ".processed" / args.session_id
+    processed_marker = curate.processed_dir(base) / args.session_id
     if processed_marker.exists():
         print(f"session {args.session_id} already processed")
         return
 
     messages = load_transcript(args.transcript)
     real = [m for m in messages if role_of(m) in ("user", "assistant")]
+
+    try:
+        curate.record_usage_scan(base, messages, args.session_id)
+    except Exception as e:
+        print(f"usage scan failed: {e}", file=sys.stderr)
+
     min_len = int(config.get("min_session_length", 10))
     if len(real) < min_len:
         print(f"session too short ({len(real)} < {min_len})")
         mark_processed(base, args.session_id)
+        try:
+            curate.maybe_auto_curate(base, config)
+        except Exception as e:
+            print(f"auto-curate failed: {e}", file=sys.stderr)
         return
 
     summary = build_summary(real, int(config.get("max_summary_chars", 40000)))
@@ -380,6 +401,10 @@ def main():
             print(f"failed to save suggestion {s.get('name')!r}: {e}", file=sys.stderr)
 
     mark_processed(base, args.session_id)
+    try:
+        curate.maybe_auto_curate(base, config)
+    except Exception as e:
+        print(f"auto-curate failed: {e}", file=sys.stderr)
     print(f"saved {len(saved_skills)} skill(s), {len(saved_suggestions)} CLI suggestion(s)")
     for s in saved_skills:
         print(f"  skill: {s}")
