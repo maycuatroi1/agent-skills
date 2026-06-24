@@ -56,7 +56,7 @@ OMELET_SYNC_REPO=owner/repo bash ~/agent-skills/skills/credentials-utils/scripts
 bash ~/agent-skills/skills/dokploy-cli/scripts/install.sh
 ```
 
-The `credentials-utils` `sync_pull.sh` brings `~/.omelet.json` (with `dokploy_url` + `dokploy_api_key`) from the user's private repo; the install script does the rest.
+The `credentials-utils` `sync_pull.sh` brings the credentials folder from the user's private repo and compiles `~/.omelet.json` (with `dokploy_url` + `dokploy_api_key`, sourced from `infra/dokploy.json`); the install script does the rest. The flat `~/.omelet.json` is a generated artifact - to change the Dokploy creds, edit via `credentials-utils` `add_credential.py` (writes `infra/dokploy.json` then recompiles), not by hand.
 
 ### What the install script does NOT do
 

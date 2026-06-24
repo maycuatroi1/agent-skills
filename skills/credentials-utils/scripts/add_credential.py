@@ -2,16 +2,26 @@
 import getpass
 import json
 import os
+import subprocess
 import sys
-import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-CONFIG_PATH = Path(os.environ.get("OMELET_CONFIG", str(Path.home() / ".omelet.json")))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _registry import (
+    CREDENTIALS_DIR,
+    META_FIELDS,
+    load_entries,
+    spec_for_flat_key,
+)
+
+HERE = Path(__file__).resolve().parent
 
 
 def usage():
     sys.stderr.write(
         "usage: add_credential.py <key.path> [source] [--json]\n"
+        "  writes into the per-service file under credentials/, then recompiles ~/.omelet.json\n"
         "  source (one of):\n"
         "    (omitted)             prompt interactively without echo (recommended)\n"
         "    --from-stdin          read value from stdin\n"
@@ -24,6 +34,60 @@ def usage():
         "    add_credential.py use_gcs --value true --json\n"
     )
     sys.exit(2)
+
+
+def find_file_for_top_key(top_key):
+    for path, entry in load_entries():
+        if top_key in entry.get("flat", {}):
+            return path, entry
+    spec = spec_for_flat_key(top_key)
+    if spec:
+        path = CREDENTIALS_DIR / spec["path"]
+        if path.exists():
+            return path, json.loads(path.read_text(encoding="utf-8"))
+        entry = {
+            "id": spec["id"],
+            "service": spec["service"],
+            "category": spec["category"],
+            "description": spec.get("description", ""),
+            "type": spec.get("type", "api_key"),
+            "lifetime": spec.get("lifetime", "stable"),
+            "status": spec.get("status", "active"),
+            "rotate": spec.get("rotate", ""),
+            "added": None,
+            "last_rotated": None,
+            "expiry": None,
+            "flat": {},
+        }
+        if spec.get("oauth"):
+            entry["oauth"] = spec["oauth"]
+        return path, entry
+    path = CREDENTIALS_DIR / "tools" / f"{top_key}.json"
+    entry = {
+        "id": top_key,
+        "service": top_key,
+        "category": "tools",
+        "description": "(added via add_credential.py)",
+        "type": "api_key",
+        "lifetime": "stable",
+        "status": "active",
+        "rotate": "",
+        "added": None,
+        "last_rotated": None,
+        "expiry": None,
+        "flat": {},
+    }
+    return path, entry
+
+
+def write_entry(path, entry):
+    ordered = {k: entry[k] for k in META_FIELDS if k in entry}
+    ordered["flat"] = entry["flat"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(ordered, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
 
 
 def main():
@@ -39,7 +103,6 @@ def main():
         parse_json = True
         rest.remove("--json")
 
-    value = None
     if not rest:
         value = getpass.getpass(f"value for {key_path} (no echo): ")
         if not value:
@@ -52,11 +115,10 @@ def main():
     elif rest[0] == "--from-env":
         if len(rest) != 2:
             usage()
-        env_name = rest[1]
-        if env_name not in os.environ:
-            sys.stderr.write(f"env var {env_name} not set\n")
+        if rest[1] not in os.environ:
+            sys.stderr.write(f"env var {rest[1]} not set\n")
             sys.exit(1)
-        value = os.environ[env_name]
+        value = os.environ[rest[1]]
     elif rest[0] == "--value":
         if len(rest) != 2:
             usage()
@@ -71,51 +133,34 @@ def main():
             sys.stderr.write(f"--json: failed to parse value: {e}\n")
             sys.exit(1)
 
-    if CONFIG_PATH.exists():
-        try:
-            data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as e:
-            sys.stderr.write(f"invalid JSON in {CONFIG_PATH}: {e}\n")
-            sys.exit(1)
-    else:
-        data = {}
-
     parts = key_path.split(".")
     if not all(parts):
         sys.stderr.write(f"invalid key path: {key_path}\n")
         sys.exit(1)
 
-    cursor = data
-    for part in parts[:-1]:
-        if part not in cursor:
-            cursor[part] = {}
-        elif not isinstance(cursor[part], dict):
-            sys.stderr.write(
-                f"cannot descend into '{part}': existing value is {type(cursor[part]).__name__}\n"
-            )
-            sys.exit(1)
-        cursor = cursor[part]
+    path, entry = find_file_for_top_key(parts[0])
+    flat = entry.setdefault("flat", {})
 
+    cursor = flat
+    for part in parts[:-1]:
+        if part not in cursor or not isinstance(cursor[part], dict):
+            cursor[part] = {}
+        cursor = cursor[part]
     leaf = parts[-1]
     existed = leaf in cursor
     cursor[leaf] = value
 
-    tmp = tempfile.NamedTemporaryFile(
-        "w", delete=False, dir=str(CONFIG_PATH.parent), encoding="utf-8"
-    )
-    try:
-        json.dump(data, tmp, indent=2, ensure_ascii=False)
-        tmp.write("\n")
-        tmp.close()
-        os.chmod(tmp.name, 0o600)
-        os.replace(tmp.name, CONFIG_PATH)
-    except Exception:
-        if os.path.exists(tmp.name):
-            os.unlink(tmp.name)
-        raise
+    tz = timezone(timedelta(hours=7))
+    entry["last_rotated"] = datetime.now(tz).isoformat()
+    if entry.get("added") is None:
+        entry["added"] = datetime.now(tz).date().isoformat()
+
+    write_entry(path, entry)
+    subprocess.run([sys.executable, str(HERE / "compile.py")], check=False)
 
     verb = "updated" if existed else "added"
-    sys.stderr.write(f"{verb} {key_path} in {CONFIG_PATH}\n")
+    rel = path.relative_to(CREDENTIALS_DIR) if str(path).startswith(str(CREDENTIALS_DIR)) else path
+    sys.stderr.write(f"{verb} {key_path} in {rel}, recompiled flat config\n")
 
 
 if __name__ == "__main__":

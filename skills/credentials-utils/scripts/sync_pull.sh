@@ -6,8 +6,9 @@ if [[ -z "${OMELET_SYNC_REPO:-}" ]]; then
     exit 1
 fi
 REPO="$OMELET_SYNC_REPO"
-FILE_IN_REPO="${OMELET_SYNC_FILE:-omelet.json}"
-DEST="${OMELET_CONFIG:-$HOME/.omelet.json}"
+DIR_IN_REPO="${OMELET_SYNC_DIR:-credentials}"
+DEST_DIR="${OMELET_DIR:-$HOME/.omelet.d}/credentials"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! command -v gh >/dev/null 2>&1; then
     echo "gh CLI not found. Install: https://cli.github.com" >&2
@@ -24,18 +25,22 @@ trap 'rm -rf "$TMP"' EXIT
 
 gh repo clone "$REPO" "$TMP/repo" -- --depth=1 --quiet
 
-SRC="$TMP/repo/$FILE_IN_REPO"
-if [[ ! -f "$SRC" ]]; then
-    echo "file '$FILE_IN_REPO' not found in repo $REPO" >&2
+SRC_DIR="$TMP/repo/$DIR_IN_REPO"
+if [[ ! -d "$SRC_DIR" ]]; then
+    echo "folder '$DIR_IN_REPO' not found in repo $REPO" >&2
     exit 1
 fi
 
-if [[ -f "$DEST" ]]; then
-    BACKUP="${DEST}.bak.$(date +%Y%m%d-%H%M%S)"
-    cp -p "$DEST" "$BACKUP"
-    echo "backed up existing $DEST -> $BACKUP" >&2
+if [[ -d "$DEST_DIR" ]]; then
+    BACKUP="${DEST_DIR}.bak.$(date +%Y%m%d-%H%M%S)"
+    cp -a "$DEST_DIR" "$BACKUP"
+    echo "backed up existing $DEST_DIR -> $BACKUP" >&2
 fi
 
-cp "$SRC" "$DEST"
-chmod 600 "$DEST"
-echo "pulled $REPO:$FILE_IN_REPO -> $DEST" >&2
+mkdir -p "$DEST_DIR"
+rm -rf "${DEST_DIR:?}/"*
+cp -a "$SRC_DIR/." "$DEST_DIR/"
+chmod -R go-rwx "$DEST_DIR"
+echo "pulled $REPO:$DIR_IN_REPO/ -> $DEST_DIR" >&2
+
+python3 "$HERE/compile.py"

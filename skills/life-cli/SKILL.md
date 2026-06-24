@@ -40,7 +40,7 @@ Required files inside that root:
 - `firebase-credentials.json` - Firestore service account (project omelet-f0b89)
 - `token.json` - legacy Google OAuth token location
 
-Shared Google OAuth lives in `~/.omelet.json`: `google_calendar.credentials`, `google_calendar.token`, `gmail.token`. Run `life cal auth` once before `life mail auth`. Sync `~/.omelet.json` across machines with the `credentials-utils` skill.
+Shared Google OAuth is read from `~/.omelet.json`: `google_calendar.credentials`, `google_calendar.token`, `gmail.token`. Run `life cal auth` once before `life mail auth`. Note: `~/.omelet.json` is now a generated flat artifact - the source of truth is the per-service folder `~/.omelet.d/credentials/` (files `google-oauth/gmail.json`, `google-oauth/google-calendar.json`) managed by the `credentials-utils` skill, which compiles back to the flat file. Refresh expired Google tokens with `credentials-utils` `refresh_google_oauth.py`; sync across machines with its `sync_pull.sh` / `sync_push.sh`.
 
 New machine setup:
 
