@@ -1,0 +1,23 @@
+{
+  "_rules": [
+    "Entries describe END-TO-END behaviors a user can observe, not implementation tasks.",
+    "Agents may ONLY change the 'passes' field. Removing or editing an entry is unacceptable: it hides missing functionality behind a shrinking definition of done.",
+    "Flip 'passes' to true only after verifying the behavior end to end, the way a user would. A green unit test is not the same as a working feature.",
+    "This file is JSON and not Markdown on purpose: models are measurably less likely to rewrite JSON they were told not to touch."
+  ],
+  "features": [
+    {
+      "id": "example-1",
+      "category": "functional",
+      "description": "A user can open a new chat, type a query, press enter, and see a response",
+      "steps": [
+        "Navigate to the main interface",
+        "Click the 'New Chat' button",
+        "Type a query and press enter",
+        "Verify a response is rendered",
+        "Verify the conversation appears in the sidebar"
+      ],
+      "passes": false
+    }
+  ]
+}

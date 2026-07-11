@@ -28,6 +28,7 @@ python3 setup.py
 | `life-cli` | Personal life management via the [`red-life`](https://github.com/maycuatroi1/red-life) `life` CLI (todo, calendar, plan, journal, people, places, notes, health, fb, mail; Firestore-backed). Compact skill: discovers commands at runtime via `life --help` |
 | `add-tasks` | Add todos via the `life` CLI with auto-managed context: fetches the referenced source (Google Sheets CSV export, Docs, GitHub, web), extracts the relevant rows, attaches the link + a self-contained summary to the todo |
 | `gitnexus` | Code-intelligence tool (CLI + MCP) for any git repo or multi-repo workspace via [`gitnexus`](https://github.com/abhigyanpatwari/GitNexus). Builds a knowledge graph for impact analysis, flow tracing, call-graph-aware rename, and cross-repo queries. One-shot setup: `bash skills/gitnexus/scripts/install.sh` (global install + MCP setup, idempotent); index a whole workspace: `bash skills/gitnexus/scripts/index-workspace.sh <root> <group>` |
+| `harness-engineering` | Analyze, build and maintain an agent harness for a **cluster** of tightly-related repos. Scores the cluster against an 11-dimension rubric (`audit`), finds drift (`doctor`), coordinates changes spanning N repos with an explicit merge order (`plan`), and - the point - watches real sessions and turns each agent stumble into a proposal for the artifact that would have prevented it (`garden`). Built on [Anthropic's harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) and [OpenAI's harness engineering](https://openai.com/index/harness-engineering/) |
 
 ## Requirements
 
@@ -38,6 +39,7 @@ python3 setup.py
 - Node.js 18+ (`npx`) — for `create-slide`
 - Node.js 18+ + `npm i -g @dokploy/cli` + `~/.omelet.json` (`dokploy_url`, `dokploy_api_key`) — for `dokploy-cli`
 - Node.js 18+ (`npm i -g gitnexus`) - for `gitnexus` (optional `python3`/`make`/`g++` to also parse Dart/Kotlin/Swift)
+- `python3` + `pyyaml` + `git` - for `harness-engineering` (`claude` CLI only for `garden --headless`). Runs on Windows and POSIX.
 
 ## License
 

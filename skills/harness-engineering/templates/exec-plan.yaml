@@ -1,0 +1,44 @@
+id: <kebab-slug>
+goal: <one sentence: what is true after this lands that is not true now>
+created_at: <iso>
+
+repos:
+  - repo: <owner repo - the one that defines the contract>
+    branch: <branch name>
+    order: 1
+    depends_on: []
+    status: todo
+    scope: <what changes here>
+
+  - repo: <consumer repo>
+    branch: <branch name>
+    order: 2
+    depends_on: [<owner repo>]
+    status: todo
+    scope: <what changes here>
+
+steps:
+  - <the sequence, in the order it must actually happen>
+  - <each step names the repo it happens in>
+
+seams_touched:
+  - <name from contracts.yaml>
+
+rollback: <how to undo this if it lands half-applied - the honest answer is often "revert in reverse
+  merge order", and if there is no honest answer, say so>
+
+decisions: []
+
+# Merge order is the whole point of this file.
+#
+# A cross-repo change is a distributed transaction. Improvised, it fails the way one-shotting fails
+# inside a single repo: partial application, no record of how far it got, and the next session cannot
+# tell. The consumer must not merge before the owner, or the seam is broken in main for as long as the
+# gap lasts.
+#
+# `harness.py plan status` reads the real git state and diffs it against this file. That catches the
+# most common drift: the plan says one thing and the branches say another. Memory is worse at this than
+# the check is.
+#
+# Log decisions as you go (`harness.py plan decide --name <id> --text "..."`). Three sessions later the
+# WHAT is still in the diff, but the WHY is gone unless you wrote it down.
