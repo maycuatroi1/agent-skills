@@ -1,0 +1,7 @@
+.venv/
+media/
+cues/
+__pycache__/
+
+# video nang, khong commit; script + phu de thi co
+*.mp4
