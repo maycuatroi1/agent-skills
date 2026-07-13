@@ -81,8 +81,41 @@ hỏi đã mở ở đầu.
 
 ---
 
-## Kiểm tra sync trước khi giao
+## Kiểm tra sync phụ đề trước khi giao
 
 ffmpeg trên máy thiếu libass nên không burn-in được. Verify bằng cách trích frame
 rồi vẽ phụ đề đang active lên bằng PIL, xem lời có khớp hình không. Chọn 4 mốc rải
 đều video là đủ để bắt lỗi lệch một cảnh.
+
+---
+
+## Lồng tiếng
+
+Đưa `final/narration.tsv` (hoặc `final/subtitles.srt`) cho công cụ TTS. **Bắt buộc
+chọn chế độ bám timecode**, đừng để nó đọc liền một mạch: đọc liền thì audio dài ngắn
+tuỳ giọng và sẽ trôi dần khỏi hình, càng về cuối càng lệch.
+
+Vbee đã dùng thật và bám timecode tốt.
+
+Kiểm tra **trước khi ghép**:
+
+```bash
+./check-audio.sh narration.mp3
+```
+
+Script dò các đoạn có tiếng trong audio rồi so với mốc cue trong `narration.tsv`.
+Bám đúng thì mỗi câu khớp trong khoảng 0,3s (trong đó ~0,2s là độ trễ của chính phép
+đo, không phải lỗi). Đọc kết quả:
+
+- **Lệch trung vị ~0,2s, không câu nào quá 0,8s** là khớp. Ghép được.
+- **Một hai câu đầu lệch** thường vô hại: TTS hay chèn khoảng lặng dẫn. Kiểm tra
+  xem chỗ đó trên hình đang có gì; nếu tiêu đề vẫn đang hiện ra thì thậm chí còn hay.
+- **Nhiều câu lệch và lệch tăng dần** nghĩa là TTS nối liền không bám timecode.
+  Sinh lại, đừng cố kéo giãn audio để cứu.
+
+Ghép: đặt file tên `narration.mp3` ở gốc thư mục video rồi chạy `./render.sh`
+(hoặc chỉ `python build_final.py` nếu đã render rồi). `build_final.py` tự phát hiện và
+ghép, giữ nguyên hình (`-c:v copy`, không encode lại) và pad audio cho khớp độ dài.
+
+Luôn ghép từ **bản câm** ở gốc thư mục, không ghép chồng lên bản đã có tiếng, nên chạy
+lại bao nhiêu lần cũng ra kết quả như nhau.

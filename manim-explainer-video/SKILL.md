@@ -71,12 +71,27 @@ tiết/giây). Gặp cảnh báo thì rút gọn lời **hoặc** nới `self.wa
 hai. Đọc `references/narration.md` trước khi viết lời: cách viết số cho vừa đọc vừa hiển
 thị, và giọng nên dùng.
 
+## Lồng tiếng
+
+Đưa `final/narration.tsv` (hoặc `subtitles.srt`) cho TTS, **bắt buộc chọn chế độ bám
+timecode**, đừng để nó đọc liền một mạch. Vbee đã dùng thật và bám tốt.
+
+Kiểm tra trước khi ghép, đừng tin là khớp:
+
+```bash
+./check-audio.sh narration.mp3    # dò đoạn có tiếng, so với mốc cue
+```
+
+Khớp thì đặt file tên `narration.mp3` ở gốc thư mục video, `build_final.py` tự ghép,
+giữ nguyên hình (`-c:v copy`) và pad audio cho bằng độ dài. Luôn ghép từ bản câm nên
+chạy lại bao nhiêu lần cũng như nhau. Chi tiết cách đọc kết quả: `references/narration.md`.
+
 ## Vòng lặp làm việc
 
 ```bash
 ./render.sh -ql     # 480p15, nhanh: lặp ở đây cho tới khi nội dung đúng
-./check.sh          # grep em-dash, LaTeX tiếng Việt, MathTex nhiều tham số
-./render.sh         # 1080p60, bản giao
+./check.sh          # em-dash, LaTeX tiếng Việt, MathTex nhiều tham số
+./render.sh         # 1080p60, bản giao (tự ghép narration.mp3 nếu có)
 ```
 
 **Trích frame ra xem thật, đừng tin là ổn.** Lỗi chồng chữ và tràn khung không bao giờ
@@ -94,10 +109,10 @@ Xem ít nhất 2-3 frame mỗi cảnh. Đây là bước hay bị bỏ và luôn
 
 | File | Dùng để |
 |---|---|
-| `<slug>.mp4` | Video 1920×1080, 60fps |
+| `<slug>.mp4` | Video 1920×1080, 60fps, có tiếng nếu đã đặt `narration.mp3` |
 | `script.md` | Kịch bản có timecode, chia theo cảnh, cho người lồng tiếng |
 | `subtitles.srt` | Phụ đề, nạp thẳng vào player hoặc YouTube |
-| `narration.tsv` | `start · end · text`, cho công cụ TTS |
+| `narration.tsv` | `start · end · text`, đưa cho TTS |
 
 ## Tài liệu kèm theo
 

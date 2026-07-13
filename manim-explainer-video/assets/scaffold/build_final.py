@@ -28,6 +28,10 @@ CUE_DIR = ROOT / "cues"
 FINAL = ROOT / "final"
 VIDEO = f"{SLUG}.mp4"
 
+# Loi binh da thu am / TTS. Dat o goc thu muc thi build tu ghep vao video.
+# File nay phai duoc sinh theo dung timecode trong final/narration.tsv.
+NARRATION = ["narration.mp3", "narration.wav", "narration.m4a"]
+
 # Toc do doc tieng Viet thoai mai: ~4.5 am tiet/giay. Vuot nguong -> canh bao.
 SYLLABLES_PER_SEC = 4.5
 MIN_SUB = 1.2      # phu de ngan nhat
@@ -140,6 +144,47 @@ def write_script(lines, total):
     (FINAL / "script.md").write_text("\n".join(doc), encoding="utf-8")
 
 
+def find_narration():
+    for name in NARRATION:
+        p = ROOT / name
+        if p.exists():
+            return p
+    return None
+
+
+def deliver(silent_master):
+    """Xuat final/<video>. Co loi binh thi ghep vao, khong thi copy ban cam.
+
+    Luon ghep tu ban CAM, khong ghep chong len ban da co tieng, nen chay lai
+    build_final bao nhieu lan cung ra ket qua nhu nhau.
+    """
+    out = FINAL / VIDEO
+    audio = find_narration()
+
+    if audio is None:
+        shutil.copy2(silent_master, out)
+        print("  (chưa có narration.mp3, video xuất ra không có tiếng)")
+        return
+
+    subprocess.run(
+        ["ffmpeg", "-v", "error",
+         "-i", str(silent_master), "-i", str(audio),
+         "-map", "0:v", "-map", "1:a",
+         "-c:v", "copy",            # khong encode lai hinh
+         "-c:a", "aac", "-b:a", "128k",
+         "-af", "apad",             # tieng ngan hon hinh vai chuc ms -> chen im lang cho bang
+         "-shortest",
+         "-movflags", "+faststart",
+         "-y", str(out)],
+        check=True,
+    )
+    va, aa = probe_duration(silent_master), probe_duration(audio)
+    print(f"  lồng tiếng: {audio.name}  ({aa:.1f}s tiếng / {va:.1f}s hình)")
+    if abs(aa - va) > 2.0:
+        print(f"  ! tiếng lệch hình {abs(aa - va):.1f}s. Kiểm tra TTS có bám timecode "
+              f"trong narration.tsv không.")
+
+
 def main():
     quality_dir = sys.argv[1] if len(sys.argv) > 1 else "1080p60"
     video_dir = ROOT / "media" / "videos" / "scenes" / quality_dir
@@ -147,13 +192,16 @@ def main():
     FINAL.mkdir(exist_ok=True)
     lines, total = collect(video_dir)
 
-    src = ROOT / VIDEO
-    if src.exists():
-        shutil.move(str(src), FINAL / VIDEO)
-
     write_srt(lines)
     write_tsv(lines)
     write_script(lines, total)
+
+    # render.sh de ban cam o goc thu muc; do la master de ghep tieng.
+    silent_master = ROOT / VIDEO
+    if silent_master.exists():
+        deliver(silent_master)
+    else:
+        print("  ! không thấy video câm ở gốc thư mục, bỏ qua bước xuất bản.")
 
     print(f"final/  {len(lines)} câu · {tc(total, '.')}")
 
