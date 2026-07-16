@@ -1,0 +1,33 @@
+name: my-cluster
+workspace: /abs/path/to/workspace
+created_at: <iso>
+
+repos:
+  - name: backend
+    path: /abs/path/to/workspace/backend
+    role: backend
+    present: true
+    origin: git@github.com:org/backend.git
+
+  - name: web
+    path: /abs/path/to/workspace/web
+    role: frontend
+    present: true
+    origin: git@github.com:org/web.git
+
+  # A repo that belongs to the cluster but is not cloned on this machine.
+  # This is normal. Mark it and move on: audit skips it, doctor still checks that references TO it are
+  # honest. A repo being absent is fine; a document pretending it is present is not.
+  - name: storage-service
+    role: backend
+    present: false
+    origin: git@github.com:org/storage-service.git
+
+garden:
+  min_sessions: 3          # below this there is not enough evidence to tell a pattern from an accident
+  min_occurrences: 2       # one stumble is noise
+  max_proposals_per_run: 5 # a run that emits twenty proposals gets ignored wholesale
+  lookback_days: 14        # older signals describe a harness that may no longer exist
+  model: claude-haiku-4-5
+
+# If garden starts emitting vague proposals, raise min_occurrences. Do not rewrite the prompt.

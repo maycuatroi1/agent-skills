@@ -1,0 +1,14 @@
+{
+  "name": "DECK_NAME",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Slide deck built with omelet-slide-generator",
+  "scripts": {
+    "build": "npm run build:instructor && npm run build:student",
+    "build:instructor": "npx omelet-slide slides/index.ts dist/deck.pptx --theme=THEME_NAME",
+    "build:student":    "npx omelet-slide slides/index.ts dist/deck-student.pptx --theme=THEME_NAME --no-notes"
+  },
+  "devDependencies": {
+    "omelet-slide-generator": "github:maycuatroi1/omelet-slide-generator"
+  }
+}
