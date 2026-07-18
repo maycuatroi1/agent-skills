@@ -33,10 +33,10 @@ python3 setup.py
 
 ## Requirements
 
-- [omelet CLI](https://github.com/maycuatroi1/omelet-cli) (`pip install omelet`) — for `generate-image`
+- [omelet CLI](https://github.com/maycuatroi1/omelet-cli) (`pip install git+https://github.com/maycuatroi1/omelet-cli`) — for `generate-image`
 - Google API key for Gemini — for `generate-image`
 - `claude` CLI + `jq` + `python3` — for `continuous-learning`
-- `evo` >= 0.12.2 (`pip install evo_cli`, or `python setup.py` here) + `gh` CLI - for `credentials-utils`
+- `evo` >= 0.12.2 (`pip install evo-cli`, or `python setup.py` here) + `gh` CLI - for `credentials-utils`
 - Node.js 18+ (`npx`) — for `create-slide`
 - Node.js 18+ + `npm i -g @dokploy/cli` + `~/.omelet.json` (`dokploy_url`, `dokploy_api_key`) — for `dokploy-cli`
 - Node.js 18+ (`npm i -g gitnexus`) - for `gitnexus` (optional `python3`/`make`/`g++` to also parse Dart/Kotlin/Swift)
