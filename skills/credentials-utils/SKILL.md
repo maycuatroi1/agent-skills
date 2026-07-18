@@ -54,6 +54,7 @@ Trigger on any of:
 | Read one value (dotted path) | `evo cred get <key.path>` |
 | Read into env var | `eval "$(evo cred get --export OPENAI_API_KEY openai_api_key)"` |
 | Add / update a value | `evo cred add <key.path>` (writes folder file, recompiles) |
+| First-time Google consent (get a refresh token) | `evo cred auth --service google-drive --client-secrets <client.json>` |
 | Refresh Google OAuth tokens | `evo cred refresh --all` (or `--service gmail`) |
 | Rebuild flat `~/.omelet.json` | `evo cred compile` |
 | Migrate an old flat omelet.json -> folder | `evo cred migrate [--source PATH] [--merge]` |
@@ -124,6 +125,24 @@ Behaviour:
   overwritten) - safe for pulling a stale machine's extra keys without clobbering newer ones.
 - Without `--merge`, it refuses to touch a non-empty folder unless `--force`.
 - Backs up the source file to `<source>.bak.<timestamp>` before writing, then recompiles.
+
+### Authorising a Google service for the first time
+
+`evo cred refresh` needs a `refresh_token` that already exists. To obtain one, `evo cred auth` runs the
+desktop OAuth consent flow: it starts a loopback server on 127.0.0.1, opens the browser, captures the
+code, exchanges it, and writes token + refresh_token + scopes into the folder file.
+
+```bash
+evo cred auth --service google-drive --client-secrets ~/Downloads/client_secret_*.json
+evo cred auth --service google-drive --no-browser        # print the URL instead of opening it
+```
+
+Create the OAuth client first in the Cloud Console (APIs & Services -> Credentials -> Create OAuth
+client ID -> **Desktop app**), download its JSON, and pass it with `--client-secrets`. There is no
+gcloud command for this; it is Console-only. After the first run the client is stored, so later calls
+need only `--service`.
+
+Scopes come from the registry (`google_drive` uses `drive.readonly`); override with `--scope`.
 
 ### Refreshing Google OAuth tokens
 
