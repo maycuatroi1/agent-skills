@@ -14,11 +14,16 @@ elif ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
+SMOKE=("${RUN[@]}")
+if [ -z "${EVO_TTS_PYTHON:-}" ]; then
+  SMOKE=(uv run --refresh --script "$SERVER")
+fi
+
 echo "Smoke test (uv resolves evo_cli on first run)..."
 printf '%s\n' \
   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"install","version":"1"}}}' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
-  | "${RUN[@]}" | tail -1
+  | "${SMOKE[@]}" | tail -1
 
 if command -v claude >/dev/null 2>&1; then
   claude mcp remove "$NAME" --scope "$SCOPE" >/dev/null 2>&1 || true

@@ -86,6 +86,10 @@ That smoke-tests `tools/list`, then runs
 `claude mcp add --scope user evo-tts -- uv run --script <abs path>/server.py`. Idempotent, safe on a
 fresh machine, and nothing gets installed into the system interpreter.
 
+The smoke test passes `--refresh` because uv caches its PyPI index: right after an evo-cli release,
+a plain `uv run` resolves against the stale index and reports the new version as nonexistent. The
+registered MCP command deliberately omits `--refresh` so normal runs stay fast.
+
 To develop against a local evo-cli checkout instead of the published package, `pip install -e` it and
 pass the interpreter: `EVO_TTS_PYTHON=$(which python) bash mcp/tts/install.sh`.
 
