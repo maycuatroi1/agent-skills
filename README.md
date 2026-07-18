@@ -29,6 +29,7 @@ python3 setup.py
 | `add-tasks` | Add todos via the `life` CLI with auto-managed context: fetches the referenced source (Google Sheets CSV export, Docs, GitHub, web), extracts the relevant rows, attaches the link + a self-contained summary to the todo |
 | `gitnexus` | Code-intelligence tool (CLI + MCP) for any git repo or multi-repo workspace via [`gitnexus`](https://github.com/abhigyanpatwari/GitNexus). Builds a knowledge graph for impact analysis, flow tracing, call-graph-aware rename, and cross-repo queries. One-shot setup: `bash skills/gitnexus/scripts/install.sh` (global install + MCP setup, idempotent); index a whole workspace: `bash skills/gitnexus/scripts/index-workspace.sh <root> <group>` |
 | `harness-engineering` | Analyze, build and maintain an agent harness for a **cluster** of tightly-related repos. Scores the cluster against an 11-dimension rubric (`audit`), finds drift (`doctor`), coordinates changes spanning N repos with an explicit merge order (`plan`), and - the point - watches real sessions and turns each agent stumble into a proposal for the artifact that would have prevented it (`garden`). Built on [Anthropic's harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) and [OpenAI's harness engineering](https://openai.com/index/harness-engineering/) |
+| `speak` | Text to speech via [`evo tts`](https://github.com/maycuatroi/evo-cli): Vbee for Vietnamese (realtime `mode: sync`, bulk `mode: async` + polling), OpenAI `gpt-4o-mini-tts` for everything else. Ships the `evo-tts` MCP server (`mcp/tts/server.py`) whose `speak` tool lets an agent hand over a spoken summary through your speakers. One-shot setup: `bash mcp/tts/install.sh` |
 | `manim-explainer-video` | Build animated technical explainer videos with [Manim Community](https://www.manim.community/): light theme, Vietnamese narration, real computed numbers, plus a timecoded dubbing script and frame-accurate SRT subtitles. Ships a working scaffold (`scripts/new-video.sh <dir>`) and the macOS workarounds Manim needs to render LaTeX + Vietnamese at all |
 
 ## Requirements
@@ -42,6 +43,19 @@ python3 setup.py
 - Node.js 18+ (`npm i -g gitnexus`) - for `gitnexus` (optional `python3`/`make`/`g++` to also parse Dart/Kotlin/Swift)
 - `python3` + `pyyaml` + `git` - for `harness-engineering` (`claude` CLI only for `garden --headless`). Runs on Windows and POSIX.
 - macOS + Homebrew (`dvisvgm`, `mupdf-tools`, `ffmpeg`, `texlive`, `font-inter`) + [`uv`](https://github.com/astral-sh/uv) + Python 3.12 - for `manim-explainer-video` (`scripts/setup.sh` installs all of it, idempotent)
+- [`uv`](https://github.com/astral-sh/uv) + a Vbee app (`vbee.app_id`, `vbee.token`) and/or `openai_api_key` in the omelet store - for `speak`. `uv` resolves `evo_cli` from the server's PEP 723 metadata, so nothing is installed globally. `ffmpeg` (or any of `mpv`/`vlc`/`afplay`) for playback
+
+## MCP servers
+
+Skills are instructions; these are running servers an agent connects to.
+
+| Server | Path | Tools | Setup |
+|--------|------|-------|-------|
+| `evo-tts` | `mcp/tts/server.py` | `speak`, `speak_batch`, `list_voices` | `bash mcp/tts/install.sh` |
+
+`evo-tts` is a stdio MCP server with no SDK dependency - plain JSON-RPC, with `evo_cli` declared in
+PEP 723 inline script metadata so `uv run --script` resolves it on first run. The installer
+smoke-tests `tools/list` and registers the server with Claude Code at user scope.
 
 ## License
 
