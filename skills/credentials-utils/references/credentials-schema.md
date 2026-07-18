@@ -1,6 +1,6 @@
 # Omelet credential store schema
 
-Source of truth is the folder `${OMELET_DIR:-~/.omelet.d}/credentials/`, one JSON file per service. `compile.py` deep-merges every file's `flat` block into the generated flat `~/.omelet.json`. The key map lives in `scripts/_registry.py` (`SPECS`).
+Source of truth is the folder `${OMELET_DIR:-~/.omelet.d}/credentials/`, one JSON file per service. `evo cred compile` deep-merges every file's `flat` block into the generated flat `~/.omelet.json`. The key map lives in `evo_cli/credentials/registry.py` (`SPECS`) in evo-cli.
 
 ## Per-file schema
 
@@ -23,13 +23,13 @@ Source of truth is the folder `${OMELET_DIR:-~/.omelet.d}/credentials/`, one JSO
 
 | Field | Meaning |
 |-------|---------|
-| `id` | stable slug, matches the spec in `_registry.py` |
-| `service` | human label shown by `doctor.py` |
-| `category` | folder bucket: `accounts`, `cms`, `ai`, `infra`, `google-oauth`, `messaging`, `tools`, `firebase`, `_legacy`, `misc` (auto-bucket for unmapped keys from `migrate_to_folder.py`) |
+| `id` | stable slug, matches the spec in `evo_cli/credentials/registry.py` |
+| `service` | human label shown by `evo cred doctor` |
+| `category` | folder bucket: `accounts`, `cms`, `ai`, `infra`, `google-oauth`, `messaging`, `tools`, `firebase`, `_legacy`, `misc` (auto-bucket for unmapped keys from `evo cred migrate`) |
 | `type` | `api_key` \| `oauth_token` \| `basic_auth` \| `account` \| `service_account` \| `url` |
 | `lifetime` | free-text note on how long it lives |
 | `expiry` | ISO8601 for OAuth entries (mirrors the token expiry inside `flat`); `null` if stable |
-| `status` | `active` \| `deprecated` \| `expired` (deprecated entries are skipped by `compile.py` unless `--include-legacy`) |
+| `status` | `active` \| `deprecated` \| `expired` (deprecated entries are skipped by `evo cred compile` unless `--include-legacy`) |
 | `rotate` | how to rotate this credential |
 | `oauth` | (OAuth only) descriptor used by the refresh script: `container` path, `access_field`, `expiry_field`, `client_from` path |
 | `flat` | the exact JSON fragment merged into `~/.omelet.json` (preserves the historical flat keys) |
@@ -49,10 +49,10 @@ Source of truth is the folder `${OMELET_DIR:-~/.omelet.d}/credentials/`, one JSO
 | `infra/n8n.json` | `n8n_api_url`, `n8n_api_key`, `n8n_flutter_webhook_basic_auth` | n8n API + flutter webhook auth |
 | `infra/observability.json` | `vlogs_password`, `metrics_basicauth_bcrypt_escaped`, `grafana` | VictoriaLogs / metrics / Grafana |
 | `infra/ialab.json` | `ialab_dgx_sudo_password` | iaLab DGX sudo. Rotate: `passwd` on host |
-| `google-oauth/rclone.json` | `rclone` | rclone Google Drive remote. Refresh: `refresh_google_oauth.py --service rclone` |
-| `google-oauth/gmail.json` | `gmail` | Gmail OAuth (primary, used by `life mail`). Refresh: `--service gmail` |
-| `google-oauth/google-drive.json` | `google_drive` | Google Drive OAuth (`evo gdrive`). Refresh: `--service google-drive` |
-| `google-oauth/google-calendar.json` | `google_calendar` | Google Calendar OAuth (`life cal`). Refresh: `--service google-calendar` |
+| `google-oauth/rclone.json` | `rclone` | rclone Google Drive remote. Refresh: `evo cred refresh --service rclone` |
+| `google-oauth/gmail.json` | `gmail` | Gmail OAuth (primary, used by `life mail`). Refresh: `evo cred refresh --service gmail` |
+| `google-oauth/google-drive.json` | `google_drive` | Google Drive OAuth (`evo gdrive`). Refresh: `evo cred refresh --service google-drive` |
+| `google-oauth/google-calendar.json` | `google_calendar` | Google Calendar OAuth (`life cal`). Refresh: `evo cred refresh --service google-calendar` |
 | `google-oauth/sheets-sa.json` | `google_sheets_sa_key_path`, `google_sheets_sa_email` | Path + email of GCP SA JSON. The referenced file holds the actual key and is NOT synced here |
 | `messaging/lark.json` | `lark` | Lark/Feishu app + cookies |
 | `messaging/facebook.json` | `facebook` | Facebook login (`life fb`) |
@@ -70,10 +70,10 @@ Source of truth is the folder `${OMELET_DIR:-~/.omelet.d}/credentials/`, one JSO
 
 OAuth entries (`type: oauth_token` with an `oauth` descriptor) carry a short-lived access token:
 
-- **rclone / gmail / google-drive / google-calendar** — run `refresh_google_oauth.py --all` (or `--service <name>`). Refresh uses the long-lived `refresh_token` and the client id/secret stored inside the file (rclone can override via `RCLONE_DRIVE_CLIENT_ID/SECRET`).
-- **quillbot** — JWT from Firebase, ~1h, no programmatic refresh. Re-extract from the browser / `omelet aicheck refresh`.
+- **rclone / gmail / google-drive / google-calendar** - run `evo cred refresh --all` (or `evo cred refresh --service <name>`). Refresh uses the long-lived `refresh_token` and the client id/secret stored inside the file (rclone can override via `RCLONE_DRIVE_CLIENT_ID/SECRET`).
+- **quillbot** - JWT from Firebase, ~1h, no programmatic refresh. Re-extract from the browser / `omelet aicheck refresh`.
 
-`doctor.py` reports the live `EXPIRED` / `expiring` status by reading the token expiry inside each file. Everything else is long-lived until manually rotated.
+`evo cred doctor` reports the live `EXPIRED` / `expiring` status by reading the token expiry inside each file. Everything else is long-lived until manually rotated.
 
 ## Sensitivity notes
 

@@ -48,8 +48,8 @@ fi
 bold "[2/4] credentials in $OMELET_CONFIG"
 if [ ! -f "$OMELET_CONFIG" ]; then
   yellow "  $OMELET_CONFIG not found — create it with the credentials-utils skill:"
-  echo "    python3 ~/agent-skills/skills/credentials-utils/scripts/add_credential.py dokploy_url"
-  echo "    python3 ~/agent-skills/skills/credentials-utils/scripts/add_credential.py dokploy_api_key"
+  echo "    evo cred add dokploy_url"
+  echo "    evo cred add dokploy_api_key"
   CREDS_OK=0
 else
   CREDS_OK=1
@@ -57,7 +57,7 @@ else
     val=$(python3 -c "import json,sys; print(json.load(open('$OMELET_CONFIG')).get('$key',''))" 2>/dev/null || true)
     if [ -z "$val" ]; then
       yellow "  missing: $key  — add with:"
-      echo "    python3 ~/agent-skills/skills/credentials-utils/scripts/add_credential.py $key"
+      echo "    evo cred add $key"
       CREDS_OK=0
     else
       if [ "$key" = "dokploy_api_key" ]; then

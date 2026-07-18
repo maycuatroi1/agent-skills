@@ -69,7 +69,7 @@ Derived paths: `data/`, `workspace/`, `plans/`, `token.json`, `firebase-credenti
 
 Firestore auth is the `firebase-credentials.json` service account (project omelet-f0b89) at `PROJECT_ROOT`, or the `FIREBASE_CREDENTIALS_JSON` env var holding the JSON inline.
 
-Google OAuth and rclone are read from `~/.omelet.json` (override with `OMELET_CONFIG`): `google_calendar.credentials`, `google_calendar.token`, `gmail.token`, plus rclone `client_id` / `client_secret` / `token.refresh_token` for `teach` and `drive`. Run `life cal auth` once before `life mail auth`. Note: `~/.omelet.json` is a generated flat artifact, the source of truth is the per-service folder `~/.omelet.d/credentials/` (files `google-oauth/gmail.json`, `google-oauth/google-calendar.json`) managed by the `credentials-utils` skill, which compiles back to the flat file. Refresh expired Google tokens with `credentials-utils` `refresh_google_oauth.py`; sync across machines with its `sync_pull.sh` / `sync_push.sh`.
+Google OAuth and rclone are read from `~/.omelet.json` (override with `OMELET_CONFIG`): `google_calendar.credentials`, `google_calendar.token`, `gmail.token`, plus rclone `client_id` / `client_secret` / `token.refresh_token` for `teach` and `drive`. Run `life cal auth` once before `life mail auth`. Note: `~/.omelet.json` is a generated flat artifact, the source of truth is the per-service folder `~/.omelet.d/credentials/` (files `google-oauth/gmail.json`, `google-oauth/google-calendar.json`) managed by the `credentials-utils` skill, which compiles back to the flat file. Refresh expired Google tokens with `evo cred refresh --all`; sync across machines with `evo cred sync pull` / `evo cred sync push`.
 
 New machine setup:
 

@@ -40,7 +40,7 @@ bash ~/agent-skills/skills/dokploy-cli/scripts/install.sh
 Does all four setup steps. Safe to re-run on the same machine or on a new one:
 
 1. **npm package** — installs `@dokploy/cli` globally if `dokploy` not on PATH.
-2. **Credentials** — verifies `~/.omelet.json` has `dokploy_url` + `dokploy_api_key`; prints exact `add_credential.py` invocations if either is missing.
+2. **Credentials** — verifies `~/.omelet.json` has `dokploy_url` + `dokploy_api_key`; prints exact `evo cred add` invocations if either is missing.
 3. **Shell rc** — appends `source .../export_dokploy_env.sh` to `~/.zshrc` and `~/.bashrc` (only those that exist; only if not already present — matches both `~/...` and absolute-path forms).
 4. **Smoke test** — exports the env vars and runs `dokploy project all` to confirm the token works.
 
@@ -52,16 +52,16 @@ On a new machine:
 
 ```bash
 git clone <agent-skills repo> ~/agent-skills
-OMELET_SYNC_REPO=owner/repo bash ~/agent-skills/skills/credentials-utils/scripts/sync_pull.sh
+OMELET_SYNC_REPO=owner/repo evo cred sync pull
 bash ~/agent-skills/skills/dokploy-cli/scripts/install.sh
 ```
 
-The `credentials-utils` `sync_pull.sh` brings the credentials folder from the user's private repo and compiles `~/.omelet.json` (with `dokploy_url` + `dokploy_api_key`, sourced from `infra/dokploy.json`); the install script does the rest. The flat `~/.omelet.json` is a generated artifact - to change the Dokploy creds, edit via `credentials-utils` `add_credential.py` (writes `infra/dokploy.json` then recompiles), not by hand.
+The `evo cred sync pull` command brings the credentials folder from the user's private repo and compiles `~/.omelet.json` (with `dokploy_url` + `dokploy_api_key`, sourced from `infra/dokploy.json`); the install script does the rest. The flat `~/.omelet.json` is a generated artifact - to change the Dokploy creds, edit via `evo cred add` (writes `infra/dokploy.json` then recompiles), not by hand.
 
 ### What the install script does NOT do
 
 - Doesn't install Node.js itself — errors out with instructions if `node` is missing.
-- Doesn't create `~/.omelet.json` — prints the `add_credential.py` commands but doesn't run them, so secrets are entered interactively (no echo).
+- Doesn't create `~/.omelet.json` — prints the `evo cred add` commands but doesn't run them, so secrets are entered interactively (no echo).
 - Doesn't run `dokploy auth -u ... -t ...` — that command stores the token inside the installed npm package (wiped on reinstall). Env vars from `~/.omelet.json` survive upgrades and roam across machines via credentials-utils sync.
 
 ### Manual reference (if install.sh is unavailable)

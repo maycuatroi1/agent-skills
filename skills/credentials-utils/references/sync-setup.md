@@ -1,14 +1,14 @@
 # Sync setup: credentials folder via GitHub private repo + `gh` CLI
 
-The **folder** `${OMELET_DIR:-~/.omelet.d}/credentials/` is the source of truth and the thing synced. The flat `~/.omelet.json` is a generated artifact - it is NOT committed to the sync repo and must never be hand-edited; each machine regenerates it locally via `compile.py` (run automatically after `sync_pull.sh`).
+The **folder** `${OMELET_DIR:-~/.omelet.d}/credentials/` is the source of truth and the thing synced. The flat `~/.omelet.json` is a generated artifact - it is NOT committed to the sync repo and must never be hand-edited; each machine regenerates it locally via `evo cred compile` (run automatically after `evo cred sync pull`).
 
-One-time setup per repo (one machine) and per laptop. After this, daily sync uses `sync_pull.sh` / `sync_push.sh`.
+One-time setup per repo (one machine) and per laptop. After this, daily sync uses `evo cred sync pull` / `evo cred sync push`.
 
 ## Prerequisites
 
 - `gh` CLI installed and on `PATH` (`gh --version`)
 - A GitHub account (the repo will live under it)
-- A migrated local folder (`python3 scripts/migrate_to_folder.py` once, if coming from a flat `~/.omelet.json`)
+- A migrated local folder (`evo cred migrate` once, if coming from a flat `~/.omelet.json`)
 
 ## First-ever setup (run on ONE laptop only)
 
@@ -19,10 +19,10 @@ gh repo create <owner>/<repo> --private --description "Personal credentials sync
 
 export OMELET_SYNC_REPO="<owner>/<repo>"
 
-bash ~/git/agent-skills/skills/credentials-utils/scripts/sync_push.sh
+evo cred sync push
 ```
 
-The push script clones the repo, mirrors `~/.omelet.d/credentials/` into the repo under `credentials/`, commits, and pushes.
+The push command clones the repo, mirrors `~/.omelet.d/credentials/` into the repo under `credentials/`, commits, and pushes.
 
 Verify on github.com:
 - Repo visibility shows **Private** (lock icon).
@@ -38,10 +38,10 @@ Recommended hardening:
 ```bash
 gh auth login
 export OMELET_SYNC_REPO="<owner>/<repo>"
-bash ~/git/agent-skills/skills/credentials-utils/scripts/sync_pull.sh
+evo cred sync pull
 ```
 
-`sync_pull.sh` clones the repo, replaces `~/.omelet.d/credentials/` (backing up any existing folder to `~/.omelet.d/credentials.bak.<timestamp>`), and runs `compile.py` to regenerate `~/.omelet.json`.
+`evo cred sync pull` clones the repo, replaces `~/.omelet.d/credentials/` (backing up any existing folder to `~/.omelet.d/credentials.bak.<timestamp>`), and runs `evo cred compile` to regenerate `~/.omelet.json`.
 
 Persist the env var:
 
@@ -60,25 +60,25 @@ export OMELET_CONFIG="$HOME/.omelet.json"       # generated flat artifact
 
 ## Daily flow
 
-After editing the folder (via `add_credential.py`, `refresh_google_oauth.py`, or hand-editing a file then `compile.py`):
+After editing the folder (via `evo cred add`, `evo cred refresh`, or hand-editing a file then `evo cred compile`):
 
 ```bash
-bash ~/git/agent-skills/skills/credentials-utils/scripts/sync_push.sh
+evo cred sync push
 ```
 
 On another laptop, before working:
 
 ```bash
-bash ~/git/agent-skills/skills/credentials-utils/scripts/sync_pull.sh
+evo cred sync pull
 ```
 
-The push script refuses to upload if `gh repo view` reports the repo is not `PRIVATE`.
+The push command refuses to upload if `gh repo view` reports the repo is not `PRIVATE`.
 
-## Safety guarantees in the scripts
+## Safety guarantees
 
-- `sync_pull.sh` — backs up the existing folder before overwrite; `chmod go-rwx` after copy; recompiles flat.
-- `sync_push.sh` — aborts if the remote repo is not Private or `gh` is not logged in; no-op when there are no changes.
-- Neither script logs secret values; only paths and commit metadata.
+- `evo cred sync pull` - backs up the existing folder before overwrite; `chmod go-rwx` after copy; recompiles flat.
+- `evo cred sync push` - aborts if the remote repo is not Private or `gh` is not logged in; no-op when there are no changes.
+- Neither command logs secret values; only paths and commit metadata.
 
 ## Optional: encryption layer (out of scope for this skill)
 
@@ -89,7 +89,7 @@ A private GitHub repo is the chosen trust boundary. For stronger guarantees late
 If the local folder is corrupted or lost:
 
 ```bash
-bash ~/git/agent-skills/skills/credentials-utils/scripts/sync_pull.sh
+evo cred sync pull
 ```
 
 If the remote is wrong (bad commit pushed):
