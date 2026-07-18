@@ -82,9 +82,20 @@ run. Register it once:
 bash mcp/tts/install.sh
 ```
 
-That smoke-tests `tools/list`, then runs
-`claude mcp add --scope user evo-tts -- uv run --script <abs path>/server.py`. Idempotent, safe on a
-fresh machine, and nothing gets installed into the system interpreter.
+That smoke-tests `tools/list`, then registers the server with every agent CLI it finds on PATH,
+skipping the ones that are absent:
+
+| CLI | How it is registered | Config it lands in |
+|---|---|---|
+| Claude Code | `claude mcp add --scope user` | `~/.claude.json` |
+| Codex | `codex mcp add` | `~/.codex/config.toml` |
+| OpenCode | `evo mcp add --opencode-only` | `~/.config/opencode/opencode.jsonc` |
+
+OpenCode goes through `evo` because evo-cli owns the jsonc writer; the other two have first-class
+`mcp add` subcommands. Idempotent, safe on a fresh machine, and nothing is installed into the system
+interpreter.
+
+Verify with `claude mcp get evo-tts`, `codex mcp get evo-tts`, and `opencode mcp list`.
 
 The smoke test passes `--refresh` because uv caches its PyPI index: right after an evo-cli release,
 a plain `uv run` resolves against the stale index and reports the new version as nonexistent. The
@@ -151,3 +162,10 @@ platform.
   `flac` cannot be joined, so multi-chunk text with those formats is refused rather than silently
   truncated.
 - `gpt-4o-mini-tts` ignores `speed`; use `instructions` ("speak slowly and deliberately") instead.
+- The three tool definitions cost about **830 tokens** of context in every session that loads them
+  (measured with `o200k_base` over the real `tools/list` payload, including the `mcp__evo-tts__`
+  name prefix). That is 0.4% of a 200k window, and the bulk of it is `speak`'s schema at 398 tokens.
+  It is charged once per request as part of the system prompt, so prompt caching absorbs it.
+- Under Git Bash, `pwd` returns `/c/Users/...`. MSYS rewrites that to a Windows path only for
+  arguments handed straight to a native binary, so a path embedded in a longer string reaches the
+  config verbatim and `uv` cannot open it. `install.sh` normalises with `cygpath -m` first.

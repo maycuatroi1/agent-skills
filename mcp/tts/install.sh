@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SERVER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/server.py"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Under Git Bash `pwd` yields /c/Users/... which MSYS rewrites only for arguments it
+# passes straight to a native binary. Embedded in a longer string it survives verbatim
+# and lands in the config as a path uv cannot open, so normalise it up front.
+if command -v cygpath >/dev/null 2>&1; then HERE="$(cygpath -m "$HERE")"; fi
+SERVER="$HERE/server.py"
 NAME="${EVO_TTS_MCP_NAME:-evo-tts}"
 SCOPE="${EVO_TTS_MCP_SCOPE:-user}"
 
@@ -27,11 +32,25 @@ printf '%s\n' \
 
 if command -v claude >/dev/null 2>&1; then
   claude mcp remove "$NAME" --scope "$SCOPE" >/dev/null 2>&1 || true
-  claude mcp add --scope "$SCOPE" "$NAME" -- "${RUN[@]}"
-  echo "Registered '$NAME' with Claude Code ($SCOPE scope)."
+  claude mcp add --scope "$SCOPE" "$NAME" -- "${RUN[@]}" >/dev/null
+  echo "Claude Code: registered '$NAME' ($SCOPE scope)."
 else
-  echo "WARN: \`claude\` CLI not found. Register manually:" >&2
-  echo "  claude mcp add --scope $SCOPE $NAME -- ${RUN[*]}" >&2
+  echo "Claude Code: \`claude\` not on PATH, skipped." >&2
+fi
+
+if command -v codex >/dev/null 2>&1; then
+  codex mcp remove "$NAME" >/dev/null 2>&1 || true
+  codex mcp add "$NAME" -- "${RUN[@]}" >/dev/null
+  echo "Codex: registered '$NAME'."
+else
+  echo "Codex: \`codex\` not on PATH, skipped." >&2
+fi
+
+if command -v evo >/dev/null 2>&1; then
+  evo mcp add "$NAME" --opencode-only --command "${RUN[*]}" >/dev/null
+  echo "OpenCode: registered '$NAME' (via evo, which owns the opencode.jsonc writer)."
+else
+  echo "OpenCode: \`evo\` not on PATH, skipped. Install it with: pip install evo_cli" >&2
 fi
 
 cat <<EOF
