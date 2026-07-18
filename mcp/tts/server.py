@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.9"
-# dependencies = ["evo_cli>=0.13.0"]
+# dependencies = ["evo_cli>=0.14.0"]
 # ///
 
 import json
