@@ -15,7 +15,7 @@ this file.
 
 ## Prerequisite
 
-`evo` >= 0.12.0 must be on PATH. `python setup.py` at the root of agent-skills installs it and
+`evo` >= 0.12.2 must be on PATH. `python setup.py` at the root of agent-skills installs it and
 verifies `evo cred` exists. Check with `evo cred path`.
 
 ## Architecture

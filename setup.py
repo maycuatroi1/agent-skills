@@ -10,7 +10,7 @@ RULES = {
     'Never use em-dash': '- Never use em-dash `—`, en-dash `–`, or smart quotes `“”‘’`. Always use ASCII `-` for dashes and `"` `\'` for quotes. Applies to code, files, and chat.',
 }
 
-MIN_EVO_VERSION = (0, 12, 0)
+MIN_EVO_VERSION = (0, 12, 2)
 EVO_REPO = Path(os.environ.get('EVO_CLI_REPO', str(Path.home() / 'github' / 'evo-cli')))
 
 
