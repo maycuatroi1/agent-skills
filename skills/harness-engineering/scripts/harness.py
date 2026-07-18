@@ -101,6 +101,21 @@ def is_git_repo(p):
     return (Path(p) / ".git").exists()
 
 
+def expand(p, default=None):
+    s = str(p or "").strip()
+    if not s:
+        return Path(default) if default is not None else None
+    return Path(s).expanduser()
+
+
+def portable(p):
+    p = Path(p)
+    try:
+        return "~/" + p.relative_to(Path.home()).as_posix()
+    except ValueError:
+        return str(p)
+
+
 def load_registry():
     return read_json(REGISTRY, {"clusters": []}) or {"clusters": []}
 
@@ -176,12 +191,12 @@ def manifest(root):
 
 
 def repo_paths(root, m, present_only=True):
-    ws = Path(m.get("workspace") or root)
+    ws = expand(m.get("workspace"), default=root)
     out = []
     for r in m.get("repos", []):
         if present_only and not r.get("present", True):
             continue
-        p = Path(r.get("path") or (ws / r["name"]))
+        p = expand(r.get("path"), default=ws / r["name"])
         if not p.is_absolute():
             p = (ws / p).resolve()
         out.append((r, p))
@@ -334,7 +349,7 @@ def cmd_init(args):
         origin = git(d, "remote", "get-url", "origin") or ""
         repos.append({
             "name": d.name,
-            "path": str(d),
+            "path": portable(d),
             "role": detect_role(d),
             "present": True,
             "origin": origin,
@@ -347,7 +362,7 @@ def cmd_init(args):
 
     m = {
         "name": args.name,
-        "workspace": str(ws),
+        "workspace": portable(ws),
         "created_at": iso(),
         "repos": repos,
         "garden": {
@@ -643,14 +658,11 @@ def cmd_doctor(args):
     findings = []
 
     declared = {r["name"] for r in m.get("repos", [])}
-    for r in m.get("repos", []):
-        if not r.get("present", True):
-            continue
-        p = Path(r.get("path", ""))
+    for r, p in repo_paths(root, m):
         if not p.is_dir():
             findings.append(("manifest", r["name"], "declared present but not on disk; set present: false or clone it"))
 
-    ws = Path(m.get("workspace") or root)
+    ws = expand(m.get("workspace"), default=root)
     for r, p in repo_paths(root, m):
         if not p.is_dir():
             continue
