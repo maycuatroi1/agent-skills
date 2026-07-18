@@ -115,8 +115,31 @@ Tools it exposes:
 | `speak_batch` | Bulk voiceover to files via the async API. No playback. |
 | `list_voices` | Voice codes for the `voice` argument. |
 
-Environment overrides on the MCP entry: `EVO_TTS_PROVIDER`, `EVO_TTS_VOICE`, `EVO_TTS_SPEED`,
-`EVO_TTS_DIR`.
+### Picking the default provider for a machine
+
+`--provider auto` (and the MCP `provider` argument) resolves in this order: `EVO_TTS_PROVIDER`, then
+whichever provider has credentials. Set it once and both the CLI and the MCP server follow:
+
+| Variable | Effect |
+|---|---|
+| `EVO_TTS_PROVIDER` | `vbee` or `openai`. Decides what `auto` means. |
+| `EVO_TTS_VOICE_OPENAI` / `EVO_TTS_VOICE_VBEE` | Default voice for that provider only. |
+| `EVO_TTS_VOICE` | Default voice for whichever provider is active. Scoped wins over this. |
+| `EVO_TTS_SPEED` | Default speaking rate for the MCP tools. |
+| `EVO_TTS_DIR` | Where scratch audio lands. |
+
+Prefer the scoped voice variables. A bare `EVO_TTS_VOICE=nova` breaks the moment you pass
+`--provider vbee`, because `nova` is not a Vbee voice code.
+
+`install.sh` reads whichever of these are exported and bakes them onto each MCP entry, rather than
+relying on the agent CLI inheriting them - these are often launched from a GUI that never sourced a
+shell profile. Re-run `install.sh` after changing one; it replaces the existing entries.
+
+```bash
+export EVO_TTS_PROVIDER=openai
+export EVO_TTS_VOICE_OPENAI=nova
+bash mcp/tts/install.sh
+```
 
 ## When the agent should call `speak`
 
@@ -130,17 +153,29 @@ Use it to hand over, not to narrate. Good moments:
 
 - Plain spoken sentences. No markdown, no bullet characters, no code, no file paths, no URLs.
 - A few sentences at most: what you did, what came out of it, what is next.
-- Say numbers and abbreviations the way a person would say them ("ba mươi hai phần trăm", not "32%").
-- Vietnamese must carry full diacritics - Vbee reads the tones, and unaccented text comes out wrong.
+- Vietnamese must carry full diacritics. Both engines read the tones; unaccented text comes out wrong.
+
+**Keep English technical terms in English.** `gpt-4o-mini-tts` is multilingual and code-switches
+mid-sentence, so write `MCP`, `uv`, `PyPI`, `token`, `commit`, `repo` exactly as you would type them.
+Do **not** respell them phonetically for a Vietnamese reader - that was a workaround for Vbee, it is
+unreadable in the transcript, and on OpenAI it actively produces worse audio because the model no
+longer recognises the word.
 
 Good:
 
-> Đã xong phần chuyển giọng nói. Cả hai đường Vbee và OpenAI đều chạy được, và tôi đã thử với văn bản
-> dài để kiểm tra việc cắt đoạn. Bước tiếp theo là đăng ký MCP vào phiên agent.
+> Đã push xong ba repo. MCP server chạy qua uv, evo-cli đã lên PyPI phiên bản 0.13.0, và ba tool tốn
+> khoảng 830 token context.
 
-Bad (reads the punctuation and the path out loud):
+Bad - phonetic respelling, the old Vbee workaround:
+
+> Đã push xong ba repo. Em xi pi server chạy qua u vê, e vô cli đã lên pai pi ai.
+
+Bad - reads punctuation and paths out loud:
 
 > Done! Created `evo_cli/tts/core.py` - 3 files changed, +212/-0. See **batch mode** for details.
+
+Numbers are fine as digits; both engines expand them. Prefer writing `0.13.0` and `830 token` over
+spelling them out.
 
 ## Playback
 

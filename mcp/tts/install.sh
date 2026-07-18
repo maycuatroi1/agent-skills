@@ -30,9 +30,31 @@ printf '%s\n' \
   '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' \
   | "${SMOKE[@]}" | tail -1
 
+# Env baked onto each entry rather than left to the shell: agent CLIs are often
+# launched from a GUI that never sourced a profile, so an exported variable is not
+# reliably there when the server starts.
+ENV_KEYS=(EVO_TTS_PROVIDER EVO_TTS_VOICE EVO_TTS_VOICE_OPENAI EVO_TTS_VOICE_VBEE EVO_TTS_SPEED EVO_TTS_DIR)
+CLAUDE_ENV=() CODEX_ENV=() EVO_ENV=() BAKED=()
+for key in "${ENV_KEYS[@]}"; do
+  value="${!key:-}"
+  if [ -n "$value" ]; then
+    CLAUDE_ENV+=(-e "$key=$value")
+    CODEX_ENV+=(--env "$key=$value")
+    EVO_ENV+=(--env "$key=$value")
+    BAKED+=("$key=$value")
+  fi
+done
+if [ ${#BAKED[@]} -gt 0 ]; then
+  echo "Baking into each entry: ${BAKED[*]}"
+else
+  echo "No EVO_TTS_* set; entries use provider auto-detection."
+fi
+
 if command -v claude >/dev/null 2>&1; then
   claude mcp remove "$NAME" --scope "$SCOPE" >/dev/null 2>&1 || true
-  claude mcp add --scope "$SCOPE" "$NAME" -- "${RUN[@]}" >/dev/null
+  # `claude mcp add` takes -e as a variadic flag, so the name must come before it or
+  # it gets swallowed as another KEY=value.
+  claude mcp add --scope "$SCOPE" "$NAME" "${CLAUDE_ENV[@]}" -- "${RUN[@]}" >/dev/null
   echo "Claude Code: registered '$NAME' ($SCOPE scope)."
 else
   echo "Claude Code: \`claude\` not on PATH, skipped." >&2
@@ -40,14 +62,14 @@ fi
 
 if command -v codex >/dev/null 2>&1; then
   codex mcp remove "$NAME" >/dev/null 2>&1 || true
-  codex mcp add "$NAME" -- "${RUN[@]}" >/dev/null
+  codex mcp add "$NAME" "${CODEX_ENV[@]}" -- "${RUN[@]}" >/dev/null
   echo "Codex: registered '$NAME'."
 else
   echo "Codex: \`codex\` not on PATH, skipped." >&2
 fi
 
 if command -v evo >/dev/null 2>&1; then
-  evo mcp add "$NAME" --opencode-only --command "${RUN[*]}" >/dev/null
+  evo mcp add "$NAME" --opencode-only --force "${EVO_ENV[@]}" --command "${RUN[*]}" >/dev/null
   echo "OpenCode: registered '$NAME' (via evo, which owns the opencode.jsonc writer)."
 else
   echo "OpenCode: \`evo\` not on PATH, skipped. Install it with: pip install evo_cli" >&2

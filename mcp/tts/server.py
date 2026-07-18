@@ -28,8 +28,6 @@ SERVER_VERSION = "0.1.0"
 PROTOCOL_VERSION = "2025-11-25"
 SUPPORTED_PROTOCOLS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
 
-DEFAULT_PROVIDER = os.environ.get("EVO_TTS_PROVIDER", "auto")
-DEFAULT_VOICE = os.environ.get("EVO_TTS_VOICE") or None
 DEFAULT_SPEED = float(os.environ.get("EVO_TTS_SPEED", "1.0"))
 
 _play_queue = queue.Queue()
@@ -77,13 +75,18 @@ SPEAK_SCHEMA = {
             "description": (
                 "What to say, already written the way it should be heard: plain spoken "
                 "sentences, no markdown, no code blocks, no bullet characters, no URLs. "
-                "Expand abbreviations a listener would stumble on."
+                "Keep technical terms in their normal English spelling even inside a "
+                "Vietnamese sentence - write MCP, uv, PyPI, token. Never respell them "
+                "phonetically; the model code-switches and reads English correctly."
             ),
         },
         "provider": {
             "type": "string",
             "enum": ["auto", "vbee", "openai"],
-            "description": "auto uses Vbee when its credentials exist (best for Vietnamese), else OpenAI.",
+            "description": (
+                "auto follows EVO_TTS_PROVIDER, falling back to whichever provider has "
+                "credentials. Override per call only when you need the other one."
+            ),
         },
         "voice": {"type": "string", "description": "Voice code; see the list_voices tool."},
         "speed": {"type": "number", "description": "Speaking rate. Vbee accepts 0.25 to 1.9."},
@@ -147,8 +150,9 @@ TOOLS = [
             "summary when you finish a task, hit a blocker, or need the user's attention while they "
             "are looking away from the terminal. Keep it to a few sentences: the point, the outcome, "
             "and the next step. Write for the ear, not the eye - the text is read verbatim, so no "
-            "markdown, file paths, or code. Vietnamese goes through Vbee and sounds natural; other "
-            "languages fall back to OpenAI. Returns as soon as the audio starts unless wait is true."
+            "markdown, file paths, or code. OpenAI gpt-4o-mini-tts is multilingual and handles a "
+            "Vietnamese sentence with English technical terms in it, so write those terms normally. "
+            "Returns as soon as the audio starts unless wait is true."
         ),
         "inputSchema": SPEAK_SCHEMA,
     },
@@ -176,9 +180,9 @@ def tool_speak(arguments):
 
     audio = core.synthesize(
         text,
-        provider=arguments.get("provider") or DEFAULT_PROVIDER,
+        provider=arguments.get("provider") or "auto",
         mode="realtime",
-        voice=arguments.get("voice") or DEFAULT_VOICE,
+        voice=arguments.get("voice"),
         output_format="mp3",
         speed=arguments.get("speed", DEFAULT_SPEED),
         instructions=arguments.get("instructions"),
@@ -234,9 +238,9 @@ def tool_speak_batch(arguments):
     results = core.synthesize_many(
         items,
         concurrency=int(arguments.get("concurrency") or 4),
-        provider=arguments.get("provider") or DEFAULT_PROVIDER,
+        provider=arguments.get("provider") or "auto",
         mode="batch",
-        voice=arguments.get("voice") or DEFAULT_VOICE,
+        voice=arguments.get("voice"),
         output_format=output_format,
         speed=arguments.get("speed", DEFAULT_SPEED),
     )
@@ -257,7 +261,7 @@ def tool_speak_batch(arguments):
 
 def tool_list_voices(arguments):
     entries = core.list_voices(
-        provider=arguments.get("provider") or DEFAULT_PROVIDER,
+        provider=arguments.get("provider") or "auto",
         language_code=arguments.get("language") or None,
         gender=arguments.get("gender"),
         limit=int(arguments.get("limit") or 50),
