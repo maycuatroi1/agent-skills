@@ -1,7 +1,7 @@
 ---
 name: harness-engineering
-description: This skill should be used when the user asks to "build a harness", "harness engineering", "audit my agent setup", "tao harness", "phan tich harness", "set up AGENTS.md across my repos", "why does Claude keep forgetting how to run this", "my repos keep breaking each other", "cross-repo plan", "multi-repo agent context", "doc gardening", or mentions maintaining agent scaffolding across a CLUSTER of tightly-related repos (multiple repos, one system). A harness is the environment + constraints + feedback loops around a coding agent: AGENTS.md maps, a docs/ system of record, init scripts, acceptance specs, mechanical linters, cross-repo exec-plans, golden principles. Provides scripts to score a cluster against an 11-dimension rubric (audit), detect drift (doctor), turn real session evidence into proposals for what the harness is missing (garden), and coordinate changes that span N repos with an explicit merge order (plan). Built on Anthropic "Effective harnesses for long-running agents" and OpenAI "Harness engineering".
-version: 0.1.0
+description: This skill should be used when the user asks to "build a harness", "harness engineering", "audit my agent setup", "set up AGENTS.md across my repos", "why does Claude keep forgetting how to run this", "my repos keep breaking each other", "multi-repo agent context", "doc gardening", or mentions maintaining agent scaffolding across a CLUSTER of tightly-related repos (multiple repos, one system). A harness is the environment + constraints + feedback loops around a coding agent: AGENTS.md maps, a docs/ system of record, init scripts, acceptance specs, mechanical linters, cross-repo exec-plans, golden principles. Provides scripts to score a cluster against an 11-dimension rubric (audit), detect drift (doctor), turn real session evidence into proposals for what the harness is missing (garden), and track changes that span N repos with an explicit merge order (plan). Use create-exec-plan when the requested outcome is authoring a complete execution plan. Built on Anthropic "Effective harnesses for long-running agents" and OpenAI "Harness engineering".
+version: 0.1.1
 ---
 
 # Harness engineering
@@ -198,6 +198,9 @@ ignore its output is worse than no maintain loop.
 A change spanning repos is a distributed transaction. Improvised, it fails the way one-shotting fails
 inside a single repo: partial application, no record of how far it got, and the next session cannot tell.
 
+Use the `create-exec-plan` skill when the user asks for a complete plan. The command below creates only a
+skeleton for manual authoring; an empty `steps` list is not a finished plan.
+
 ```bash
 python harness.py plan create --name move-specs --repos docs,backend,e2e
 # edit plans/active/move-specs.yaml: set the merge order and depends_on
@@ -214,9 +217,9 @@ you wrote it down.
 
 ### Reading a plan without reconstructing it from YAML
 
-`harness.py` in this skill is the authoring side - `plan create`, `plan decide`, `plan status`. The
+`harness.py` in this skill manages the plan lifecycle - `plan create`, `plan decide`, `plan status`. The
 faster way to **read** a plan once it exists is `evo harness` (`pip install evo-cli`), which parses the
-same `plans/active/*.yaml` files this skill writes:
+same `plans/active/*.yaml` files this skill manages:
 
 ```bash
 evo harness plans             # one-line progress per plan: steps, debt, open questions
@@ -256,6 +259,9 @@ subcommands that leave a shell-history entry, not through the browser.
 
 ## Boundaries with the other skills
 
+- **`create-exec-plan`** investigates the requested change, asks decision-bearing questions, and writes
+  the complete `plans/active/<slug>.yaml` artifact. This skill owns the surrounding harness and plan
+  lifecycle tooling, not interactive plan authoring.
 - **`continuous-learning`** learns *skills* and *CLI subcommands* from sessions. This learns *harness
   artifacts*. Same transcripts, different output, different hook event. When a signal is really "this
   shell incantation should be a subcommand," that is the other skill's job - leave it alone.

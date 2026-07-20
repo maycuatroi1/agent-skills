@@ -720,7 +720,7 @@ def cmd_doctor(args):
                 findings.append(("plan", rn or "?", f"{plan_file.name} names repo '{rn}' which is not in the cluster"))
                 continue
             actual = rec.get("git", {}).get("branch")
-            if want and actual and want != actual:
+            if want and actual and want != actual and entry.get("status") not in {"pending", "todo"}:
                 findings.append(("plan", rn, f"{plan_file.name} expects branch '{want}' but {rn} is on '{actual}'"))
 
     reg = load_registry()
@@ -1213,7 +1213,7 @@ def cmd_plan(args):
             "goal": args.goal or args.name,
             "created_at": iso(),
             "repos": [
-                {"repo": r["name"], "branch": f"feat/{pid}", "order": i + 1, "depends_on": [], "status": "todo"}
+                {"repo": r["name"], "branch": f"feat/{pid}", "order": i + 1, "depends_on": [], "status": "pending"}
                 for i, r in enumerate(m.get("repos", [])) if r["name"] in (args.repos or "").split(",")
             ],
             "steps": [],
@@ -1240,7 +1240,7 @@ def cmd_plan(args):
                 actual = rec.get("git", {}).get("branch") if not rec.get("missing_on_disk") else "(absent)"
                 want = e.get("branch")
                 dirty = " *dirty" if rec.get("git", {}).get("dirty") else ""
-                mark = "ok " if actual == want else "DRIFT"
+                mark = "ok " if actual == want else ("PLAN" if e.get("status") in {"pending", "todo"} else "DRIFT")
                 dep = f" after={','.join(e.get('depends_on') or [])}" if e.get("depends_on") else ""
                 print(f"  [{mark}] {e.get('order')}. {rn:<28} want={want}  actual={actual}{dirty}{dep}  status={e.get('status')}")
             if plan.get("decisions"):

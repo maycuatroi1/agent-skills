@@ -1,44 +1,70 @@
-id: <kebab-slug>
-goal: <one sentence: what is true after this lands that is not true now>
-created_at: <iso>
+id: '<kebab-slug>'
+goal: '<one sentence: what is true after this lands that is not true now>'
+created_at: '<iso>'
+
+context: '<current behavior, root cause, constraints, and why this change is needed>'
+
+acceptance:
+  - criterion: '<observable completion condition>'
+    verify: '<exact command or manual check>'
+
+non_goals:
+  - '<explicitly excluded behavior or follow-up>'
+
+references:
+  - what: '<evidence or design input>'
+    where: '<file, symbol, command, issue, pull request, or URL>'
 
 repos:
-  - repo: <owner repo - the one that defines the contract>
-    branch: <branch name>
+  - repo: '<owner repo - the one that defines the contract>'
+    branch: '<branch name>'
     order: 1
     depends_on: []
-    status: todo
-    scope: <what changes here>
+    status: pending
+    scope: '<what changes here>'
 
-  - repo: <consumer repo>
-    branch: <branch name>
+  - repo: '<consumer repo>'
+    branch: '<branch name>'
     order: 2
-    depends_on: [<owner repo>]
-    status: todo
-    scope: <what changes here>
+    depends_on: ['<owner repo>']
+    status: pending
+    scope: '<what changes here>'
 
 steps:
-  - <the sequence, in the order it must actually happen>
-  - <each step names the repo it happens in>
+  - id: 1
+    repo: '<repo name>'
+    what: '<concrete implementation state transition with files or symbols>'
+    depends_on: []
+    verify: '<exact runnable command or precise manual procedure>'
+    status: pending
+    blocking: true
+    note: '<why this ordering or verification matters>'
 
 seams_touched:
-  - <name from contracts.yaml>
+  - name: '<name from contracts.yaml>'
+    owner: '<owner repo>'
+    consumers: ['<consumer repo>']
+    verify: '<exact contract check>'
 
-rollback: <how to undo this if it lands half-applied - the honest answer is often "revert in reverse
-  merge order", and if there is no honest answer, say so>
+risks:
+  - risk: '<specific failure mode>'
+    mitigation: '<prevention, detection, and containment>'
+
+rollback: >
+  <how to undo this if it lands half-applied - the honest answer is often "revert in reverse merge
+  order", and if there is no honest answer, say so>
+
+assumptions:
+  - '<non-blocking assumption supported by current evidence>'
 
 decisions: []
-
-# Merge order is the whole point of this file.
-#
-# A cross-repo change is a distributed transaction. Improvised, it fails the way one-shotting fails
-# inside a single repo: partial application, no record of how far it got, and the next session cannot
-# tell. The consumer must not merge before the owner, or the seam is broken in main for as long as the
-# gap lasts.
-#
-# `harness.py plan status` reads the real git state and diffs it against this file. That catches the
-# most common drift: the plan says one thing and the branches say another. Memory is worse at this than
-# the check is.
-#
-# Log decisions as you go (`harness.py plan decide --name <id> --text "..."`). Three sessions later the
-# WHAT is still in the diff, but the WHY is gone unless you wrote it down.
+tech_debt:
+  - issue: '<known compromise intentionally left by this plan>'
+    severity: low
+    status: open
+    note: '<why it is safe to defer and what closes it>'
+open_questions:
+  - issue: '<non-blocking question that can remain after implementation starts>'
+    status: open
+    blocking: false
+    note: '<owner, decision point, or evidence needed to answer it>'
