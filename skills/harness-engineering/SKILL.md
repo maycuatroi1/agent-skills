@@ -212,6 +212,26 @@ say another.
 Log decisions as you go. Three sessions later the *what* is still in the diff; the *why* is gone unless
 you wrote it down.
 
+### Reading a plan without reconstructing it from YAML
+
+`harness.py` in this skill is the authoring side - `plan create`, `plan decide`, `plan status`. The
+faster way to **read** a plan once it exists is `evo harness` (`pip install evo-cli`), which parses the
+same `plans/active/*.yaml` files this skill writes:
+
+```bash
+evo harness plans             # one-line progress per plan: steps, debt, open questions
+evo harness show <slug>       # full plan in the terminal: repos, steps, depends_on, notes
+evo harness graph <slug>      # the plan's DAG as an adjacency list (depth, cycles flagged)
+evo harness check <slug>      # diff the plan against real git refs and step states
+evo harness serve             # localhost:8788 dashboard - cluster, seams, every plan as a DAG
+```
+
+Reach for `serve` when merge order is the question and you would rather see it than read YAML, and for
+`graph` when you only need the dependency shape. Both render an adjacency table beside the DAG, because
+a node-link diagram conveys nothing to a screen reader and does not paste into a document. The
+dashboard is read-only by design; mutations (`step`, `repo`, `debt`, `question`) go through `evo harness`
+subcommands that leave a shell-history entry, not through the browser.
+
 ## Gotchas
 
 - **The signal loop can degrade into plausible busywork.** This is the real risk, not a hypothetical.
