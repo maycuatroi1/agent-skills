@@ -32,3 +32,13 @@ seams: []
 #     consumers: [worker]
 #     source: app/queues.py
 #     verify: "grep both sides for each literal and assert they match"
+#
+#   # Register the deployment registry as a seam to push Dimension 12 from 2 (a manifest) to 3
+#   # (a manifest a machine validates). `source: deployments.yaml` is how audit detects the verify.
+#   - name: deployment-registry
+#     kind: registry
+#     owner: <harness root>
+#     consumers: [<dashboard/console that reads the topology>]
+#     source: deployments.yaml
+#     verify: "python <skill>/scripts/harness.py deployments"
+#     notes: "Single writer is this file; consumers take a versioned read model, never write back."

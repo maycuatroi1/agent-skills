@@ -1,6 +1,6 @@
 # Harness rubric
 
-Eleven dimensions. Eight are repo-level and come straight from the two source articles (see `principles.md`). Three are cluster-level and are this skill's extension.
+Twelve dimensions. Eight are repo-level and come straight from the two source articles (see `principles.md`). Four are cluster-level and are this skill's extension.
 
 Each dimension scores **0-3**:
 
@@ -170,6 +170,21 @@ Whether a change spanning repos is a planned object or an improvisation.
 | The plan's stated branches match the repos' actual git state | mechanical |
 
 The last check is cheap and catches the most embarrassing class of drift: a plan that says one thing while the branches say another.
+
+### 12. Deployment topology
+Whether the agent knows where each service actually runs, or hardcodes and guesses it.
+
+| Check | Kind |
+|---|---|
+| `deployments.yaml` exists and lists the running services | mechanical |
+| Each deployment names its product, environment, and canonical URL(s) | mechanical |
+| Environments, tenants, and deployments are distinct (an environment like `develop` is not treated as a tenant) | mechanical |
+| The manifest is self-consistent: known environment/tenant, no duplicate product x tenant x environment, tenant deployments carry a tenant_id + URLs, entrypoint/shared carry no tenant data, aliases are unambiguous | mechanical (`validate_deployments`) |
+| A seam validates the registry in CI | judgment |
+
+This is the dimension that fires when there are many servers and services and the agent has no map of them. Symptoms: a URL hardcoded because nothing said where the API lives; a change pushed to the wrong environment; an agent that cannot tell a shared platform service from a per-tenant one, so it routes tenant data through the wrong host. `harness.py audit` reads `deployments.yaml` and scores it; `harness.py deployments` prints and validates it.
+
+Score 0 if there is no registry: the topology lives in scattered env files, a wiki, or someone's memory, and every session re-discovers it. Score 2 is a clean, self-consistent `deployments.yaml`. Score 3 requires a seam in `contracts.yaml` whose `source` is `deployments.yaml` and whose `verify` runs the validation, so a malformed row fails a check instead of misleading the next agent. Same 2-to-3 jump as everywhere else: a manifest nobody validates is documentation; one a machine checks is a harness.
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: harness-engineering
-description: This skill should be used when the user asks to "build a harness", "harness engineering", "audit my agent setup", "set up AGENTS.md across my repos", "why does Claude keep forgetting how to run this", "my repos keep breaking each other", "multi-repo agent context", "doc gardening", or mentions maintaining agent scaffolding across a CLUSTER of tightly-related repos (multiple repos, one system). A harness is the environment + constraints + feedback loops around a coding agent: AGENTS.md maps, a docs/ system of record, init scripts, acceptance specs, mechanical linters, cross-repo exec-plans, golden principles. Provides scripts to score a cluster against an 11-dimension rubric (audit), detect drift (doctor), turn real session evidence into proposals for what the harness is missing (garden), and track changes that span N repos with an explicit merge order (plan). Use create-exec-plan when the requested outcome is authoring a complete execution plan. Built on Anthropic "Effective harnesses for long-running agents" and OpenAI "Harness engineering".
-version: 0.1.1
+description: This skill should be used when the user asks to "build a harness", "harness engineering", "audit my agent setup", "set up AGENTS.md across my repos", "why does Claude keep forgetting how to run this", "my repos keep breaking each other", "multi-repo agent context", "doc gardening", or mentions maintaining agent scaffolding across a CLUSTER of tightly-related repos (multiple repos, one system). A harness is the environment + constraints + feedback loops around a coding agent: AGENTS.md maps, a docs/ system of record, init scripts, acceptance specs, mechanical linters, cross-repo exec-plans, golden principles. Provides scripts to score a cluster against a 12-dimension rubric (audit), detect drift (doctor), turn real session evidence into proposals for what the harness is missing (garden), and track changes that span N repos with an explicit merge order (plan). Use create-exec-plan when the requested outcome is authoring a complete execution plan. Built on Anthropic "Effective harnesses for long-running agents" and OpenAI "Harness engineering".
+version: 0.1.2
 ---
 
 # Harness engineering
@@ -18,7 +18,7 @@ place where harnesses actually tear.
 
 It does three things and then keeps doing the third:
 
-- **Analyze** - score the cluster against an 11-dimension rubric, report the top gaps.
+- **Analyze** - score the cluster against a 12-dimension rubric, report the top gaps.
 - **Build** - scaffold what is missing: maps, boot scripts, specs, principles, a seam registry.
 - **Maintain** - watch real sessions, and when the agent stumbles, name the artifact that would have
   prevented it. This is the part that makes it a system instead of a template pack.
@@ -47,6 +47,7 @@ It does three things and then keeps doing the third:
 harness root (a repo of its own, or .harness/ in the workspace)
   harness.yaml           cluster manifest: repos, roles, which are not cloned here
   contracts.yaml         seam registry: what crosses repo boundaries, and what verifies it
+  deployments.yaml       deployment registry: where each service runs (environment, host/URLs, tenant)
   CLUSTER.md             the cluster map (~100 lines, a table of contents)
   principles/
     golden-principles.md rules learned the hard way, not yet mechanized
@@ -131,6 +132,7 @@ On POSIX use `session-end.sh` and `chmod +x` it once.
 | Create a harness for a cluster | `python harness.py init --workspace <dir> --name <cluster>` |
 | Which cluster am I in? | `python harness.py where` |
 | Score the harness, get the top gaps | `python harness.py audit` |
+| List & validate the deployment registry | `python harness.py deployments` |
 | Find drift | `python harness.py doctor` |
 | Snapshot every repo's state | `python harness.py scan` |
 | Turn session evidence into proposals | `python harness.py garden` |
@@ -144,7 +146,7 @@ On POSIX use `session-end.sh` and `chmod +x` it once.
 
 ## The rubric
 
-Eleven dimensions, scored 0-3. Full detail and the per-dimension checks: **`references/rubric.md`**.
+Twelve dimensions, scored 0-3. Full detail and the per-dimension checks: **`references/rubric.md`**.
 
 | | Dimension | The question it asks |
 |---|---|---|
@@ -159,6 +161,7 @@ Eleven dimensions, scored 0-3. Full detail and the per-dimension checks: **`refe
 | 9 | Cluster manifest | Is the set of repos itself legible? |
 | 10 | Contract registry | What crosses a boundary, and what checks it still holds? |
 | 11 | Cross-repo coordination | Is a change spanning repos planned, or improvised? |
+| 12 | Deployment topology | Does the agent know where each service runs, or hardcode it? |
 
 The 2-to-3 jump is the one that matters: score 2 is a document asking nicely, score 3 is a machine
 saying no. Prose does not hold a line under agent throughput.
@@ -277,7 +280,7 @@ subcommands that leave a shell-history entry, not through the browser.
 | `scripts/_transcript.py` | Session JSONL reader (shares its schema handling with `continuous-learning`) |
 | `scripts/session-end.ps1` | SessionEnd hook, Windows. Reads stdin, calls `digest`, exits. No model. |
 | `scripts/session-end.sh` | Same, POSIX |
-| `templates/` | `harness.yaml`, `contracts.yaml`, `CLUSTER.md`, `AGENTS.md`, `exec-plan.yaml`, `feature_list.json`, `init.sh`/`init.ps1`, `golden-principles.md`, `invariants.md` |
+| `templates/` | `harness.yaml`, `contracts.yaml`, `deployments.yaml`, `CLUSTER.md`, `AGENTS.md`, `exec-plan.yaml`, `feature_list.json`, `init.sh`/`init.ps1`, `golden-principles.md`, `invariants.md` |
 
 ## Additional resources
 

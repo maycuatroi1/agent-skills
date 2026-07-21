@@ -1,0 +1,72 @@
+# Deployment registry (Dimension 12: Deployment topology).
+#
+# One row per RUNNING service, so an arriving agent knows where each thing lives instead of
+# hardcoding or guessing a URL. Lives next to harness.yaml / contracts.yaml. The Git manifest is
+# the SINGLE WRITER; any dashboard or console consumes a versioned read model, never writes back.
+#
+# Three concepts that must NOT be blurred (this is what stops "develop" or "shared" from silently
+# becoming a tenant):
+#   - Tenant       = a durable customer / institution, independent of environment. Optional: a
+#                    single-tenant system has no tenants block at all.
+#   - Environment  = a lifecycle stage (production, staging, development). NOT a tenant.
+#   - Deployment   = one running (product [x tenant] x environment) with canonical URLs.
+#
+# deployment_kind:
+#   tenant     - serves one tenant's data. MUST have tenant_id + canonical web/api/auth URL.
+#   entrypoint - a shared login/discovery front door. MUST NOT carry tenant_id.
+#   shared     - a cross-tenant/platform service (email, AI, object store). MUST NOT carry tenant_id.
+#
+# `harness.py deployments` validates this file; `harness.py audit` scores Dimension 12 from it.
+# To reach score 3 (enforced), register a seam in contracts.yaml whose `source` is deployments.yaml
+# and whose `verify` runs that validation in CI.
+version: 1
+config_version: "2024-01-01.1"   # bump on every change; the read model uses it to reject replays
+
+environments:
+  - production
+  - staging
+  - development
+
+# Omit this whole block for a single-tenant system.
+tenants:
+  - id: ten_acme
+    code: ACME
+    name: Acme Corp
+    aliases: [acme]
+
+deployments:
+  - deployment_id: dep_app_acme_prod   # immutable id; never reuse
+    product: app
+    tenant_id: ten_acme
+    environment: production
+    deployment_kind: tenant
+    web_url: https://acme.example.com
+    api_url: https://api.acme.example.com
+    auth_url: https://auth.acme.example.com
+    capabilities: []                   # feature flags this deployment advertises
+    status: active                     # active | provisioning | suspended | retired
+    aliases: [acme-prod]
+
+  - deployment_id: dep_login_prod
+    product: app
+    tenant_id: null                    # entrypoint routes no tenant data
+    environment: production
+    deployment_kind: entrypoint
+    web_url: https://login.example.com
+    api_url: null
+    auth_url: https://auth.example.com
+    capabilities: [sso_google]
+    status: active
+    aliases: []
+
+  - deployment_id: dep_mail_shared_prod
+    product: mail
+    tenant_id: null
+    environment: production
+    deployment_kind: shared
+    web_url: null
+    api_url: null
+    auth_url: null
+    capabilities: [transactional_email]
+    status: active
+    aliases: []

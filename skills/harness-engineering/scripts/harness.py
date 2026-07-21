@@ -428,7 +428,7 @@ DIMS = {
     1: "Map", 2: "System of record", 3: "Bootability", 4: "Feedback loops",
     5: "Inter-session memory", 6: "Mechanical enforcement", 7: "Work spec",
     8: "Entropy control", 9: "Cluster manifest", 10: "Contract registry",
-    11: "Cross-repo coordination",
+    11: "Cross-repo coordination", 12: "Deployment topology",
 }
 
 
@@ -528,6 +528,64 @@ def score_repo(rec):
     return s, ev
 
 
+def validate_deployments(reg):
+    """Structural checks on a deployments.yaml registry. Returns a list of human-readable issues.
+
+    Generic across clusters: it does not know your tenant or server names, only that the manifest
+    must be self-consistent. A system with many servers/services gets a machine that says no when a
+    row is malformed, instead of an agent hardcoding a URL it guessed. The six invariants:
+    known environment, known tenant, no duplicate product x tenant x environment, tenant deployment
+    has tenant_id + canonical URLs, entrypoint/shared never carries tenant data, unambiguous alias."""
+    issues = []
+    environments = set(reg.get("environments") or [])
+    tenant_ids = {t.get("id") for t in (reg.get("tenants") or []) if isinstance(t, dict) and t.get("id")}
+    deployments = reg.get("deployments") or []
+    seen = {}
+    for dep in deployments:
+        if not isinstance(dep, dict):
+            issues.append(f"deployment entry is not a mapping: {dep!r}")
+            continue
+        dep_id = dep.get("deployment_id") or "<no-id>"
+        kind = dep.get("deployment_kind")
+        tenant_id = dep.get("tenant_id")
+        env = dep.get("environment")
+        if environments and env not in environments:
+            issues.append(f"{dep_id}: unknown environment {env!r} (declared: {sorted(environments)})")
+        if tenant_id is not None and tenant_ids and tenant_id not in tenant_ids:
+            issues.append(f"{dep_id}: unknown tenant_id {tenant_id!r}")
+        if kind == "tenant":
+            if not tenant_id:
+                issues.append(f"{dep_id}: tenant deployment is missing tenant_id")
+            missing = [k for k in ("web_url", "api_url", "auth_url") if not dep.get(k)]
+            if missing:
+                issues.append(f"{dep_id}: tenant deployment missing canonical URL(s): {', '.join(missing)}")
+            slot = (dep.get("product"), tenant_id, env)
+            if slot in seen:
+                issues.append(f"duplicate product x tenant x environment {slot!r}: {seen[slot]} and {dep_id}")
+            else:
+                seen[slot] = dep_id
+        elif kind in ("entrypoint", "shared"):
+            if tenant_id is not None:
+                issues.append(f"{dep_id}: {kind} deployment must not carry tenant_id (no tenant data through entry/shared)")
+        else:
+            issues.append(f"{dep_id}: unknown deployment_kind {kind!r} (expected entrypoint|tenant|shared)")
+    alias_targets = {}
+    for t in reg.get("tenants") or []:
+        if isinstance(t, dict):
+            for alias in t.get("aliases") or []:
+                alias_targets.setdefault(alias, set()).add(t.get("id"))
+    for dep in deployments:
+        if isinstance(dep, dict):
+            for alias in dep.get("aliases") or []:
+                alias_targets.setdefault(alias, set()).add(dep.get("tenant_id") or f"deployment:{dep.get('deployment_id')}")
+    for alias, targets in sorted(alias_targets.items()):
+        if alias in environments:
+            issues.append(f"alias {alias!r} collides with an environment name")
+        if len(targets) > 1:
+            issues.append(f"alias {alias!r} is ambiguous, maps to: {sorted(targets)}")
+    return issues
+
+
 def score_cluster(root, m, scan):
     s = {}
     ev = {}
@@ -566,6 +624,26 @@ def score_cluster(root, m, scan):
         s[11], ev[11] = 1, "no active exec-plans (fine if no cross-repo work is in flight)"
     else:
         s[11], ev[11] = 2, f"{len(active)} active exec-plan(s)"
+
+    reg = read_yaml(root / "deployments.yaml")
+    if reg is None:
+        s[12], ev[12] = 0, "no deployments.yaml; the agent has no map of which service runs where (server, environment, tenant, URL) and will hardcode or guess"
+    else:
+        deps = reg.get("deployments") or []
+        issues = validate_deployments(reg)
+        if not deps:
+            s[12], ev[12] = 1, "deployments.yaml exists but lists no deployments"
+        elif issues:
+            s[12], ev[12] = 1, f"deployments.yaml has {len(issues)} consistency issue(s): {issues[0]}"
+        else:
+            verified = any(
+                x.get("verify") and (x.get("source") == "deployments.yaml" or "deployment" in str(x.get("name", "")))
+                for x in seams
+            )
+            if verified:
+                s[12], ev[12] = 3, f"{len(deps)} deployment(s), schema-consistent, and a seam verifies the registry"
+            else:
+                s[12], ev[12] = 2, f"{len(deps)} deployment(s), schema-consistent; register a seam that validates it to reach 3 (enforced)"
 
     return s, ev
 
@@ -631,7 +709,7 @@ def cmd_audit(args):
     print(f"Wrote {root / 'REPORT.md'}")
 
 
-WEIGHT = {3: 3, 5: 3, 7: 3, 10: 3, 11: 3, 1: 2, 6: 2, 4: 2, 2: 1, 8: 1, 9: 1}
+WEIGHT = {3: 3, 5: 3, 7: 3, 10: 3, 11: 3, 1: 2, 6: 2, 4: 2, 12: 2, 2: 1, 8: 1, 9: 1}
 
 ACTIONS = {
     1: "write an AGENTS.md that is a ~100-line table of contents pointing into docs/, not an encyclopedia",
@@ -645,6 +723,7 @@ ACTIONS = {
     9: "fix harness.yaml: assign roles, and mark repos that are not cloned locally as present: false",
     10: "register the cross-repo seams in contracts.yaml, each with an owner, consumers, and a verify method",
     11: "create a cross-repo exec-plan in plans/active/ with an explicit merge order",
+    12: "write deployments.yaml (one row per running service: product, environment, host/URLs, and for multi-tenant systems tenant_id + deployment_kind), then register a seam that validates it",
 }
 
 
@@ -1287,6 +1366,39 @@ def cmd_where(args):
     print(f"repos:   {len(m.get('repos', []))}")
 
 
+def cmd_deployments(args):
+    root = need_root(args)
+    reg = read_yaml(root / "deployments.yaml")
+    if reg is None:
+        print("No deployments.yaml in this harness. Dimension 12 (Deployment topology) scores 0.")
+        print("Start one from templates/deployments.yaml: one row per running service.")
+        return
+    deps = reg.get("deployments") or []
+    issues = validate_deployments(reg)
+    by_env = {}
+    for d in deps:
+        if isinstance(d, dict):
+            by_env.setdefault(d.get("environment"), []).append(d)
+    print(f"# Deployment registry ({reg.get('config_version') or 'v' + str(reg.get('version', '?'))})")
+    for env in (reg.get("environments") or sorted(k for k in by_env if k)):
+        rows = by_env.get(env, [])
+        print(f"\n## {env} ({len(rows)})")
+        for d in rows:
+            tenant = d.get("tenant_id") or "-"
+            url = d.get("web_url") or d.get("api_url") or "-"
+            print(
+                f"  [{d.get('status', '?')}] {d.get('deployment_id')}"
+                f"  product={d.get('product')} kind={d.get('deployment_kind')} tenant={tenant}  {url}"
+            )
+    print()
+    if issues:
+        print(f"{len(issues)} consistency issue(s):")
+        for msg in issues:
+            print(f"  - {msg}")
+        sys.exit(1)
+    print(f"OK: {len(deps)} deployment(s), schema-consistent.")
+
+
 def main():
     ap = argparse.ArgumentParser(prog="harness.py", description="Analyze, build and maintain an agent harness for a cluster of repos")
     ap.add_argument("--root", help="harness root (default: discover from cwd or registry)")
@@ -1346,6 +1458,9 @@ def main():
     p.add_argument("--repos", help="comma-separated repo names")
     p.add_argument("--text", help="decision text (for `decide`)")
     p.set_defaults(func=cmd_plan)
+
+    p = sub.add_parser("deployments", help="list and validate the deployment registry (deployments.yaml)")
+    p.set_defaults(func=cmd_deployments)
 
     p = sub.add_parser("where", help="show which cluster this directory belongs to")
     p.set_defaults(func=cmd_where)
