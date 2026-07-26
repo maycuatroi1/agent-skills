@@ -144,6 +144,11 @@ For multi-repo work:
 
 Each step is one reviewable state transition. It must:
 
+- Carry a `title` of at most 60 characters, written in the same prose language as the rest of the plan
+  and with full diacritics when that language uses them. The title names the resulting outcome, not the
+  mechanism, and must be distinguishable from every other step in the same repository. `title` is only the
+  label shown in a step list or dependency graph; `what` remains the full description and is never
+  shortened to compensate.
 - Name exact files, modules, symbols, schemas, or commands when investigation identified them.
 - Explain the behavioral result, not just "update code" or "add tests".
 - Depend only on earlier step IDs.
@@ -190,6 +195,7 @@ repos:
 steps:
   - id: 1
     repo: repository-name
+    title: Short outcome label, at most 60 characters.
     what: >
       Concrete implementation state transition with files or symbols.
     depends_on: []
@@ -257,6 +263,7 @@ Before writing, verify that:
 - Scope and non-goals prevent the main likely misunderstandings.
 - Every affected repo is included or explicitly checked as not needed.
 - Merge order follows every touched seam.
+- Every step has a non-empty `title` of at most 60 characters.
 - Every blocking step has verification.
 - Rollback is honest about irreversible actions.
 - No blocking question, placeholder, invented command, or unsupported factual claim remains.
