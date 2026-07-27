@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -727,7 +728,8 @@ ACTIONS = {
 }
 
 
-SIBLING_RE = re.compile(r"\.\./([A-Za-z0-9._-]+)/([A-Za-z0-9._/-]*)")
+SIBLING_RE = re.compile(r"(?<![\w.])\.\./([A-Za-z0-9._-]+)/([A-Za-z0-9._/ -]*)")
+FENCED_CODE_RE = re.compile(r"^```.*?^```", re.DOTALL | re.MULTILINE)
 
 
 def cmd_doctor(args):
@@ -750,10 +752,16 @@ def cmd_doctor(args):
                 txt = md.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            for sib, rest in SIBLING_RE.findall(txt):
+            for sib, rest in SIBLING_RE.findall(FENCED_CODE_RE.sub("", txt)):
                 if sib in (".", "..") or sib == p.name:
                     continue
+                rest = rest.rstrip(" /")
                 target = (p.parent / sib / rest).resolve() if rest else (p.parent / sib).resolve()
+                if not target.exists() and " " in rest:
+                    parts = rest.split("/")
+                    while parts and not target.exists():
+                        parts.pop()
+                        target = (p.parent / sib / "/".join(parts)).resolve() if parts else (p.parent / sib).resolve()
                 if not target.exists():
                     kind = "dangling sibling repo" if sib in declared or (ws / sib).exists() is False else "dangling sibling path"
                     findings.append(("link", r["name"], f"{md.relative_to(p)} points at ../{sib}/{rest} which does not exist ({kind})"))
@@ -793,14 +801,30 @@ def cmd_doctor(args):
     for plan_file in (root / "plans" / "active").glob("*.yaml"):
         plan = read_yaml(plan_file) or {}
         for entry in plan.get("repos", []):
-            rn, want = entry.get("repo"), entry.get("branch")
+            rn = entry.get("repo")
             rec = scan["repos"].get(rn)
             if not rec or rec.get("missing_on_disk"):
                 findings.append(("plan", rn or "?", f"{plan_file.name} names repo '{rn}' which is not in the cluster"))
-                continue
-            actual = rec.get("git", {}).get("branch")
-            if want and actual and want != actual and entry.get("status") not in {"pending", "todo"}:
-                findings.append(("plan", rn, f"{plan_file.name} expects branch '{want}' but {rn} is on '{actual}'"))
+
+    evo = shutil.which("evo")
+    if evo:
+        try:
+            result = subprocess.run(
+                [evo, "harness", "check", "--all", "--no-seams", "--harness", str(root)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600,
+            )
+            current = "<cluster>"
+            for line in result.stdout.splitlines():
+                header = re.match(r"^(\S+) - \d+ repos checked", line)
+                if header:
+                    current = header.group(1)
+                stripped = line.strip()
+                if stripped.startswith("FAIL"):
+                    findings.append(("plan", current, stripped))
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            findings.append(("plan", "<cluster>", f"`evo harness check` could not run ({exc}); plan state unchecked"))
+    else:
+        findings.append(("plan", "<cluster>", "`evo` CLI not on PATH; install evo-cli so doctor can check plan state against git"))
 
     reg = load_registry()
     for cl in reg.get("clusters", []):
