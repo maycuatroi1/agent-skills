@@ -88,7 +88,7 @@ composes:
 
 ```bash
 OPENAI_KEY="$(evo cred get openai_api_key)"
-RCLONE_AT="$(evo cred get rclone.token.access_token)"
+DRIVE_AT="$(evo cred get google_drive.token.token)"
 ```
 
 Exits non-zero with a message if the path is missing. Never echo the value.
@@ -177,19 +177,21 @@ The credentials **folder** lives in a GitHub private repo; sync via `gh` CLI per
 ## Write-race hazard
 
 `~/.omelet.json` has more than one writer. `evo cred compile` regenerates it from `~/.omelet.d/`, while
-red-life (`packages/core/src/drive`) refreshes `rclone.token` straight into the flat file. If red-life
-refreshed last, a `compile` silently reverts that token.
+some consumers still call `setValue` on the flat file directly: red-life `calendar/auth.ts`
+(`google_calendar.token`) and `core/drive/auth.ts` (`google_drive.token`), plus the sibling repos
+evo-lms-harness and fu-teching that refresh `rclone.token`. If a consumer refreshed last, a `compile`
+silently reverts that token (and can drop keys the consumer never wrote back).
 
 Before compiling after a gap, check that the two sides agree:
 
 ```bash
 OMELET_CONFIG=/tmp/probe.json evo cred compile
-python3 -c "import json,os;a=json.load(open('/tmp/probe.json'));b=json.load(open(os.path.expanduser('~/.omelet.json')));print('folder:',a['rclone']['token']['expiry']);print('flat  :',b['rclone']['token']['expiry'])"
+python3 -c "import json,os;a=json.load(open('/tmp/probe.json'));b=json.load(open(os.path.expanduser('~/.omelet.json')));print('folder:',a['google_calendar']['token']['expiry']);print('flat  :',b['google_calendar']['token']['expiry'])"
 ```
 
 If the flat file is newer, fold it back into the folder with
-`evo cred add rclone.token.access_token --from-stdin` before compiling. See
-`red-life-harness/principles/golden-principles.md`.
+`evo cred add google_calendar.token --json --from-stdin` (merge so folder keys are not lost) before
+compiling. See `red-life-harness/principles/golden-principles.md`.
 
 ## Additional resources
 
