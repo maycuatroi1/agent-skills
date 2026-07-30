@@ -181,6 +181,13 @@ per repo becomes a bureaucracy nobody reads.
 4. `python harness.py apply <id>` - writes onto a branch in the target repo. **Never pushes, never
    merges.** Read the diff and open the PR yourself.
 
+Each prepared batch writes `state/gardened/<session_id>.done`, and the next `garden` skips those
+sessions. Without that marker every run re-reads the same window and can re-emit proposals that were
+already reviewed or rejected - the loop repeating itself, which is the exact failure mode this skill
+warns about. When there is nothing new, `garden` says `0 new session(s) to garden` and **leaves
+`state/garden-batch.md` untouched** rather than overwriting a batch you have not finished reading.
+`--force` rebuilds the whole lookback window, markers ignored.
+
 What the loop watches for, and what it proposes in response, is in **`references/signals.md`**. The short
 version: two different commands attempting the same boot means `init.sh` is missing; the same tool error
 twice means the error does not teach its fix; a user correction means a rule was never written down; a

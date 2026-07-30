@@ -997,11 +997,29 @@ def cmd_digest(args):
     marker.write_text(iso(), encoding="utf-8")
 
 
-def gather_batch(root, m):
+def gardened_marker(root, sid):
+    return root / "state" / "gardened" / f"{sid}.done"
+
+
+def mark_gardened(root, sessions):
+    written = 0
+    for d in sessions:
+        sid = d.get("session_id")
+        if not sid:
+            continue
+        marker = gardened_marker(root, sid)
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text(iso(), encoding="utf-8")
+        written += 1
+    return written
+
+
+def gather_batch(root, m, include_gardened=False):
     cfg = m.get("garden") or {}
     lookback = int(cfg.get("lookback_days", 14))
     cutoff = now() - timedelta(days=lookback)
     sessions = []
+    already = 0
     for f in sorted((root / "state" / "sessions").glob("*.json")):
         d = read_json(f)
         if not d:
@@ -1010,9 +1028,14 @@ def gather_batch(root, m):
             at = datetime.fromisoformat(d.get("at", ""))
         except ValueError:
             continue
-        if at >= cutoff:
-            sessions.append(d)
-    return sessions, cfg
+        if at < cutoff:
+            continue
+        sid = d.get("session_id") or f.stem
+        if not include_gardened and gardened_marker(root, sid).exists():
+            already += 1
+            continue
+        sessions.append(d)
+    return sessions, cfg, already
 
 
 def build_garden_prompt(root, m, sessions, doctor, gaps):
@@ -1158,10 +1181,17 @@ def save_proposal(root, p):
 def cmd_garden(args):
     root = need_root(args)
     m = manifest(root)
-    sessions, cfg = gather_batch(root, m)
+    sessions, cfg, already = gather_batch(root, m, include_gardened=args.force)
+
+    if not sessions:
+        print(f"0 new session(s) to garden ({already} already gardened in the lookback window).")
+        print("state/garden-batch.md left untouched. Use --force to rebuild the whole window.")
+        return
 
     if len(sessions) < int(cfg.get("min_sessions", 3)) and not args.force:
-        print(f"Only {len(sessions)} session digest(s) in the lookback window; need {cfg.get('min_sessions', 3)}.")
+        print(f"Only {len(sessions)} new session digest(s) in the lookback window; need {cfg.get('min_sessions', 3)}.")
+        if already:
+            print(f"{already} session(s) were gardened before and are skipped.")
         print("A single session is noise. Use --force to run anyway.")
         return
 
@@ -1172,8 +1202,10 @@ def cmd_garden(args):
     if not args.headless:
         out = root / "state" / "garden-batch.md"
         out.write_text(prompt, encoding="utf-8")
+        marked = mark_gardened(root, sessions)
         print(f"Gardening batch prepared: {out}")
         print(f"{len(sessions)} session(s), {len(doctor.get('findings', []))} drift finding(s), {len(gaps)} rubric gap(s).")
+        print(f"Marked {marked} session(s) gardened; the next run skips them unless --force.")
         print()
         print("Read that file, apply the taxonomy yourself, and write each proposal with:")
         print("  python harness.py propose --file <proposal.json>")
@@ -1200,11 +1232,14 @@ def cmd_garden(args):
         return
 
     props = parse_proposals(proc.stdout)
+    marked = mark_gardened(root, sessions)
     if not props:
         print("No proposals. The harness has no gap the sessions can prove.")
+        print(f"Marked {marked} session(s) gardened; the next run skips them unless --force.")
         return
     for p in props[: int(cfg.get("max_proposals_per_run", 5))]:
         print(f"proposal: {save_proposal(root, p)}")
+    print(f"Marked {marked} session(s) gardened; the next run skips them unless --force.")
 
 
 def cmd_propose(args):
@@ -1483,7 +1518,7 @@ def main():
 
     p = sub.add_parser("garden", help="turn session digests + drift into harness proposals")
     p.add_argument("--headless", action="store_true", help="let `claude -p` write the proposals (for cron)")
-    p.add_argument("--force", action="store_true", help="run even with too few sessions")
+    p.add_argument("--force", action="store_true", help="rebuild the whole lookback window: re-read sessions already gardened, and run even with too few of them")
     p.set_defaults(func=cmd_garden)
 
     p = sub.add_parser("propose", help="save proposals from a JSON file")
