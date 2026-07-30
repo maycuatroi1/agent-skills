@@ -150,11 +150,13 @@ What crosses a repo boundary, and who checks that it still holds.
 |---|---|
 | `contracts.yaml` exists | mechanical |
 | Every seam names an owner repo and its consumers | mechanical |
-| Every seam names a **verification method** | mechanical |
+| Every seam names a **verification method**, or waives it with a written reason | mechanical |
 | The verification method actually runs somewhere | judgment |
 | Seams discovered in practice (cross-repo greps, shared env vars) are registered | judgment |
 
 The `verify` field is the whole point of this dimension. A seam registry with no verification method is documentation; a seam registry with one is a harness. Score 2 is the former, score 3 the latter.
+
+A seam that genuinely cannot be checked yet declares `verify_waiver` with a non-empty `reason` (and, when known, `revisit`). Scoring and `doctor` treat those three states apart: verified, waived, and blank. Only blank seams cost the dimension a point; waived seams are reported as informational notes so the count stays readable. A `verify_waiver` without a real `reason` is counted as blank - the field is a place to write down why the check is deferred, not a switch that makes a seam disappear from the report.
 
 Seam types worth registering: API schemas and generated clients, shared specification documents, event and queue names, env var names, shared database schemas, shared design tokens, and any file one repo reads out of another repo's tree.
 

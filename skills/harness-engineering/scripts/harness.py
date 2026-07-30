@@ -50,6 +50,16 @@ def slug(s):
     return s or "unnamed"
 
 
+def seam_waiver(seam):
+    w = seam.get("verify_waiver")
+    if not isinstance(w, dict):
+        return None
+    reason = w.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        return None
+    return " ".join(reason.split())
+
+
 def read_yaml(path):
     p = Path(path)
     if not p.exists():
@@ -608,9 +618,14 @@ def score_cluster(root, m, scan):
     if not seams:
         s[10], ev[10] = 0, "no seams registered; nothing checks that repos still agree with each other"
     else:
-        no_verify = [x.get("name") for x in seams if not x.get("verify")]
+        unverified = [x for x in seams if not x.get("verify")]
+        waived = [x.get("name") for x in unverified if seam_waiver(x)]
+        no_verify = [x.get("name") for x in unverified if not seam_waiver(x)]
+        tail = f"; {len(waived)} waived with a written reason" if waived else ""
         if no_verify:
-            s[10], ev[10] = 1, f"{len(no_verify)}/{len(seams)} seam(s) have no verify method: {', '.join(str(n) for n in no_verify[:3])}"
+            s[10], ev[10] = 1, f"{len(no_verify)}/{len(seams)} seam(s) have no verify method: {', '.join(str(n) for n in no_verify[:3])}{tail}"
+        elif waived:
+            s[10], ev[10] = 2, f"{len(seams)} seam(s): {len(seams) - len(waived)} verified, {len(waived)} waived with a written reason"
         else:
             s[10], ev[10] = 2, f"{len(seams)} seam(s), all with a verify method"
 
@@ -737,6 +752,7 @@ def cmd_doctor(args):
     m = manifest(root)
     scan = load_scan(root, refresh=True)
     findings = []
+    notes = []
 
     declared = {r["name"] for r in m.get("repos", [])}
     for r, p in repo_paths(root, m):
@@ -793,7 +809,11 @@ def cmd_doctor(args):
     c = read_yaml(root / "contracts.yaml") or {}
     for seam in (c.get("seams") or []):
         if not seam.get("verify"):
-            findings.append(("seam", seam.get("owner", "?"), f"seam '{seam.get('name')}' has no verify method; it is documentation, not a harness"))
+            reason = seam_waiver(seam)
+            if reason:
+                notes.append(("seam-waived", seam.get("owner", "?"), f"seam '{seam.get('name')}' verify waived: {reason}"))
+            else:
+                findings.append(("seam", seam.get("owner", "?"), f"seam '{seam.get('name')}' has no verify method; it is documentation, not a harness"))
         owner = seam.get("owner")
         if owner and owner not in declared:
             findings.append(("seam", owner, f"seam '{seam.get('name')}' names owner '{owner}' which is not in harness.yaml"))
@@ -831,21 +851,28 @@ def cmd_doctor(args):
         if not (Path(cl["root"]) / MANIFEST).exists():
             findings.append(("registry", cl.get("name", "?"), f"registry points at {cl['root']} which has no {MANIFEST}; stale entry"))
 
-    if not findings:
-        print("doctor: no findings.")
-        return
+    def emit(items):
+        by_kind = {}
+        for kind, scope, msg in items:
+            by_kind.setdefault(kind, []).append((scope, msg))
+        for kind in sorted(by_kind):
+            print(f"[{kind}]")
+            for scope, msg in by_kind[kind]:
+                print(f"  {scope}: {msg}")
+            print()
 
-    print(f"doctor: {len(findings)} finding(s)\n")
-    by_kind = {}
-    for kind, scope, msg in findings:
-        by_kind.setdefault(kind, []).append((scope, msg))
-    for kind in sorted(by_kind):
-        print(f"[{kind}]")
-        for scope, msg in by_kind[kind]:
-            print(f"  {scope}: {msg}")
-        print()
+    if findings:
+        print(f"doctor: {len(findings)} finding(s)\n")
+        emit(findings)
+    else:
+        print("doctor: no findings.")
+    if notes:
+        print(f"informational: {len(notes)} note(s), nothing to act on\n")
+        emit(notes)
     write_json({"checked_at": iso(), "findings": [
         {"kind": k, "scope": s, "message": msg} for k, s, msg in findings
+    ], "notes": [
+        {"kind": k, "scope": s, "message": msg} for k, s, msg in notes
     ]}, root / "state" / "doctor.json")
 
 
