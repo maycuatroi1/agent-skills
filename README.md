@@ -8,6 +8,25 @@ Agent skills for AI coding agents, following the [Agent Skills](https://agentski
 npx skillfish add maycuatroi1/agent-skills
 ```
 
+## Install the skills onto this machine
+
+`setup.py` only writes `~/.claude/CLAUDE.md`; it never copied a single skill. Without `install.py` the
+checked-in skills and the ones the agents actually load drift apart in silence - on 2026-07-30 the
+runtime copy of `harness-engineering` was 5 days behind source and produced 13 findings that had
+already been fixed.
+
+```bash
+python install.py --check   # compare only, exit 1 and name every file that differs
+python install.py           # copy skills/ into ~/.claude/skills/ and ~/.opencode/skills/
+```
+
+- Idempotent. `--check` after an install prints `in sync` and exits 0.
+- Skips `__pycache__`, `.skillfish.json`, `.claude/` and `*.pyc` - runtime-generated, target-side only.
+- Compares text files with line endings normalized, so a CRLF checkout on Windows is not reported as drift.
+- Backs the target skill up to `<root>/.backup-<timestamp>/` before overwriting anything.
+- A runtime whose parent directory is absent (no `~/.opencode`) is skipped out loud, not created.
+- `--target claude|opencode`, `--skill NAME` (repeatable) and `--dest PATH` narrow what is touched.
+
 ## Setup global style rules
 
 Append style rules (no em-dash / en-dash / smart quotes) to `~/.claude/CLAUDE.md` so every Claude Code session on this machine follows them. Idempotent, safe to re-run on every new device:
