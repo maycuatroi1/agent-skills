@@ -137,6 +137,9 @@ On POSIX use `session-end.sh` and `chmod +x` it once.
 | Snapshot every repo's state | `python harness.py scan` |
 | Turn session evidence into proposals | `python harness.py garden` |
 | Same, unattended (for cron) | `python harness.py garden --headless` |
+| Rebuild the whole window, markers ignored | `python harness.py garden --force` |
+| List digests past the lookback window | `python harness.py state prune --dry-run` |
+| Actually delete them (irreversible) | `python harness.py state prune --yes` |
 | Read what was proposed | `python harness.py review` |
 | Apply one, onto a branch | `python harness.py apply <id>` |
 | Discard one | `python harness.py reject <id>` |

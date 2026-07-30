@@ -1018,9 +1018,15 @@ def gather_batch(root, m, include_gardened=False):
     cfg = m.get("garden") or {}
     lookback = int(cfg.get("lookback_days", 14))
     cutoff = now() - timedelta(days=lookback)
+    mtime_floor = (cutoff - timedelta(days=1)).timestamp()
     sessions = []
     already = 0
     for f in sorted((root / "state" / "sessions").glob("*.json")):
+        try:
+            if f.stat().st_mtime < mtime_floor:
+                continue
+        except OSError:
+            continue
         d = read_json(f)
         if not d:
             continue
@@ -1036,6 +1042,72 @@ def gather_batch(root, m, include_gardened=False):
             continue
         sessions.append(d)
     return sessions, cfg, already
+
+
+def session_age_ok(path, cutoff):
+    d = read_json(path)
+    at = (d or {}).get("at", "")
+    try:
+        return datetime.fromisoformat(at) >= cutoff
+    except ValueError:
+        try:
+            return datetime.fromtimestamp(path.stat().st_mtime, tz=cutoff.tzinfo) >= cutoff
+        except OSError:
+            return True
+
+
+def cmd_state(args):
+    root = need_root(args)
+    m = manifest(root)
+    cfg = m.get("garden") or {}
+    days = args.days if args.days is not None else int(cfg.get("lookback_days", 14))
+    cutoff = now() - timedelta(days=days)
+
+    sessions_dir = root / "state" / "sessions"
+    stale = [f for f in sorted(sessions_dir.glob("*.json")) if not session_age_ok(f, cutoff)]
+    kept = len(list(sessions_dir.glob("*.json"))) - len(stale)
+
+    doomed = []
+    for f in stale:
+        sid = f.stem
+        doomed.append(f)
+        for marker in (root / "state" / "processed" / f"{sid}.done", gardened_marker(root, sid)):
+            if marker.exists():
+                doomed.append(marker)
+
+    orphans = []
+    live = {f.stem for f in sessions_dir.glob("*.json")}
+    for sub in ("processed", "gardened"):
+        d = root / "state" / sub
+        if not d.is_dir():
+            continue
+        for marker in sorted(d.glob("*.done")):
+            if marker.stem not in live:
+                orphans.append(marker)
+
+    print(f"state prune: window is {days} day(s), cutoff {iso(cutoff)}")
+    print(f"  {kept} session digest(s) inside the window, {len(stale)} outside")
+    print(f"  {len(doomed) - len(stale)} matching marker(s), {len(orphans)} orphan marker(s)")
+
+    if not args.yes:
+        for f in doomed[:10]:
+            print(f"  would delete {f.relative_to(root)}")
+        if len(doomed) > 10:
+            print(f"  ... and {len(doomed) - 10} more")
+        for f in orphans[:5]:
+            print(f"  would delete {f.relative_to(root)}")
+        print("Nothing was deleted. Re-run with --yes to delete; session digests cannot be rebuilt")
+        print("once the transcript they came from is gone.")
+        return
+
+    gone = 0
+    for f in doomed + orphans:
+        try:
+            f.unlink()
+            gone += 1
+        except OSError as exc:
+            print(f"  could not delete {f}: {exc}", file=sys.stderr)
+    print(f"Deleted {gone} file(s). {kept} session digest(s) left.")
 
 
 def build_garden_prompt(root, m, sessions, doctor, gaps):
@@ -1550,6 +1622,13 @@ def main():
 
     p = sub.add_parser("where", help="show which cluster this directory belongs to")
     p.set_defaults(func=cmd_where)
+
+    p = sub.add_parser("state", help="maintain the state/ directory")
+    p.add_argument("action", choices=["prune"])
+    p.add_argument("--days", type=int, help="keep digests newer than this (default: garden.lookback_days)")
+    p.add_argument("--dry-run", dest="dry_run", action="store_true", default=True, help="list what would go, delete nothing (default)")
+    p.add_argument("--yes", action="store_true", help="actually delete; session digests are not recoverable")
+    p.set_defaults(func=cmd_state)
 
     args = ap.parse_args()
     args.func(args)
