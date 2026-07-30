@@ -108,7 +108,7 @@ def register_skill(base, name, state, source_session, description=""):
     entry["source_session"] = source_session
     entry["description"] = description
     entry.setdefault("use_count", 0)
-    entry.setdefault("view_count", 0)
+    entry.pop("view_count", None)
     entry.setdefault("last_used_at", None)
     entry.setdefault("last_seen_session", None)
     entry.setdefault("pinned", False)
@@ -252,26 +252,79 @@ def restore_skill(base, name):
     return True, f"restored {name}"
 
 
-def promote_skill(base, name):
+SCOPE_RULE = """A learned skill belongs at the level its knowledge spans:
+
+  --scope repo     one repo owns it        -> <cwd>/.claude/skills/<name>/
+  --scope cluster  several repos share it  -> the evo-lms plugin in the cluster marketplace
+  --scope machine  useful anywhere         -> ~/.claude/skills/ and ~/.opencode/skills/
+
+Cross-cutting knowledge parked in one repo is invisible to its siblings: that is how
+evo-lms-harness ended up holding 55 skills its 16 sibling repos could not see."""
+
+
+def machine_skill_dirs():
+    return [Path.home() / ".claude" / "skills", Path.home() / ".opencode" / "skills"]
+
+
+def cluster_skill_dir(config):
+    target = (config.get("promote") or {}).get("cluster_plugin_dir")
+    if not target:
+        return None
+    return Path(os.path.expanduser(str(target)))
+
+
+def promote_targets(base, name, scope, config):
+    if scope == "repo":
+        return [active_skill_dir(base, name)], None
+    if scope == "machine":
+        return [root / name for root in machine_skill_dirs() if root.parent.is_dir()], None
+    plugin = cluster_skill_dir(config)
+    if plugin is None:
+        return [], (
+            "no cluster target configured: set promote.cluster_plugin_dir in "
+            ".claude/continuous-learning.json to the plugin's skills/ directory"
+        )
+    return [plugin / name], None
+
+
+def promote_skill(base, name, scope, config):
     usage = load_usage(base)
     entry = usage["skills"].get(name)
     src = pending_dir(base) / name
     if not src.exists():
         return False, f"not pending: {name}"
-    dest = active_skill_dir(base, name)
-    if dest.exists():
-        return False, f"active skill already exists: {name}"
-    shutil.move(str(src), str(dest))
-    if entry is None:
-        entry = {"created_at": now_iso(), "use_count": 0, "view_count": 0, "pinned": False}
-        usage["skills"][name] = entry
-    entry["state"] = "active"
-    entry["last_used_at"] = now_iso()
+
+    dests, err = promote_targets(base, name, scope, config)
+    if err:
+        return False, err
+    if not dests:
+        return False, f"no destination exists for --scope {scope} on this machine"
+    for dest in dests:
+        if dest.exists():
+            return False, f"already exists at {dest}"
+
+    first = dests[0]
+    first.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(src), str(first))
+    for dest in dests[1:]:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(str(first), str(dest))
+
+    if scope == "repo":
+        if entry is None:
+            entry = {"created_at": now_iso(), "use_count": 0, "pinned": False}
+            usage["skills"][name] = entry
+        entry["state"] = "active"
+        entry["last_used_at"] = now_iso()
+    elif entry is not None:
+        entry["state"] = "promoted-out"
+        entry["promoted_to"] = [str(d) for d in dests]
+        entry["last_used_at"] = now_iso()
     save_usage(base, usage)
-    return True, f"promoted {name}"
+    return True, f"promoted {name} ({scope}) -> {', '.join(str(d) for d in dests)}"
 
 
-def lifecycle_pass(base, config, usage, report, dry_run):
+def lifecycle_pass(base, config, usage, report, dry_run, archive_ok=False):
     stale_after = float(config.get("curator", {}).get("stale_after_days", 30))
     archive_after = float(config.get("curator", {}).get("archive_after_days", 90))
     for name, entry in list(usage["skills"].items()):
@@ -281,9 +334,12 @@ def lifecycle_pass(base, config, usage, report, dry_run):
             continue
         d = idle_days(entry)
         if d >= archive_after:
-            report["archived"].append({"name": name, "idle_days": round(d, 1)})
-            if not dry_run:
+            record = {"name": name, "idle_days": round(d, 1)}
+            if archive_ok and not dry_run:
+                report["archived"].append(record)
                 archive_skill(base, name, usage, reason=f"idle {round(d)}d")
+            else:
+                report["archive_candidates"].append(record)
         elif d >= stale_after and entry.get("state") != "stale":
             report["staled"].append({"name": name, "idle_days": round(d, 1)})
             if not dry_run:
@@ -386,15 +442,22 @@ def write_report(base, report, dry_run):
     return out
 
 
-def run_curator(base, config, consolidate=False, dry_run=False, backup=True):
+def run_curator(base, config, consolidate=False, dry_run=False, backup=True, archive_ok=False):
     usage = load_usage(base)
     if usage["curator"].get("paused"):
         return {"skipped": "paused"}
-    report = {"started_at": now_iso(), "archived": [], "staled": [], "consolidated": [], "dry_run": dry_run}
+    report = {
+        "started_at": now_iso(),
+        "archived": [],
+        "archive_candidates": [],
+        "staled": [],
+        "consolidated": [],
+        "dry_run": dry_run,
+    }
     if backup and not dry_run:
         b = make_backup(base, reason="pre-curator")
         report["backup"] = str(b) if b else None
-    lifecycle_pass(base, config, usage, report, dry_run)
+    lifecycle_pass(base, config, usage, report, dry_run, archive_ok=archive_ok)
     if consolidate or config.get("curator", {}).get("consolidate", False):
         consolidate_pass(base, config, usage, report, dry_run)
     if not dry_run:
@@ -485,6 +548,8 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--days", type=int, default=90)
     ap.add_argument("--all", action="store_true")
+    ap.add_argument("--scope", choices=["repo", "cluster", "machine"], help="where a promoted skill lands; required for promote")
+    ap.add_argument("--yes", action="store_true", help="let the curator actually archive its candidates")
     args = ap.parse_args()
 
     if not args.config:
@@ -495,23 +560,34 @@ def main():
     if args.command == "status":
         cmd_status(base)
     elif args.command == "run":
-        report = run_curator(base, config, consolidate=args.consolidate, dry_run=args.dry_run)
+        report = run_curator(base, config, consolidate=args.consolidate, dry_run=args.dry_run, archive_ok=args.yes)
         print(json.dumps(report, indent=2, ensure_ascii=False))
+        pending_archive = report.get("archive_candidates") or []
+        if pending_archive:
+            print(f"\n{len(pending_archive)} skill(s) idle past the archive threshold, left in place:", file=sys.stderr)
+            for c in pending_archive:
+                print(f"  {c['name']} ({c['idle_days']}d idle)", file=sys.stderr)
+            print("Re-run with --yes to archive them. Read the caveat about use_count first.", file=sys.stderr)
     elif args.command == "pin":
         return cmd_pin(base, args.name, True)
     elif args.command == "unpin":
         return cmd_pin(base, args.name, False)
     elif args.command == "promote":
+        if not args.scope:
+            print(SCOPE_RULE, file=sys.stderr)
+            print("\nRe-run with --scope repo|cluster|machine.", file=sys.stderr)
+            return 1
         if args.all:
             pd = pending_dir(base)
             if pd.exists():
                 for p in sorted(pd.iterdir()):
                     if p.is_dir():
-                        ok, msg = promote_skill(base, p.name)
+                        ok, msg = promote_skill(base, p.name, args.scope, config)
                         print(msg)
         elif args.name:
-            ok, msg = promote_skill(base, args.name)
+            ok, msg = promote_skill(base, args.name, args.scope, config)
             print(msg)
+            return 0 if ok else 1
         else:
             print("need a name or --all", file=sys.stderr)
             return 1

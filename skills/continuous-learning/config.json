@@ -17,6 +17,9 @@
   ],
   "max_summary_chars": 40000,
   "claude_timeout_seconds": 300,
+  "promote": {
+    "cluster_plugin_dir": null
+  },
   "curator": {
     "enabled": true,
     "interval_hours": 168,

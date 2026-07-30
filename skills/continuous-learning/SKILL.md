@@ -189,6 +189,14 @@ Usage telemetry lives in `.claude/skills/.learned/usage.json`. Because Claude Co
 
 The lifecycle pass is deterministic (no LLM) and runs automatically on interval via the Stop hook. The optional consolidate pass (`--consolidate` or `curator.consolidate: true`) uses `claude -p` to find near-duplicate skills and archive the redundant ones into a kept "umbrella" skill.
 
+### Archiving needs `--yes`, and why
+
+Passing `archive_after_days` no longer archives a skill by itself. The run reports it under `archive_candidates` and leaves it in place; only `run --yes` moves anything.
+
+The counter behind that threshold undercounts by construction. `use_count` rises only when the skill's name or `SKILL.md` path appears literally in a tool input, but a learned skill is loaded into the system prompt as a description and is usually applied without ever being `Read`. Measured on 2026-07-30 across a 42-skill library: 2 skills had `use_count > 0`. Auto-archiving on that signal deletes work that was being used every week. Raising the threshold only moves the bomb; requiring a human to confirm defuses it.
+
+`view_count` has been removed from `usage.json`. It was initialized in two places and incremented in none - schema that looked like evidence and carried none.
+
 ### Curator CLI
 
 ```bash
@@ -200,8 +208,11 @@ python3 $CUR run --consolidate --cwd "$PWD"   # add the LLM dedup pass
 python3 $CUR run --dry-run --cwd "$PWD"   # preview transitions, no mutations
 python3 $CUR pin   <name>  --cwd "$PWD"   # protect from stale/archive
 python3 $CUR unpin <name>  --cwd "$PWD"
-python3 $CUR promote <name> --cwd "$PWD"  # pending -> active (discoverable)
-python3 $CUR promote --all  --cwd "$PWD"
+python3 $CUR run --yes     --cwd "$PWD"   # let it actually archive its candidates
+python3 $CUR promote <name> --scope repo    --cwd "$PWD"  # -> <cwd>/.claude/skills/<name>/
+python3 $CUR promote <name> --scope cluster --cwd "$PWD"  # -> the plugin in promote.cluster_plugin_dir
+python3 $CUR promote <name> --scope machine --cwd "$PWD"  # -> ~/.claude/skills/ and ~/.opencode/skills/
+python3 $CUR promote --all --scope repo --cwd "$PWD"
 python3 $CUR restore <name> --cwd "$PWD"  # archived -> active
 python3 $CUR list-archived  --cwd "$PWD"
 python3 $CUR prune --days 90 --cwd "$PWD" # bulk-archive idle skills
@@ -210,6 +221,20 @@ python3 $CUR resume --cwd "$PWD"
 ```
 
 Each run writes a report to `.claude/skills/.learned/reports/<ts>/` (`run.json` + `REPORT.md`) and a snapshot to `.claude/skills/.learned/.backups/<ts>/` (last `backup_keep` kept).
+
+### Where a promoted skill lands
+
+`promote` has no default scope: without `--scope` it prints the rule and exits 1 rather than quietly writing into the current repo.
+
+| Scope | Destination | Use when |
+|---|---|---|
+| `repo` | `<cwd>/.claude/skills/<name>/` | one repo owns the knowledge |
+| `cluster` | `promote.cluster_plugin_dir` from config (a plugin's `skills/` dir) | several repos in one system share it |
+| `machine` | `~/.claude/skills/` **and** `~/.opencode/skills/` | useful in any project |
+
+`cluster` requires `promote.cluster_plugin_dir` in `.claude/continuous-learning.json`; without it the command refuses instead of guessing. Skills promoted out of the repo are marked `promoted-out` in `usage.json` with their destinations, so the curator stops counting idle days against a directory that is no longer there.
+
+Defaulting to `<cwd>` is how a single repo ends up hoarding cross-cutting knowledge: 55 skills in `evo-lms-harness`, invisible to the 16 sibling repos that needed them.
 
 ## Review pending patterns
 
