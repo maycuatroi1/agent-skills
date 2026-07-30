@@ -745,6 +745,16 @@ ACTIONS = {
 
 SIBLING_RE = re.compile(r"(?<![\w.])\.\./([A-Za-z0-9._-]+)/([A-Za-z0-9._/ -]*)")
 FENCED_CODE_RE = re.compile(r"^```.*?^```", re.DOTALL | re.MULTILINE)
+INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
+
+
+def resolves_from(base, sib, rest):
+    """A ../ path in a doc under docs/ is usually internal to its own repo, not a sibling repo."""
+    try:
+        candidate = (base / ".." / sib / rest).resolve() if rest else (base / ".." / sib).resolve()
+    except OSError:
+        return False
+    return candidate.exists()
 
 
 def cmd_doctor(args):
@@ -768,10 +778,13 @@ def cmd_doctor(args):
                 txt = md.read_text(encoding="utf-8", errors="replace")
             except OSError:
                 continue
-            for sib, rest in SIBLING_RE.findall(FENCED_CODE_RE.sub("", txt)):
+            prose = INLINE_CODE_RE.sub("", FENCED_CODE_RE.sub("", txt))
+            for sib, rest in SIBLING_RE.findall(prose):
                 if sib in (".", "..") or sib == p.name:
                     continue
                 rest = rest.rstrip(" /")
+                if resolves_from(md.parent, sib, rest):
+                    continue
                 target = (p.parent / sib / rest).resolve() if rest else (p.parent / sib).resolve()
                 if not target.exists() and " " in rest:
                     parts = rest.split("/")
