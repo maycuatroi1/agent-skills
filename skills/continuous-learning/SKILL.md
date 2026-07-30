@@ -232,6 +232,8 @@ Each run writes a report to `.claude/skills/.learned/reports/<ts>/` (`run.json` 
 | `cluster` | `promote.cluster_plugin_dir` from config (a plugin's `skills/` dir) | several repos in one system share it |
 | `machine` | `~/.claude/skills/` **and** `~/.opencode/skills/` | useful in any project |
 
+`promote` takes a skill from `_pending/` or from `.claude/skills/<name>/`, so a skill that already went active in one repo can still be moved up a level later - that is how a repo stops hoarding knowledge its siblings need. Re-promoting an active skill with `--scope repo` is refused; it is already there.
+
 `cluster` requires `promote.cluster_plugin_dir` in `.claude/continuous-learning.json`; without it the command refuses instead of guessing. Skills promoted out of the repo are marked `promoted-out` in `usage.json` with their destinations, so the curator stops counting idle days against a directory that is no longer there.
 
 Defaulting to `<cwd>` is how a single repo ends up hoarding cross-cutting knowledge: 55 skills in `evo-lms-harness`, invisible to the 16 sibling repos that needed them.

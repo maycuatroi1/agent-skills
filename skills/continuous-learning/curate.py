@@ -291,8 +291,14 @@ def promote_skill(base, name, scope, config):
     usage = load_usage(base)
     entry = usage["skills"].get(name)
     src = pending_dir(base) / name
+    from_active = False
     if not src.exists():
-        return False, f"not pending: {name}"
+        src = active_skill_dir(base, name)
+        from_active = src.exists()
+        if not from_active:
+            return False, f"not pending and not active: {name}"
+        if scope == "repo":
+            return False, f"{name} is already active in this repo; pick --scope cluster or machine"
 
     dests, err = promote_targets(base, name, scope, config)
     if err:
@@ -321,7 +327,8 @@ def promote_skill(base, name, scope, config):
         entry["promoted_to"] = [str(d) for d in dests]
         entry["last_used_at"] = now_iso()
     save_usage(base, usage)
-    return True, f"promoted {name} ({scope}) -> {', '.join(str(d) for d in dests)}"
+    origin = "active" if from_active else "pending"
+    return True, f"promoted {name} ({origin} -> {scope}): {', '.join(str(d) for d in dests)}"
 
 
 def lifecycle_pass(base, config, usage, report, dry_run, archive_ok=False):
