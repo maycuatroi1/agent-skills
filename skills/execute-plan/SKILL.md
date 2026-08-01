@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each cluster in subagents so their working context never enters the main session, verifies before claiming anything, writes status back to the plan, and offers to clear context between clusters.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Execute exec-plan
@@ -22,6 +22,11 @@ the single largest token saving available while implementing a plan.
 The main session must therefore never read product code, never run the test suite for exploration,
 and never open a large file to "check" a subagent. It reads plan state, reads subagent reports, and
 runs verify commands.
+
+This workflow is evidence-driven, not ceremony-driven. Do not repeat a command when the same working
+tree state already has trustworthy verbatim output from the subagent. Do not run full-repo checks for
+targeted steps unless the plan explicitly makes them acceptance criteria or the repository cannot run
+the target in isolation.
 
 ## 1. Load state cheaply
 
@@ -75,6 +80,21 @@ only reach for them when the parallel win is real.
 State the chosen grouping to the user in one line per cluster before running anything, including why
 anything was forced serial.
 
+### Prepare GitNexus without dirtying the worktree
+
+Before delegating edits, check `gitnexus status`. If the index is stale and the repository requires a
+fresh index, use pure index mode:
+
+```
+gitnexus analyze --index-only --name <repo>-<plan-slug>
+```
+
+Use a unique alias for temporary worktrees and pass the worktree path to later `--repo` arguments when
+aliases are ambiguous. Never run bare `gitnexus analyze` in an implementation worktree: it injects or
+updates `AGENTS.md`, `CLAUDE.md`, and GitNexus skill files, creating unrelated diffs. Run impact before
+editing as required by the repository, but run `detect_changes` only once after the intended files are
+staged and immediately before commit.
+
 ## 4. The subagent contract
 
 Spawn one subagent per step, or per short linear chain of steps that share a file. Give each one:
@@ -93,6 +113,10 @@ A subagent MUST NOT:
 - Mark its own work done in any form, including in prose.
 - Touch files outside its step's scope.
 
+The subagent must inspect its own diff once before returning. Do not spawn a separate review agent by
+default. Add an independent review only when per-symbol impact is HIGH or CRITICAL, the step changes an
+authorization/secret/destructive-mutation boundary, or the user explicitly requests review.
+
 A subagent MUST return, and nothing more:
 
 ```
@@ -107,14 +131,36 @@ notes: <anything the plan got wrong, max 3 lines>
 Verbatim output matters. A subagent reporting "tests pass" without the run is the failure mode this
 whole workflow exists to prevent, and it is the same failure that makes plan state lie.
 
+### Normalize misleading targeted test commands
+
+Before running a verify command such as `npm test -- tests/foo.test.ts`, inspect the package's `test`
+script once. If that script already hardcodes a broad glob such as `tests/*.test.ts`, the appended path
+does not filter the suite. Replace only that invocation with the repository's underlying runner and the
+requested target, for example:
+
+```
+node --test --import tsx tests/foo.test.ts
+```
+
+Record both the plan command and the effective command in `verify_command`. Do not guess a replacement
+for an unfamiliar runner. If equivalence is unclear, run the plan command as written once. Full-suite
+test, lint, typecheck, and build belong at an explicit checkpoint or final verification step, not after
+every targeted implementation step.
+
 ## 5. Write state back, from the main session only
 
 For each returned step, in plan order:
 
-1. Re-run the step's `verify` command yourself. It is cheap next to the cost of a false `done`.
-2. If it fails, leave the step `pending` and record what happened. Do not mark `in_progress` as a
+1. Validate that the report contains the exact command, a pass result, and verbatim output for the
+   current working tree state. Do not re-run it when no files changed after the subagent's run.
+2. Re-run only missing or failed checks, external/manual acceptance the subagent could not perform,
+   checks invalidated by later edits, and final checkpoint commands. Never re-run merely to duplicate
+   evidence.
+3. If verification fails, leave the step `pending` and record what happened. Do not mark `in_progress` as a
    consolation.
-3. If it passes, commit (when the plan assigns commits), then:
+4. If it passes, stage only intended files, inspect staged status/diff once, run required secret scan
+   and `gitnexus detect-changes --scope staged` once, then commit when the plan assigns commits.
+5. After the commit:
 
 ```
 evo harness step <slug> <step-id> done
@@ -146,15 +192,16 @@ starting the next cluster on top of it.
 Nothing in Claude Code lets an agent clear its own context. `/clear` is a built-in command; hooks
 cannot trigger it and the model cannot invoke it. So the skill asks, and the user presses the key.
 
-After each cluster, with state written and `check` clean, use `AskUserQuestion`:
+After a substantial cluster, with state written and `check` clean, use `AskUserQuestion`:
 
 - Continue to the next cluster in this session.
 - `/clear`, then re-invoke this skill with the same slug.
 - Stop here.
 
-Recommend the clear when the cluster produced several subagent reports or when their verify output
-was long. Say plainly what re-entry costs: one `evo harness show` plus one step board, a few hundred
-tokens against a session that may be carrying a hundred thousand.
+Do not interrupt the user after every small serial step. Recommend the clear when the cluster produced
+several subagent reports or when their verify output was long. Say plainly what re-entry costs: one
+`evo harness show` plus one step board, a few hundred tokens against a session that may be carrying a
+hundred thousand.
 
 Tell the user the exact re-entry line, for example `/execute-plan deployments-control-plane`.
 
@@ -186,8 +233,11 @@ Do not retry the same subagent prompt verbatim, and do not silently narrow the s
 - [ ] Plan state loaded via `evo harness show` / `step --no-input`, not a full file read.
 - [ ] Frontier computed from `depends_on`, blocking steps and checkpoints respected.
 - [ ] Clustering decided and stated, with any forced-serial reason given.
+- [ ] A stale GitNexus index was refreshed with `--index-only`, never a bare analyze in the worktree.
 - [ ] Every subagent told: no plan edits, no self-marking, verbatim verify output.
-- [ ] Main session re-ran each verify before writing state.
+- [ ] Targeted test commands were checked for hardcoded broad globs and normalized when equivalent.
+- [ ] Main session accepted current verbatim evidence instead of duplicating successful checks.
+- [ ] Staged diff, secret scan, and `detect_changes` each ran once immediately before commit.
 - [ ] `evo harness step` used without `--note`; `evidence:` added by hand with the commit hash.
 - [ ] `evo harness check <slug>` clean before the next cluster.
-- [ ] User offered the clear, with the re-entry command spelled out.
+- [ ] User offered the clear after a substantial cluster, with the re-entry command spelled out.
