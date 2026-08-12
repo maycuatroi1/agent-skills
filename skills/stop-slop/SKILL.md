@@ -1,7 +1,7 @@
 ---
 name: stop-slop
-description: This skill should be used when the user asks to "remove AI tells", "make this sound human", "de-slop this", "bỏ giọng AI", "viết cho tự nhiên", "sửa văn phong AI", "edit this draft", "review my writing", or is drafting/editing/reviewing English prose (blog posts, essays, docs, READMEs, release notes, emails, landing copy) that must not read as machine-written. Supplies the banned-phrase list, the structural clichés to avoid, before/after rewrites, and a 5-dimension score to decide whether a draft ships or gets revised.
-version: 0.1.0
+description: This skill should be used when the user asks to "remove AI tells", "make this sound human", "de-slop this", "bỏ giọng AI", "viết cho tự nhiên", "sửa văn phong AI", "edit this draft", "review my writing", or is drafting/editing/reviewing English or Vietnamese prose (blog posts, essays, docs, READMEs, release notes, emails, landing copy) that must not read as machine-written. Supplies the banned-phrase list, the structural clichés to avoid, before/after rewrites, Vietnamese-specific AI tells (calque, binary contrast, signpost, slogan), and a 5-dimension score to decide whether a draft ships or gets revised.
+version: 0.2.0
 ---
 
 # stop-slop
@@ -45,6 +45,17 @@ Terse machine-facing text is not slop.
 
 8. **Cut quotables.** If it sounds like a pull-quote, rewrite it.
 
+9. **Vietnamese: escape the English skeleton.** Vietnamese AI prose keeps Vietnamese vocabulary but
+   preserves English syntax - binary contrast "không A, mà B", triple parallel "Một X, một Y, một Z",
+   signpost "Nói cách khác:", calque "đóng đinh một dữ kiện". The vocabulary is Vietnamese; the rhythm
+   is still English. See [references/vietnamese-patterns.md](references/vietnamese-patterns.md).
+
+10. **Vietnamese: kill calques literal-translation.** Read the phrase aloud. If it sounds translated
+    ("đóng đinh dữ kiện" for "nail down a data point", "tự sai" for "discredits itself", "hỏng đúng
+    chỗ" for "breaks down"), a Vietnamese speaker would never say it. Replace with the natural
+    phrasing. The calque table is in [references/vietnamese-patterns.md](references/vietnamese-patterns.md)
+    section 4.
+
 ## Quick checks
 
 Run this pass before delivering prose:
@@ -61,6 +72,19 @@ Run this pass before delivering prose:
 - Vague declarative ("The implications are significant")? Name the specific implication.
 - Narrator-from-a-distance ("Nobody designed this")? Put the reader in the scene.
 - Meta-joiners ("The rest of this essay...")? Delete. Let the essay move.
+
+Vietnamese-specific (see [references/vietnamese-patterns.md](references/vietnamese-patterns.md) quick
+check section for the full list):
+
+- Any "không A, mà B" / "không nằm ở A, nó nằm ở B" binary contrast? State Y directly.
+- Any signpost "Nói cách khác:" / "Điểm chốt:" / "Tức là:"? Cut.
+- Any calque that sounds translated ("đóng đinh dữ kiện", "tự sai", "hỏng đúng chỗ")? Replace with
+  natural Vietnamese.
+- Any standalone closing sentence that sounds like a pull-quote or motivational tagline? Rewrite.
+- Any triple parallel "Một X, một Y, và một Z"? Break the rhythm.
+- Any "X là thứ duy nhất Y, và cũng Z nhất" thesis formula? Split into two sentences.
+- Read aloud: does it sound like Vietnamese a person speaks, or like translated text? Rewrite the
+  translated parts.
 
 ## Scoring
 
@@ -82,7 +106,8 @@ asked for a draft, apply the rules silently and hand over the clean text.
 **Drafting.** Apply the core rules while writing. Do not write slop and then strip it.
 
 **Editing a draft.** Read [references/phrases.md](references/phrases.md) and
-[references/structures.md](references/structures.md) first, then rewrite. Return the revised text.
+[references/structures.md](references/structures.md) first, then rewrite. For Vietnamese prose, also
+read [references/vietnamese-patterns.md](references/vietnamese-patterns.md). Return the revised text.
 List the cuts only if the user asked what changed.
 
 **Reviewing.** Quote the offending span, name the pattern, give the replacement. One line each. Then
