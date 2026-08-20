@@ -94,3 +94,21 @@ lan truyền ngược
 # mà người đọc dùng hằng ngày. Giữ tên Việt khi (a) đó là tên riêng tác giả
 # vừa đặt ra và chưa ngôn ngữ nào có sẵn, (b) chữ Việt còn gánh việc ở đoạn
 # sau, (c) tiếng Việt vốn đã có thuật ngữ chuẩn cho nó (cửa sổ trượt).
+
+# --- Vật vô tri làm việc của người ---
+# Luật, công thức, kiến trúc không biết hứa. Calque của "X doesn't guarantee
+# Y, it only guarantees Z". Chữa: nói ai/cái gì thật sự làm việc đó, hoặc
+# đổi sang động từ hợp với vật ("luật này không trả lời", "chỉ chặn").
+(luật|công thức|kiến trúc|cơ chế|thuật toán)[^.]{0,25}(hứa|cam kết|đảm bảo)
+(không|chỉ) hứa (rằng|là)
+
+# --- Calque cho chuyện train hỏng ---
+# "nổ" là dịch sát "blow up". Tiếng Việt nói train đổ, train hỏng giữa chừng.
+(khỏi|bị|làm) nổ
+nổ giữa chừng
+
+# --- Số kỹ thuật viết bằng chữ ---
+# Số là thông số (số tầng, số token, số entry) thì viết bằng chữ số, để nó
+# khớp với chỗ khác trong bài. Số kể chuyện (năm trăm bước, ba trăm file)
+# thì viết bằng chữ được.
+(sáu mươi mốt|một trăm hai mươi tám|một nghìn không trăm hai mươi tư) (tầng|token|entry|chữ)
