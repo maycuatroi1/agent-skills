@@ -83,3 +83,14 @@ không nằm ở .{1,30}, (nó )?nằm ở
 phép tính dấu phẩy động
 sổ ghi nhớ
 ghi chú \(KV entry\)
+thuật toán học
+đường cộng dồn
+bộ tối ưu
+hàm mất mát
+lan truyền ngược
+điểm kiểm tra
+#
+# Ranh giới: chỉ trả về tiếng Anh khi thuật ngữ đó đã có sẵn tên tiếng Anh
+# mà người đọc dùng hằng ngày. Giữ tên Việt khi (a) đó là tên riêng tác giả
+# vừa đặt ra và chưa ngôn ngữ nào có sẵn, (b) chữ Việt còn gánh việc ở đoạn
+# sau, (c) tiếng Việt vốn đã có thuật ngữ chuẩn cho nó (cửa sổ trượt).
