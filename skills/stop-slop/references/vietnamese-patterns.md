@@ -275,6 +275,38 @@ tốt cục bộ, xếp theo khuôn tu từ. Người viết có trong đầu m�
 bớt theo thứ người đó cần ngay lúc đó. Trước khi sửa một đoạn, hỏi: người đọc vừa đi qua cái gì, và
 bây giờ họ cần gì?
 
+## 15. Đếm đơn vị văn bản để lấy khí thế
+
+Đếm câu, đếm dòng, đếm chữ trong nguồn để câu văn nghe như một phát hiện, trong khi con số đó chẳng
+đổi kết luận nào.
+
+| Tránh | Sửa |
+|---|---|
+| "họ mô tả hệ quả bằng đúng một câu ở trang 13:" | "họ mô tả hệ quả ở trang 13:" |
+| "Cả đoạn vừa rồi gói lại vừa đúng một dòng:" | bỏ, để công thức tự đứng |
+| "Cả thay đổi nằm gọn ở chỗ X:" | "X:" |
+| "Trang 7 có hẳn một mục ngắn liệt kê Y" | "Trang 7 liệt kê Y" |
+| "chỉ vỏn vẹn ba dòng nói về Z" | "ba dòng nói về Z", nếu số dòng có ý nghĩa; không thì bỏ |
+
+**Phép thử duy nhất: bỏ con số đi thì người đọc có kết luận khác không?**
+
+Không đổi thì cắt. "Mô tả bằng đúng một câu" hay bằng ba câu thì trích dẫn vẫn là trích dẫn đó, con số
+chỉ để câu văn oai lên.
+
+Đổi thì giữ, vì lúc đó con số chính là lập luận:
+
+- "Câu này chỉ xuất hiện đúng một lần trong cả 58 trang" - giữ. Sự hiếm chính là điều đang chứng minh.
+- "Báo cáo nói đúng hai điều về cách xếp tầng" - giữ. Tính vét cạn chính là điều đang chứng minh, và
+  ngay sau đó bài nói họ không công bố gì thêm.
+- "Họ dùng đúng chữ xen kẽ rồi dừng" - giữ. Việc họ dừng ở đúng chữ đó là bằng chứng.
+
+**Vì sao máy đẻ ra nó:** máy đọc nguồn rồi muốn khoe là đã đọc kỹ. Đếm đơn vị văn bản là cách rẻ nhất
+để nghe có vẻ đã đối chiếu tận nơi. Người đọc không cần biết mình đọc kỹ tới đâu, họ cần biết trong đó
+viết gì.
+
+**Họ hàng gần:** "hẳn", "tận", "vỏn vẹn", "duy nhất" gắn vào một con số vốn đã tự nói được. Bỏ trạng
+từ, giữ con số.
+
 ## Quick check (Vietnamese-specific)
 
 Trước khi ship prose tiếng Việt, chạy qua checklist:
@@ -294,6 +326,7 @@ Trước khi ship prose tiếng Việt, chạy qua checklist:
 - [ ] Sau công thức / bảng số / đoạn định nghĩa dày có nhịp nghỉ nào không? -> thêm một câu không mang thông tin
 - [ ] Thuật ngữ có bị dịch sang Việt quá tay không (chú ý, phép tính dấu phẩy động)? -> trả về chữ người đọc thật dùng
 - [ ] Đếm số mục kết bằng câu chốt có nhịp: trên một nửa? -> để vài mục kết phẳng
+- [ ] Có đếm câu/dòng/chữ trong nguồn ("bằng đúng một câu", "gói lại vừa đúng một dòng")? -> bỏ con số đi, kết luận có đổi không; không đổi thì cắt
 
 ## Relation voi English patterns
 

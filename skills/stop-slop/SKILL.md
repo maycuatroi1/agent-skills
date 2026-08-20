@@ -1,7 +1,7 @@
 ---
 name: stop-slop
 description: This skill should be used when the user asks to "remove AI tells", "make this sound human", "de-slop this", "bỏ giọng AI", "viết cho tự nhiên", "sửa văn phong AI", "edit this draft", "review my writing", or is drafting/editing/reviewing English or Vietnamese prose (blog posts, essays, docs, READMEs, release notes, emails, landing copy) that must not read as machine-written. Supplies the banned-phrase list, the structural clichés to avoid, before/after rewrites, Vietnamese-specific AI tells (calque, binary contrast, signpost, slogan, usher sentences, over-translated terms, uniform density), and a 5-dimension score to decide whether a draft ships or gets revised.
-version: 0.3.0
+version: 0.3.1
 ---
 
 # stop-slop
@@ -76,7 +76,14 @@ Terse machine-facing text is not slop.
     translating the phrase back to English lands on a familiar idiom, it is a calque; if it was English
     to begin with, leave it. See section 13.
 
-14. **Uneven beats even.** The rules above are symptoms; the disease is uniformity. Every paragraph
+14. **Never count source text units for effect.** "in exactly one sentence on page 13", "the whole
+    paragraph collapses to one line", "a mere three lines on this". Test: delete the number. If the
+    reader's conclusion is unchanged, cut it - the count was there to sound diligent, not to argue.
+    Keep it only when rarity or exhaustiveness IS the argument ("this appears once in 58 pages"). Same
+    for "hẳn", "tận", "vỏn vẹn", "a mere", "no fewer than" glued to a number that already speaks. See
+    section 15.
+
+15. **Uneven beats even.** The rules above are symptoms; the disease is uniformity. Every paragraph
     pulling its weight, every section landing on a constructed beat, every block introduced. Real
     writing is lumpy, because a real mind gets excited and then gets tired. Accept that the right edit
     is sometimes the WORSE sentence: cutting the fifth instance of a rhetorical move beats keeping a
@@ -103,6 +110,7 @@ Run this pass before delivering prose:
 - Does the piece narrate itself ("this post", "from here on")? Name the subject instead.
 - Any formula/table/dense definition with no beat after it? Add one zero-information sentence.
 - Count sections ending on a shaped punchline. Over half? Let some end flat.
+- Counting sentences or lines in a source ("in exactly one sentence")? Delete the number; if nothing changes, leave it deleted.
 
 Vietnamese-specific (see [references/vietnamese-patterns.md](references/vietnamese-patterns.md) quick
 check section for the full list):
