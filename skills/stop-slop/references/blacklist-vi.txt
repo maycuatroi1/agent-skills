@@ -63,6 +63,11 @@ mình bịa ra
 # Dương tính giả: "hai dòng này" khi đang trỏ vào dòng của một bảng thật.
 [Dd]òng (này|trên|đó) là
 [CcĐđ](âu|oạn) (này|trên) là (cách )?mình
+#
+# Trỏ vào mục của chính bài cũng vậy: "hai đại lượng ở mục ba" -> gọi thẳng
+# "phép tính và bộ nhớ". Gọi được tên thì số mục thành thừa. Nếu vẫn cần số
+# mục thì viết bằng chữ số: "mục 3", không phải "mục ba".
+(ở |tại )?(mục|phần|chương) (một|hai|ba|bốn|năm|sáu|bảy|tám|chín)
 
 # --- Calque ẩn dụ tiếng Anh (section 4) ---
 # Dịch ngược sang tiếng Anh mà trúng idiom quen thì là calque.
@@ -94,6 +99,7 @@ thuật toán học
 đường cộng dồn
 bộ tối ưu
 hàm mất mát
+đại lượng
 lan truyền ngược
 điểm kiểm tra
 cú ngắt
