@@ -56,6 +56,13 @@ cả bài (chỉ|đều)
 mấy mục (dưới đây|sau)
 mình (sẽ )?(dừng ở đó|nhắc lại|bỏ qua|khai ngay)
 mình bịa ra
+#
+# Trỏ vào chính chữ vừa viết cũng là bài tự kể về chính nó, chỉ nhỏ hơn.
+# "Dòng này là cách mình viết lại cho gọn" -> "công thức trên là mình tự viết
+# lại". Gọi tên thứ đang nói, đừng gọi vị trí của nó trên trang.
+# Dương tính giả: "hai dòng này" khi đang trỏ vào dòng của một bảng thật.
+[Dd]òng (này|trên|đó) là
+[CcĐđ](âu|oạn) (này|trên) là (cách )?mình
 
 # --- Calque ẩn dụ tiếng Anh (section 4) ---
 # Dịch ngược sang tiếng Anh mà trúng idiom quen thì là calque.
@@ -89,6 +96,7 @@ bộ tối ưu
 hàm mất mát
 lan truyền ngược
 điểm kiểm tra
+cú ngắt
 #
 # Ranh giới: chỉ trả về tiếng Anh khi thuật ngữ đó đã có sẵn tên tiếng Anh
 # mà người đọc dùng hằng ngày. Giữ tên Việt khi (a) đó là tên riêng tác giả
@@ -114,3 +122,37 @@ train (khỏi |bị )?đổ($| [^g])
 # khớp với chỗ khác trong bài. Số kể chuyện (năm trăm bước, ba trăm file)
 # thì viết bằng chữ được.
 (sáu mươi mốt|một trăm hai mươi tám|một nghìn không trăm hai mươi tư) (tầng|token|entry|chữ)
+
+# --- Đánh giá hộ người đọc trước khi đưa bằng chứng ---
+# "đơn giản tới mức khó chịu" dịch sát "disturbingly simple". Nhưng nặng hơn
+# cái calque là cái thứ tự: chốt cảm xúc cho người đọc trước khi đưa thứ để
+# mà cảm. Cơ chế đơn giản thật thì kể ra là người đọc tự thấy, khỏi báo trước.
+# Chữa: bỏ câu đánh giá, vào thẳng.
+(đơn giản|rõ ràng|hiển nhiên|kỳ lạ|lạ lùng|tệ|hay) (tới|đến) mức
+(tới|đến) mức (khó chịu|khó tin|đáng sợ|buồn cười|nực cười|kinh ngạc)
+(thú vị|đáng chú ý|đáng kinh ngạc|trớ trêu|hài hước|mỉa mai) (là|thay|ở chỗ)
+#
+# Cùng bệnh, dạng "chuẩn bị tinh thần đi, sắp có thứ hay": khen độ đáng xem
+# của con số trước khi đưa con số. Chữa: đưa luôn, người đọc tự xếp hạng.
+# Dương tính giả: "entry nào đáng đọc" khi bài đang nói attention chọn entry.
+(rất )?dễ (bị )?(lướt qua|bỏ qua|bỏ sót)
+đáng (nhìn|kể|xem|đọc|chú ý) nhất (nằm|là ở|thuộc)
+ít ai để ý
+nếu chỉ nhìn (qua|lướt)
+(và |mà )?chúng đọc ngược
+#
+# Câu mở đầu chỉ để báo rằng sắp giải thích cơ chế. Dương tính giả khi câu
+# đó thật sự phân biệt cơ chế với thứ khác đang bàn.
+[Cc]ơ chế của nó
+
+# --- Punchline ba vế dán vào cuối đoạn ---
+# "Cùng một phòng thí nghiệm, cùng một bộ đề, cách nhau đúng một đời." dán sau
+# ba con số. Nó không thêm dữ kiện nào, chỉ để đoạn văn tiếp đất kêu một tiếng.
+# Nhịp ba vế là nhịp tiếng Anh. Chữa: bỏ hẳn, để đoạn kết thúc ở con số.
+^(Cùng|Một|Không) [^.,]{2,25}, (cùng|một|không) [^.,]{2,25}, .{2,40}\.$
+
+# --- Bảng biết nói, và bảng số là biển số xe ---
+# "Bảng số nói gì" hỏng hai lần: bảng không nói, và "bảng số" trong tiếng Việt
+# là biển số xe. Gọi đúng tên: bảng điểm, bảng kết quả, bảng so sánh.
+bảng số
+(bảng|biểu đồ|số liệu|dữ liệu|con số) (này |đó )?nói (gì|lên|rằng)
