@@ -90,6 +90,41 @@ Terse machine-facing text is not slop.
     good line that completes a predictable pattern. Count sections ending on a shaped punchline; over
     half is broken. See section 14.
 
+16. **Never hand the reader the verdict before the evidence.** "The mechanism is almost annoyingly
+    simple.", "There is one line that is easy to skim past.", "The two most interesting rows read the
+    opposite of what you would guess." Each announces how to feel about a thing not yet shown. This is
+    NOT rule 11: an usher organizes ("here is how it works"), a verdict distrusts ("this is going to
+    surprise you"). The material either lands or it does not, and saying so first cannot help it.
+    Test: does this sentence contain a fact, or a rating of a fact? Ratings go. See section 16.
+
+17. **Interrogate the motive, not just the shape.** Every rule above can be gamed by a model that
+    matches templates and misses the one it has not seen. The generative question is: did I write this
+    sentence because the content needed it, or because the paragraph felt unfinished without it? The
+    honest answer for most slop is the second. Three numbers ending a paragraph feel bare, so a
+    three-clause chime gets glued on ("Same lab, same benchmark, one generation apart") that repeats
+    what the numbers already said. Nothing in the sentence is false; nothing in it is new either. Let
+    the paragraph end bare. Discomfort with a flat ending is the writer's problem, not the reader's.
+    See section 17.
+
+18. **When unsure how it is really said, search for it. Do not guess.** Every rule above is a list of
+    what to avoid; this is the one positive check, and it is stronger, because it finds the tells no
+    list has caught yet. Before coining a term, translating one, or shipping a phrase that might be a
+    calque, run a web search and read what actual writers wrote. Three query forms, each answering a
+    different question, all verified 21/08/2026:
+
+    - `"the exact phrase"` in quotes - **does this collocation exist at all?** Searching
+      `"đơn giản tới mức khó chịu"` returned zero pages using it as a unit; every hit matched the
+      component words separately (irritability as a medical condition, simplicity as a lifestyle).
+      That decomposition IS the signal: the phrase was invented in translation.
+    - `<word> nghĩa là gì` - **does the word mean what I think?** `"bảng số" nghĩa là gì` came back
+      as a vehicle licence plate, with the table-of-numbers sense secondary. Collision found.
+    - the concept phrased **entirely in the target language, no English mixed in** - what do people
+      call this thing? Mixing English technical terms into the query returns topic noise instead of
+      usage evidence; that query form failed on the first try and had to be rewritten.
+
+    Read the results for usage, not for answers. The summary paragraph a search engine writes is
+    itself machine prose. What counts is whether real pages use the phrase as a unit. See section 18.
+
 ## Quick checks
 
 Run this pass before delivering prose:
@@ -111,6 +146,8 @@ Run this pass before delivering prose:
 - Any formula/table/dense definition with no beat after it? Add one zero-information sentence.
 - Count sections ending on a shaped punchline. Over half? Let some end flat.
 - Counting sentences or lines in a source ("in exactly one sentence")? Delete the number; if nothing changes, leave it deleted.
+- Any sentence rating a fact instead of stating one ("surprisingly simple", "easy to miss")? Cut the rating, show the fact.
+- For each sentence you would fight to keep: did the content need it, or did the paragraph feel unfinished? Cut the second kind.
 
 Vietnamese-specific (see [references/vietnamese-patterns.md](references/vietnamese-patterns.md) quick
 check section for the full list):
@@ -124,10 +161,20 @@ check section for the full list):
 - Any "X là thứ duy nhất Y, và cũng Z nhất" thesis formula? Split into two sentences.
 - Read aloud: does it sound like Vietnamese a person speaks, or like translated text? Rewrite the
   translated parts.
+- Not sure whether a phrase is real Vietnamese? Do not guess and do not ask the user. Search the
+  exact phrase in quotes. No page using it as a unit means you invented it.
 - Any technical term translated past what the reader says out loud ("chú ý" for attention, "phép tính
   dấu phẩy động" for FLOPs)? Put the working term back.
 - Replaced a term in bulk? Re-check every hit by grammatical role. "sự attention", "đáng attention",
   "đã attention vào đâu" are broken Vietnamese a find-replace leaves behind.
+- Coined a folksy Vietnamese term where standard Vietnamese already has one ("cú ngắt" for "gián
+  đoạn")? Use the standard one. Inventing is over-translation too.
+- Reached for textbook register ("đại lượng", "yếu tố", "phương diện") where the things have plain
+  names ("phép tính và bộ nhớ")? Name them.
+- Does the Vietnamese word you picked already mean something else? "bảng số" is a licence plate, not
+  a table of numbers. Say the phrase aloud to someone who has not read your draft.
+- Pointing at your own text ("dòng này", "mục ba", "bài này")? Name the thing instead. If you can
+  name it, the location is noise. If a section number is genuinely needed, write "mục 3".
 
 ## Blacklist quét bằng máy (tiếng Việt)
 
@@ -162,7 +209,9 @@ asked for a draft, apply the rules silently and hand over the clean text.
 
 ## Workflow
 
-**Drafting.** Apply the core rules while writing. Do not write slop and then strip it.
+**Drafting.** Apply the core rules while writing. Do not write slop and then strip it. When a phrase
+is uncertain, search it (rule 18) at the moment of doubt rather than shipping it and hoping the review
+pass catches it. The review pass only catches patterns already on a list.
 
 **Editing a draft.** Read [references/phrases.md](references/phrases.md) and
 [references/structures.md](references/structures.md) first, then rewrite. For Vietnamese prose, also

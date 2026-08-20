@@ -243,6 +243,21 @@ nó làm câu văn **lạ hơn**, vì chưa ai từng nói từ đó ra miệng.
 "chú ý" đang là từ tiếng Việt bình thường. "sự attention", "chẳng có gì đáng attention", "nó đã
 attention vào đâu" đều không đọc được. Thay xong phải rà lại từng chỗ theo vai trò ngữ pháp.
 
+**Ba dạng dịch quá tay khác, bắt được ở vòng sửa 21/08/2026:**
+
+*Tự đặt tên dân dã trong khi tiếng Việt đã có sẵn từ chuẩn.* "cú ngắt" cho *interruption*, trong khi
+"gián đoạn" tồn tại sẵn. Đây vẫn là dịch quá tay dù nghe có vẻ Việt hơn: bịa ra một chữ mới cũng là
+một dạng từ chối chữ mà người đọc đang dùng. Ranh giới: chỉ tự đặt tên khi thứ đó **chưa ngôn ngữ nào
+có tên**, ví dụ khi tác giả paper vừa nghĩ ra cơ chế mới.
+
+*Với lên giọng sách giáo khoa.* "hai đại lượng" cho hai thứ vốn có tên trần là **phép tính** và **bộ
+nhớ**. "đại lượng", "yếu tố", "phương diện", "khía cạnh" là chữ của sách vật lý, không phải chữ của
+người đang kể chuyện. Gọi tên thật thì câu ngắn hơn và người đọc khỏi phải lật lại.
+
+*Chữ Việt chọn ra lại mang nghĩa khác.* "bảng số" cho *the numbers table*, mà "bảng số" trong tiếng
+Việt là **biển số xe**. Đây là cái bẫy grep không bắt được và chỉ lộ khi đọc thành tiếng cho một người
+chưa xem bản nháp. Gọi đúng: bảng điểm, bảng kết quả, bảng so sánh.
+
 ## 14. Đều tay (dấu vết bao trùm)
 
 Ba pattern trên chỉ là triệu chứng. Bệnh là: văn máy **đều tay**.
@@ -386,3 +401,82 @@ thừa.
 > Có một động lực mà chính người trong cuộc nói ra. Nó cũng là động lực yếu nhất nếu xét về kinh tế.
 
 **Thay đổi:** tách "X là thứ duy nhất Y, và cũng Z nhất" thành 2 câu đơn.
+
+## 16. Đánh giá hộ người đọc trước khi đưa bằng chứng
+
+Ba câu Bình bắt tay trong cùng một vòng, cùng một bệnh:
+
+| Viết ra | Bệnh |
+|---|---|
+| Cơ chế của nó **đơn giản tới mức khó chịu**. | chốt cảm xúc trước khi kể cơ chế |
+| **Có một dòng rất dễ bị lướt qua.** | khen độ đáng xem trước khi đưa con số |
+| Hai dòng **đáng nhìn nhất**... và chúng **đọc ngược với cái mình đoán trước**. | vừa xếp hạng vừa chốt phản ứng |
+
+**Đây không phải section 11.** Câu dẫn thừa là câu *sắp xếp*: nó bảo người đọc sắp tới phần nào. Câu
+đánh giá là câu *thiếu tin tưởng*: nó sợ tư liệu tự nó không đủ sức, nên dán sẵn phản ứng lên trước.
+Cách chữa trùng nhau (xoá), nhưng nhận ra thì khác nhau.
+
+**Phép thử:** câu này chứa một dữ kiện, hay chứa một điểm số chấm cho dữ kiện? Điểm số thì bỏ.
+
+**Vì sao nó vô dụng:** cơ chế đơn giản thật thì kể ra là người đọc tự thấy đơn giản. Cơ chế không đơn
+giản thì câu báo trước cũng chả làm nó đơn giản được. Không có tình huống nào câu đó có ích.
+
+**Chữa:** bỏ câu, vào thẳng. Sau khi bỏ cả ba câu trên, mục đó vào thẳng LongBench rồi thẳng MRCR, và
+không mất một dữ kiện nào.
+
+## 17. Hỏi động cơ, đừng chỉ soi hình dạng
+
+Mọi section phía trên đều là **hình dạng**, và hình dạng thì đối phó được: mô hình học thuộc mười lăm
+khuôn rồi né đúng mười lăm khuôn đó, còn khuôn thứ mười sáu vẫn viết ra như thường. Câu hỏi sinh ra
+được luật mới, thay vì tra luật cũ, là câu hỏi về động cơ:
+
+> Mình viết câu này vì **nội dung cần nó**, hay vì **đoạn văn thấy chưa xong nếu thiếu nó**?
+
+Với phần lớn slop, câu trả lời thành thật là vế sau.
+
+**Ca cụ thể.** Đoạn văn kết ở ba con số 40,2 / 44,7 / 51,5. Ba con số đứng trơ thì đoạn tiếp đất không
+kêu, nên nó bị dán thêm:
+
+> Cùng một phòng thí nghiệm, cùng một bộ đề, cách nhau đúng một đời.
+
+Không vế nào trong ba vế đó sai. Cũng không vế nào mới: cùng phòng thí nghiệm thì đã nói ở đầu đoạn,
+cùng bộ đề thì vừa nêu tên, cách nhau một đời thì chính ba con số đang nói. Câu này tồn tại thuần tuý
+để **đoạn văn kết thúc bằng một tiếng kêu**. Cộng thêm nhịp ba vế là nhịp tiếng Anh, và "đúng một đời"
+là đếm để lấy khí thế (section 15). Ba lỗi trong một câu, một động cơ duy nhất.
+
+**Luật:** để đoạn văn kết thúc trơ. Khó chịu với một cái kết phẳng là vấn đề của người viết, không
+phải vấn đề của người đọc.
+
+**Cách dùng khi tự soát:** đi qua từng câu mà mình sẽ tiếc nếu phải bỏ. Với mỗi câu, hỏi đúng câu hỏi
+trên. Câu nào tiếc vì nó hay chứ không phải vì thiếu nó thì hụt nghĩa, câu đó đi.
+
+## 18. Nghi thì tra, đừng đoán
+
+Mười bảy section trên đều là **danh sách những thứ phải tránh**, và danh sách thì luôn thiếu: khuôn
+thứ mười tám vẫn viết ra như thường vì chưa ai ghi nó vào. Section này là phép kiểm **thuận** duy nhất
+trong cả skill, và nó mạnh hơn, vì nó không cần biết trước lỗi là gì. Ý này của Bình, 21/08/2026.
+
+**Khi nào tra:** sắp tự đặt một chữ mới, sắp dịch một thuật ngữ, hoặc viết ra một cụm mà không chắc
+người Việt có nói thế không. Tra ngay lúc nghi, đừng ship rồi trông vào vòng soát, vì vòng soát chỉ
+bắt được thứ đã nằm trong danh sách.
+
+**Ba dạng truy vấn, mỗi dạng trả lời một câu hỏi khác nhau. Đã thử thật ngày 21/08/2026:**
+
+| Truy vấn | Hỏi gì | Kết quả thật |
+|---|---|---|
+| `"đơn giản tới mức khó chịu"` (trong ngoặc kép) | cụm này có tồn tại không | **0 trang** dùng nó như một cụm. Mọi kết quả khớp rời từng chữ: khó chịu như một triệu chứng y tế, đơn giản như một lối sống |
+| `"bảng số" nghĩa là gì` | chữ này có mang nghĩa mình tưởng không | trả về **biển số xe**. Nghĩa bảng chứa số chỉ là nghĩa phụ |
+| khái niệm diễn đạt **thuần tiếng Việt** | người ta gọi thứ này là gì | tuỳ câu hỏi |
+
+**Cách đọc kết quả.** Dấu hiệu quan trọng nhất không phải số lượng kết quả mà là **kết quả có rã cụm
+ra không**. Tra `"đơn giản tới mức khó chịu"` mà máy tìm trả về toàn trang nói về chứng cáu gắt và về
+lối sống tối giản, tức là nó không tìm thấy cụm nên phải khớp lẻ từng chữ. Chính sự rã đó là bằng
+chứng cụm này do dịch mà sinh ra.
+
+**Dạng truy vấn hỏng.** Trộn thuật ngữ tiếng Anh vào câu hỏi tiếng Việt thì ra nhiễu chủ đề chứ không
+ra bằng chứng dùng từ. Lần thử đầu với `"gián đoạn" huấn luyện mô hình bị ngắt giữa chừng preemption`
+trả về huấn luyện quân nhân dự bị và nghệ thuật sinh tồn. Hỏi lại bằng một thứ tiếng.
+
+**Đọc để lấy cách dùng, không phải lấy câu trả lời.** Đoạn tóm tắt mà máy tìm tự viết ra cũng là văn
+máy, cũng mắc đúng các bệnh trong tài liệu này. Thứ đáng tin là các trang thật có dùng cụm đó như một
+đơn vị hay không.
