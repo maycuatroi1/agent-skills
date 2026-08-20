@@ -1,7 +1,7 @@
 ---
 name: stop-slop
-description: This skill should be used when the user asks to "remove AI tells", "make this sound human", "de-slop this", "bỏ giọng AI", "viết cho tự nhiên", "sửa văn phong AI", "edit this draft", "review my writing", or is drafting/editing/reviewing English or Vietnamese prose (blog posts, essays, docs, READMEs, release notes, emails, landing copy) that must not read as machine-written. Supplies the banned-phrase list, the structural clichés to avoid, before/after rewrites, Vietnamese-specific AI tells (calque, binary contrast, signpost, slogan), and a 5-dimension score to decide whether a draft ships or gets revised.
-version: 0.2.0
+description: This skill should be used when the user asks to "remove AI tells", "make this sound human", "de-slop this", "bỏ giọng AI", "viết cho tự nhiên", "sửa văn phong AI", "edit this draft", "review my writing", or is drafting/editing/reviewing English or Vietnamese prose (blog posts, essays, docs, READMEs, release notes, emails, landing copy) that must not read as machine-written. Supplies the banned-phrase list, the structural clichés to avoid, before/after rewrites, Vietnamese-specific AI tells (calque, binary contrast, signpost, slogan, usher sentences, over-translated terms, uniform density), and a 5-dimension score to decide whether a draft ships or gets revised.
+version: 0.3.0
 ---
 
 # stop-slop
@@ -56,6 +56,33 @@ Terse machine-facing text is not slop.
     phrasing. The calque table is in [references/vietnamese-patterns.md](references/vietnamese-patterns.md)
     section 4.
 
+11. **Cut usher sentences.** A sentence whose only job is to introduce the next sentence, or to tell
+    the reader how to read it, is the heaviest machine tell. "Here's how it works.", "Put simply, the
+    whole paragraph collapses to one line:", "The rest of this section covers X". Delete it and check
+    the following paragraph still reads. It almost always does. Same for the piece narrating itself:
+    "this post", "from here to the end", "I'll come back to this throughout". See
+    [references/vietnamese-patterns.md](references/vietnamese-patterns.md) section 11.
+
+12. **Leave a beat after the hard part.** Machine prose runs at 100 percent information density, every
+    sentence advancing. That unrelenting forward pressure is the tell, not the vocabulary. After a
+    formula, a table, or a dense definition, drop one sentence that carries no information and only
+    touches the reader ("Bạn thấy chứ?", "Read that again."). Placement is the point: an usher goes
+    BEFORE the hard block, a beat goes AFTER it. Once or twice per piece, never as a template. See
+    section 12.
+
+13. **Vietnamese: do not over-translate technical terms.** Rule 10 applied too hard becomes its own
+    error. Kill calqued metaphors and idioms; keep technical nouns the reader already says out loud.
+    "attention" beats "chú ý", "RAM" beats "ngốn máy", "context length" beats "chiều dài". Test: if
+    translating the phrase back to English lands on a familiar idiom, it is a calque; if it was English
+    to begin with, leave it. See section 13.
+
+14. **Uneven beats even.** The rules above are symptoms; the disease is uniformity. Every paragraph
+    pulling its weight, every section landing on a constructed beat, every block introduced. Real
+    writing is lumpy, because a real mind gets excited and then gets tired. Accept that the right edit
+    is sometimes the WORSE sentence: cutting the fifth instance of a rhetorical move beats keeping a
+    good line that completes a predictable pattern. Count sections ending on a shaped punchline; over
+    half is broken. See section 14.
+
 ## Quick checks
 
 Run this pass before delivering prose:
@@ -72,6 +99,10 @@ Run this pass before delivering prose:
 - Vague declarative ("The implications are significant")? Name the specific implication.
 - Narrator-from-a-distance ("Nobody designed this")? Put the reader in the scene.
 - Meta-joiners ("The rest of this essay...")? Delete. Let the essay move.
+- Any sentence that only introduces the next one? Delete it and re-read. It almost always survives.
+- Does the piece narrate itself ("this post", "from here on")? Name the subject instead.
+- Any formula/table/dense definition with no beat after it? Add one zero-information sentence.
+- Count sections ending on a shaped punchline. Over half? Let some end flat.
 
 Vietnamese-specific (see [references/vietnamese-patterns.md](references/vietnamese-patterns.md) quick
 check section for the full list):
@@ -85,6 +116,10 @@ check section for the full list):
 - Any "X là thứ duy nhất Y, và cũng Z nhất" thesis formula? Split into two sentences.
 - Read aloud: does it sound like Vietnamese a person speaks, or like translated text? Rewrite the
   translated parts.
+- Any technical term translated past what the reader says out loud ("chú ý" for attention, "phép tính
+  dấu phẩy động" for FLOPs)? Put the working term back.
+- Replaced a term in bulk? Re-check every hit by grammatical role. "sự attention", "đáng attention",
+  "đã attention vào đâu" are broken Vietnamese a find-replace leaves behind.
 
 ## Scoring
 
@@ -96,9 +131,10 @@ Rate 1-10 on each dimension:
 | Rhythm | Varied or metronomic? |
 | Trust | Respects reader intelligence? |
 | Authenticity | Sounds human? |
-| Density | Anything cuttable? |
+| Density | Anything cuttable? Anywhere running at 100 percent with no beat? |
+| Evenness | Do all sections land the same shape? Uniform is worse than lumpy. |
 
-Below 35/50: revise and re-score. Report the score only when the user asked for a review; when they
+Below 42/60: revise and re-score. Report the score only when the user asked for a review; when they
 asked for a draft, apply the rules silently and hand over the clean text.
 
 ## Workflow

@@ -163,6 +163,118 @@ Một metaphor hoặc cấu trúc lặp 2+ lần trong cùng bài, gần nhau:
 **Thử nghe:** sau khi viết xong, grep lại các pattern hay dùng. Nếu một pattern xuất hiện 2+ lần gần
 nhau, viết lại.
 
+## 11. Câu dẫn thừa (câu chỉ để giới thiệu câu sau)
+
+Dấu vết máy nặng nhất, và khó tự thấy nhất vì từng câu đều đúng ngữ pháp và nghe có vẻ chu đáo. Đây
+là câu mà nhiệm vụ duy nhất của nó là báo trước cái sắp tới, hoặc dặn người đọc phải đọc cái đó như
+thế nào.
+
+| Câu dẫn thừa | Sửa |
+|---|---|
+| "Kể bằng lời thì nó thế này." | "Nôm na là:" hoặc bỏ hẳn |
+| "Cả đoạn vừa rồi gói lại vừa đúng một dòng:" | bỏ, để công thức tự đứng |
+| "Hai đoạn trên là hai hình dạng, và cả bài chỉ xoay quanh chúng:" | "Nó là như này:" |
+| "Ngành đo nó bằng FLOPs, nhưng đơn vị không đáng nhớ bằng hình dạng:" | bỏ, vào thẳng hình dạng |
+| "Với cách kể ở đây thì bạn cứ hiểu..." | "Ở đây thì bạn cứ hiểu..." |
+| "Có một chỗ mình phải khai ngay chứ không để xuống cuối bài: X" | "Nhưng X" |
+| "## Hai đại lượng, và chỉ hai" | "## Hai đại lượng" |
+
+**Vì sao máy đẻ ra nó:** máy bắt mỗi đoạn phải tự bào chữa cho sự có mặt của nó, nên khối nào cũng
+được dẫn vào. Đó là phản xạ viết tài liệu (spec, RFC, báo cáo), không phải phản xạ nói với một người.
+Người viết thật kéo màn lên rồi để thứ đó tự diễn.
+
+**Thử nghe:** xoá câu đó đi. Nếu đoạn sau vẫn đọc được, câu đó là câu dẫn thừa. Gần như luôn luôn vẫn
+đọc được.
+
+**Họ hàng gần:** bài tự kể về chính nó. "bài này", "từ đây tới cuối bài", "mình sẽ nhắc lại chúng suốt
+bài", "mấy mục dưới đây". Thay bằng tên của thứ đang nói ("mọi mẹo trong V4"), hoặc bỏ.
+
+## 12. Thiếu nhịp nghỉ (mọi câu đều mang thông tin)
+
+Văn máy có mật độ thông tin 100 phần trăm. Câu nào cũng đẩy bài đi tới. Chính cái sức đẩy đều tăm tắp
+đó là dấu vết, chứ không phải từ vựng.
+
+Người viết thật thỉnh thoảng chèn một câu **không mang thông tin nào**, chỉ để chạm vào người đọc:
+
+> $$\mathrm{Attention}(Q,K,V) = \mathrm{softmax}(QK^\top/\sqrt{d_k})V$$
+>
+> $Q$ là câu hỏi của token đang xét, $K$ là..., softmax..., $\sqrt{d_k}$...
+>
+> **Bạn thấy chứ?**
+>
+> Chỗ mạnh nằm ở chữ "mọi".
+
+"Bạn thấy chứ?" đứng riêng một dòng, không thêm một chữ kiến thức nào. Nó làm việc mà văn máy không
+bao giờ làm: dừng lại.
+
+**Chỗ đặt mới là điểm mấu chốt.** Câu dẫn của máy nằm TRƯỚC khối khó (giới thiệu). Nhịp nghỉ của người
+nằm SAU khối khó (hồi sức), đúng chỗ mắt người đọc vừa mờ đi vì một công thức, một bảng số, một đoạn
+định nghĩa dày. Câu dẫn phục vụ cấu trúc bài. Nhịp nghỉ phục vụ người đang đọc.
+
+Vài dạng dùng được: "Bạn thấy chứ?", "Đọc lại một lần nữa đi.", "Chỗ này hơi lằng nhằng.", "Tới đây
+thì tạm đủ."
+
+**Đừng biến nó thành khuôn.** Một hoặc hai lần trong cả bài. Ba lần trở lên là lại thành pattern.
+
+## 13. Dịch thuật ngữ quá tay
+
+Chống calque (section 4) áp quá tay sẽ thành lỗi ngược: dịch mọi thuật ngữ sang tiếng Việt. Từ vựng
+làm việc thật của một dev Việt vốn đã nửa Anh nửa Việt. Dịch hết sang Việt không làm câu văn Việt hơn,
+nó làm câu văn **lạ hơn**, vì chưa ai từng nói từ đó ra miệng.
+
+| Dịch quá tay | Người đọc thật dùng |
+|---|---|
+| chú ý (attention) | attention |
+| chú ý nén thưa | attention nén thưa |
+| ngốn máy | ngốn RAM, ngốn VRAM |
+| phình lên cùng chiều dài | phình theo context length |
+| phép tính dấu phẩy động (FLOPs) | FLOPs, hoặc bỏ luôn đơn vị |
+
+**Ranh giới giữa section 4 và section 13:**
+
+- Calque cần diệt là **ẩn dụ và thành ngữ** dịch sát: "đóng đinh dữ kiện", "cái giá phải trả", "chỗ
+  đắt", "vá lỗi". Dịch ngược ra tiếng Anh mà trúng một idiom quen thì đó là calque.
+- Thuật ngữ cần giữ nguyên là **danh từ kỹ thuật đã vào từ vựng người đọc**: attention, token, cache,
+  context length, RAM, checkpoint. Dịch ngược ra tiếng Anh thì nó vốn là tiếng Anh.
+
+**Thử nghe:** người đọc mục tiêu nói chuyện với đồng nghiệp thì dùng chữ nào? Dùng chữ đó.
+
+**Cảnh báo khi thay hàng loạt:** đổi "chú ý" thành "attention" bằng find-replace sẽ gãy đúng những chỗ
+"chú ý" đang là từ tiếng Việt bình thường. "sự attention", "chẳng có gì đáng attention", "nó đã
+attention vào đâu" đều không đọc được. Thay xong phải rà lại từng chỗ theo vai trò ngữ pháp.
+
+## 14. Đều tay (dấu vết bao trùm)
+
+Ba pattern trên chỉ là triệu chứng. Bệnh là: văn máy **đều tay**.
+
+Đoạn nào cũng gánh việc. Mục nào cũng có câu chốt. Khối nào cũng có câu dẫn vào. Mật độ đều, hình
+dạng đều, chất lượng đều.
+
+Người viết thì gồ ghề. Có chỗ hào hứng viết được ba câu hay, có chỗ mệt rồi thì viết một câu phẳng lì
+rồi đi tiếp. Chính cái gồ ghề đó là dấu vân tay của một cái đầu có mặt thật và có sức lực hữu hạn.
+
+**Hệ quả ngược đời, nhưng phải chấp nhận:** đôi khi câu sửa đúng lại là câu **dở hơn**.
+
+> **máy viết:** Thứ làm cơ chế này mạnh với thứ làm nó nặng là một, và cả hai cùng ra đời trong một
+> bài báo.
+> **người sửa thành:** Cơ chế này rất mạnh mẽ nhưng cũng rất cồng kềnh, và đó là lý do ngữ cảnh dài
+> ngốn RAM tới vậy.
+
+Xét riêng từng câu thì câu máy hay hơn: đối vế gọn, có cú lật ở cuối. Câu người thì "rất... rất..."
+nghe yếu. Vẫn phải cắt câu máy, vì lý do nằm ngoài câu đó: máy chốt **mọi** mục bằng một nhịp dựng sẵn
+(đảo vế, hai vế đối nhau, một câu ngắn đặt sau mấy câu dài). Khi cái nhịp ấy đoán trước được, người
+đọc thôi nghe ra một ý hay và bắt đầu nghe ra một cái khuôn đang được đổ đầy.
+
+Không phải cắt một câu dở. Là cắt lần thứ năm của cùng một chiêu.
+
+**Cách đo:** đếm số mục trong bài, đếm số mục kết bằng câu chốt có nhịp. Tỷ lệ trên một nửa là hỏng.
+Chủ động để vài mục kết phẳng, hoặc kết giữa chừng một ý.
+
+**Gốc rễ:** máy không có mô hình về người đọc, máy chỉ có mô hình về văn hay. Nên nó sinh ra những câu
+tốt cục bộ, xếp theo khuôn tu từ. Người viết có trong đầu một người đang đọc lúc 11 giờ đêm, và thêm
+bớt theo thứ người đó cần ngay lúc đó. Trước khi sửa một đoạn, hỏi: người đọc vừa đi qua cái gì, và
+bây giờ họ cần gì?
+
 ## Quick check (Vietnamese-specific)
 
 Trước khi ship prose tiếng Việt, chạy qua checklist:
@@ -177,6 +289,11 @@ Trước khi ship prose tiếng Việt, chạy qua checklist:
 - [ ] Có dấu hai chấm opener cho thesis ("Nó là: **X**")? -> bỏ
 - [ ] Đọc aloud: nghe như người Việt nói, hay nghe như dịch? -> nếu dịch, viết lại
 - [ ] Một pattern/metaphor lặp 2+ lần gần nhau? -> viết lại một
+- [ ] Có câu nào chỉ để giới thiệu câu sau ("Kể bằng lời thì...", "Gói lại thì...")? -> xoá thử, gần như luôn vẫn đọc được
+- [ ] Bài có tự kể về chính nó ("bài này", "từ đây tới cuối bài", "mấy mục dưới đây")? -> thay bằng tên thứ đang nói
+- [ ] Sau công thức / bảng số / đoạn định nghĩa dày có nhịp nghỉ nào không? -> thêm một câu không mang thông tin
+- [ ] Thuật ngữ có bị dịch sang Việt quá tay không (chú ý, phép tính dấu phẩy động)? -> trả về chữ người đọc thật dùng
+- [ ] Đếm số mục kết bằng câu chốt có nhịp: trên một nửa? -> để vài mục kết phẳng
 
 ## Relation voi English patterns
 
