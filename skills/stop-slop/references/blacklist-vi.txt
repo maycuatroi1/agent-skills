@@ -103,9 +103,11 @@ lan truyền ngược
 (không|chỉ) hứa (rằng|là)
 
 # --- Calque cho chuyện train hỏng ---
-# "nổ" là dịch sát "blow up". Tiếng Việt nói train đổ, train hỏng giữa chừng.
+# "nổ" là dịch sát "blow up". Tiếng Việt nói train sụp đổ. Riêng "đổ" một
+# mình thì lửng lơ, phải là "sụp đổ" mới đủ nghĩa.
 (khỏi|bị|làm) nổ
 nổ giữa chừng
+train (khỏi |bị )?đổ($| [^g])
 
 # --- Số kỹ thuật viết bằng chữ ---
 # Số là thông số (số tầng, số token, số entry) thì viết bằng chữ số, để nó
