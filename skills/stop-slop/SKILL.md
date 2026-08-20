@@ -1,7 +1,7 @@
 ---
 name: stop-slop
 description: This skill should be used when the user asks to "remove AI tells", "make this sound human", "de-slop this", "bỏ giọng AI", "viết cho tự nhiên", "sửa văn phong AI", "edit this draft", "review my writing", or is drafting/editing/reviewing English or Vietnamese prose (blog posts, essays, docs, READMEs, release notes, emails, landing copy) that must not read as machine-written. Supplies the banned-phrase list, the structural clichés to avoid, before/after rewrites, Vietnamese-specific AI tells (calque, binary contrast, signpost, slogan, usher sentences, over-translated terms, uniform density), and a 5-dimension score to decide whether a draft ships or gets revised.
-version: 0.3.1
+version: 0.4.0
 ---
 
 # stop-slop
@@ -128,6 +128,21 @@ check section for the full list):
   dấu phẩy động" for FLOPs)? Put the working term back.
 - Replaced a term in bulk? Re-check every hit by grammatical role. "sự attention", "đáng attention",
   "đã attention vào đâu" are broken Vietnamese a find-replace leaves behind.
+
+## Blacklist quét bằng máy (tiếng Việt)
+
+[references/blacklist-vi.txt](references/blacklist-vi.txt) giữ các cụm đã bị bắt tại
+trận, dạng pattern ERE mỗi dòng một cái. Chạy trước khi ship:
+
+```bash
+grep -vE '^[[:space:]]*(#|$)' blacklist-vi.txt | grep -n -i -E -f - bai.mdx
+```
+
+Kết quả là chỗ cần nhìn, không phải chỗ phải sửa. Đọc từng câu rồi mới quyết, vì có
+dương tính giả (ví dụ "phải trả" khi bài đang nói về tiền thật).
+
+Bắt được cụm mới thì thêm vào file đó, kèm chú thích lý do trong nhóm của nó. Không
+ghi lý do thì lần sau lại tưởng là câu hay.
 
 ## Scoring
 

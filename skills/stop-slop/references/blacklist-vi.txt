@@ -1,0 +1,85 @@
+# Blacklist tiếng Việt cho stop-slop
+#
+# Mỗi dòng là một pattern ERE. Dòng bắt đầu bằng # là chú thích.
+# Quét một file:
+#
+#   grep -vE '^\s*(#|$)' blacklist-vi.txt | grep -n -i -E -f - bai.mdx
+#
+# Bình bổ sung dần khi bắt được. Ghi luôn lý do vào chú thích của nhóm,
+# vì không có lý do thì lần sau lại tưởng là câu hay.
+#
+# Kết quả quét là chỗ CẦN NHÌN, không phải chỗ phải sửa. Có dương tính giả:
+# "mình bỏ qua" khi đang khoanh phạm vi thật thì giữ, "phải trả" khi bài nói
+# về tiền thật thì giữ. Đọc câu rồi mới quyết.
+#
+# Bình bổ sung dần khi bắt được. Đo ngày 21/08/2026: hai bài đã publish của
+# omelet.tech ra 4 hit mỗi bài, đều là hit thật.
+
+# --- Diễn sự thẳng thắn thay vì thẳng thắn ---
+# Thay vì nói ra chỗ dở thì thông báo rằng mình sắp nói ra chỗ dở.
+# Chữa: bỏ câu thông báo, nói luôn.
+gọi thẳng (tên|ra)
+phải nói thẳng
+nói cho sòng phẳng
+đừng gói vào chữ
+không né tránh
+thẳng thắn mà nói
+
+# --- Đếm đơn vị văn bản để lấy khí thế (section 15) ---
+# Phép thử: bỏ con số đi thì kết luận có đổi không. Không đổi thì cắt.
+bằng đúng một câu
+(gói lại|viết ra) (thì )?(vừa |chỉ )?đúng (một|hai|ba) (dòng|câu)
+nằm gọn (trong|ở chỗ) một dòng
+có hẳn một (mục|đoạn|câu)
+chỉ vỏn vẹn
+
+# --- Câu dẫn thừa (section 11) ---
+# Câu có nhiệm vụ duy nhất là giới thiệu câu sau.
+# Chữa: xoá thử, đoạn sau gần như luôn vẫn đọc được.
+[KkGg](ể|ói) (bằng lời|lại) thì (nó |luật đó )?(thế|như) này
+[Hh]ình dung thế này
+[Vv]iết bằng lời thì
+[Nn]ói cách khác
+[Tt]óm lại
+[Đđ]iểm (chốt|mấu chốt)
+[Đđ]iều này có nghĩa là
+[Cc]ả (đoạn|phần) (vừa rồi|trên)
+[Gg]iờ tới chỗ
+[Tt]rước khi tới
+
+# --- Bài tự kể về chính nó (section 11) ---
+# Chữa: thay bằng tên thứ đang nói, hoặc xoá.
+bài này
+(từ đây )?(tới|đến) cuối bài
+suốt bài
+cả bài (chỉ|đều)
+mấy mục (dưới đây|sau)
+mình (sẽ )?(dừng ở đó|nhắc lại|bỏ qua|khai ngay)
+mình bịa ra
+
+# --- Calque ẩn dụ tiếng Anh (section 4) ---
+# Dịch ngược sang tiếng Anh mà trúng idiom quen thì là calque.
+chỗ đắt
+(cái giá |thứ )?phải trả
+chừa ra một lỗ
+đóng đinh (một )?(dữ kiện|con số)
+tự sai
+hỏng đúng chỗ
+vá (lỗi|lại)
+
+# --- Dựng nghĩa giả rồi bác (steel-man dựng) ---
+# Bác một cách hiểu mà chưa ai có. Chữa: bỏ, nói thẳng nghĩa đúng.
+ở đây (chả|không) liên quan gì
+không phải chuyện
+đừng hiểu nhầm (là|rằng)
+
+# --- Binary contrast dịch sát (section 1) ---
+không phải A, mà (là )?B
+không nằm ở .{1,30}, (nó )?nằm ở
+
+# --- Dịch thuật ngữ quá tay (section 13) ---
+# Trả về chữ dev Việt nói ra miệng.
+\bchú ý \(attention\)
+phép tính dấu phẩy động
+sổ ghi nhớ
+ghi chú \(KV entry\)
