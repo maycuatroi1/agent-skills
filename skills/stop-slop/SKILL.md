@@ -228,6 +228,17 @@ See [references/examples.md](references/examples.md) for before/after transforma
 `~/.claude/CLAUDE.md` already bans em dashes, en dashes, and smart quotes machine-wide. This skill
 bans them too, for a different reason: they are an AI tell. ASCII `-`, `"`, `'` only.
 
+## Separator convention
+
+Do not use the middle-dot character U+00B7 as a separator in authored prose, headings,
+captions, diagram labels, interface labels, or human-readable table cells. Do not emit
+its HTML entity forms as a workaround. Use commas, colons, ASCII hyphens, or separate
+lines according to the sentence.
+
+Check the complete deliverable before publishing, including images with text and diagrams.
+Preserve verbatim source quotations, identifiers, and mathematical operators when fidelity
+requires them; do not silently rewrite source material as a style edit.
+
 ## License
 
 MIT, same as upstream.
