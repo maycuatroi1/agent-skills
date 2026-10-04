@@ -162,3 +162,121 @@ nếu chỉ nhìn (qua|lướt)
 # là biển số xe. Gọi đúng tên: bảng điểm, bảng kết quả, bảng so sánh.
 bảng số
 (bảng|biểu đồ|số liệu|dữ liệu|con số) (này |đó )?nói (gì|lên|rằng)
+
+# --- Lẫn giọng tác giả với trạng thái làm việc của trợ lý ---
+# Chỉ đánh dấu để đọc ngữ cảnh, không tự xóa: đây có thể là lời tác giả thật
+# hoặc câu cần thiết trong proposal. Không đánh dấu chung mọi "mình"/"có thể".
+mình chưa (thực hiện|kiểm chứng|chạy|đọc)
+mình (sẽ|dự kiến|dự định) (trình bày|tổ chức bài|giới thiệu|đề cập)
+
+# --- Báo cáo công cụ sản xuất lọt vào chú thích ---
+# Giữ nếu bài đang dạy công cụ đó; chuyển ra ghi chú kỹ thuật nếu không.
+render bằng (browser|trình duyệt)
+
+# --- Câu tự miễn trừ về số liệu hay mô hình của chính bài (bắt 20/09/2026) ---
+# Bài amazon-monolith: cùng một lời miễn trừ "số này là giả định" xuất hiện 5
+# lần (thân bài, câu 86,1%, câu 99,9, chú thích hình, alt text). Chữ "Giả sử"
+# ở câu đưa số ra đã đủ. Phần lớn các câu này do lượt review CHÈN THÊM vào để
+# sửa lỗi khác. Chữa: đổi ví dụ để khỏi phải miễn trừ, hoặc bỏ câu.
+số (mình )?(tự )?chọn (cho|để) (dễ )?tính
+tự giả định
+chỉ là tình cờ
+(mô hình|phép tính|con số) (này )?(cũng )?thô (ở|như)
+không phải số liệu của
+[Cc]on số [0-9][0-9,.%]* (này|ở trên|cũng)
+(đo|nói) hai chuyện khác nhau
+Đổi [0-9,]+ thành số khác
+mình không tìm (được|thấy) tài liệu nào
+
+# --- Bài tự khai phạm vi của nó ---
+# "Cuộc chuyển đổi sau đó diễn ra thế nào thì mình bỏ qua, vì câu hỏi ở đây chỉ
+# cần mốc năm." Người đọc không cần biết bài không nói gì. Lần trước pattern
+# "mình bỏ qua" đã bắt được câu này, và người sửa ĐẢO TRẬT TỰ CÂU cho lọt regex
+# thay vì xoá. Hit ở nhóm này thì xoá, không viết lại.
+thì mình bỏ qua
+câu hỏi ở đây chỉ cần
+
+# --- Calque bắt 20/09/2026: tra cụm trong ngoặc kép, không trang nào dùng như một đơn vị ---
+# "phép tính đồ chơi" chỉ ra trang bán đồ chơi toán cho trẻ (dịch "toy
+# calculation"). "rơi theo cấp số nhân" đi với "xác suất": 0 trang (dịch "drops
+# exponentially"). Dùng: "giả sử", "rơi rất nhanh", "chỉ chịu được", "ở phía
+# trang web".
+phép tính đồ chơi
+số đồ chơi
+rơi theo cấp số nhân
+càng rơi nhanh
+chạm trần
+ở tầng trang
+
+# --- Số viết bằng chữ cho đại lượng đo được ---
+# "chín mươi chín team", "một trăm năm mươi service", "hai mươi lăm năm". Bài
+# kỹ thuật tiếng Việt viết số bằng chữ số. Viết bằng chữ chỉ hợp với đếm nhỏ
+# trong lời kể ("hai dòng chữ"). Chữa: 99 team, 150 service, 25 năm.
+mươi( (mốt|một|hai|ba|bốn|lăm|năm|sáu|bảy|tám|chín))? (team|service|năm|lần|người|kỹ sư|ngày|tháng|database)
+một trăm
+gấp mười lần
+lần [^.]{0,20} trên mười
+
+# --- Đồ vật làm hành động của người, hay gặp ở tiêu đề lật ý ---
+# "Slide đó chỉ quên ghi năm": slide không quên, người trình bày không ghi.
+(slide|bảng|biểu đồ|con số|tài liệu) (đó |này )?(chỉ )?quên
+
+# --- Lượng từ đặt sai cho vật không phải tấm (bắt 20/09/2026) ---
+# "tấm slide": tra cụm trong ngoặc kép ra 0 trang tiếng Việt. "Tấm" đi với ảnh,
+# với bảng, với vải. Slide thì nói "slide đó", "cái slide", "slide này".
+tấm (slide|file|commit|repo|branch|log|config)
+
+# --- Nói tuyệt đối để gài bí ẩn, và sai luôn sự thật (bắt 20/09/2026) ---
+# Tiêu đề "bản memo không ai thấy": memo đó CÓ người thấy (nhân viên Amazon 2002,
+# và Yegge đọc rồi kể lại). Thứ chưa xảy ra là công bố. Đổi một sự thật chính xác
+# lấy một tiêu đề nghe kêu. Dương tính giả: "code không ai nắm rõ" khi đang trích
+# nguồn thì giữ. Chữa: nói đúng cái đã xảy ra (chưa công bố, chưa ai kiểm chứng).
+(không|chưa) ai (từng )?(thấy|nhìn thấy|đọc|được đọc|biết tới)
+(không|chưa) một ai
+
+# --- Kể lể hậu trường lấy tư liệu trong thân bài (bắt 20/09/2026) ---
+# "Trang X đã bị gỡ: đường dẫn gốc giờ chuyển về..., mình trích từ một bản in PDF
+# lưu ngày...". Đây là ghi chú nguồn, chỗ của nó là citations.yaml chứ không phải
+# thân bài. Dương tính giả: bài mà CHÍNH chuyện tư liệu biến mất là đề tài.
+[Mm]ình trích từ (một )?bản
+bản (in|lưu) (PDF|HTML) (lưu )?ngày
+đường dẫn gốc (giờ |nay )?(chuyển|trỏ) về
+
+# --- Giọng thông cáo báo chí, bị động giấu chủ thể (bắt 20/09/2026) ---
+# "bản memo chưa từng được công bố": tra ra toàn tin Lầu Năm Góc giải mật hồ sơ.
+# Đúng nghĩa nhưng sai giọng cho blog cá nhân, và bị động thì mất chủ thể (ai
+# đáng lẽ phải công bố?). Nói thẳng trạng thái: "không công khai", "giữ nội bộ".
+chưa từng được (công bố|tiết lộ|công khai|hé lộ|biết tới)
+(được|bị) [a-zà-ỹ]+ bởi (các )?(cơ quan|tổ chức|chuyên gia)
+
+# --- Hedge stacking: rào chắn lặp lại thay cho quan điểm (bắt 23/09/2026) ---
+# Bài literature-review-research-gap-harness dính 17 lần: mỗi lần đưa ra một thứ
+# thì có ngay một câu nói thứ đó "chưa phải" cái gì. "Đây là đề xuất để thử, chưa
+# phải một hệ thống đã triển khai hoặc kết quả của một systematic review." Không
+# câu nào sai; cộng lại thành giọng assistant tự bảo hiểm, và bài mất hẳn quan điểm.
+# ĐÂY LÀ RULE ĐẾM, không phải rule cấm: một lần khai báo phạm vi ở đầu bài là trung
+# thực và mua quyền im lặng cho cả bài. Từ hit thứ 3 trở đi là tic - xoá, đừng đảo
+# câu cho lọt regex. Dương tính giả: "chưa phải lúc", "chưa phải ai cũng".
+[Đđ]ây (là|chỉ là) (một |các )?(đề xuất|giả thuyết|taxonomy|bản nháp|ý tưởng|từ để thử)
+chưa phải (một |là một |kết quả|bộ |bản |schema|search strategy|tiêu chuẩn)
+[Đđ]ây không phải (là )?(bảng xếp hạng|kết quả so sánh|tiêu chuẩn|công cụ)
+(con số|số) này không phải (là )?(tiêu chuẩn|chuẩn)
+còn phải được (thử|kiểm chứng|xác minh|đánh giá) trên
+(vẫn|còn) (cần|phải) kiểm chứng
+(các )?ID (trong ví dụ )?(là|đều là) giả định
+
+# --- Trỏ vào chính bài viết thay vì gọi tên thứ đang nói (bắt 23/09/2026) ---
+# "Thiết kế dưới đây dành trước hết cho...", "Hình dưới chỉ thể hiện mô hình lõi".
+# Giới hạn của một hình thuộc về caption của hình đó, không phải một câu dẫn trước nó.
+(thiết kế|sơ đồ|hình|bảng|phần|mô hình) (dưới đây|bên dưới|phía dưới)
+
+# --- Dịch từng chữ thuật ngữ tài chính, ra cụm không ai nói (bắt 26/09/2026) ---
+# Bài roi-agentic-managed-service: "Lao động hiện thực hoá" dịch "realized labor
+# savings", "phản chỉ số" dịch "anti-metric", "chỉ số dẫn đầu" dịch "leading
+# indicator" (đọc thành chỉ số đứng đầu). Tra cụm trong ngoặc kép không ra trang nào
+# dùng. Chữa: gọi thẳng thứ đó ("giờ tiết kiệm thành tiền", "chỉ số không dùng vì đo
+# sai biến", "chỉ số đi trước north star"). Dương tính giả: "hiện thực hoá" động từ
+# thông thường ("hiện thực hoá kế hoạch").
+(lao động|lợi ích|tiết kiệm) hiện thực ho[áa]
+phản chỉ số
+chỉ số dẫn đầu

@@ -35,7 +35,14 @@ if [ -f "$PROCESSED_DIR/$SESSION_ID" ]; then
   exit 0
 fi
 
-CONTINUOUS_LEARNING_CHILD=1 setsid nohup python3 "$EXTRACTOR" \
+# macOS ships no setsid; nohup alone still survives the hook exiting.
+if command -v setsid >/dev/null 2>&1; then
+  DETACH="setsid nohup"
+else
+  DETACH="nohup"
+fi
+
+CONTINUOUS_LEARNING_CHILD=1 $DETACH python3 "$EXTRACTOR" \
   --transcript "$TRANSCRIPT" \
   --cwd "$CWD" \
   --session-id "$SESSION_ID" \

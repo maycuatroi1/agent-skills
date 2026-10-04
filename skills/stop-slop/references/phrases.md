@@ -53,7 +53,9 @@ Replace with plain language.
 
 ## Adverbs
 
-Kill all adverbs. No -ly words. No softeners, no intensifiers, no hedges.
+Cut empty emphasis and habitual softeners. Keep modifiers that carry precision, frequency,
+conditions, or uncertainty. "Approximately", "usually", "may", "có thể", and "chưa đủ" are not
+automatic deletions. Ask whether removing the word changes the claim.
 
 Specific offenders:
 

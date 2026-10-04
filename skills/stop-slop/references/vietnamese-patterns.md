@@ -189,32 +189,17 @@ Người viết thật kéo màn lên rồi để thứ đó tự diễn.
 **Họ hàng gần:** bài tự kể về chính nó. "bài này", "từ đây tới cuối bài", "mình sẽ nhắc lại chúng suốt
 bài", "mấy mục dưới đây". Thay bằng tên của thứ đang nói ("mọi mẹo trong V4"), hoặc bỏ.
 
-## 12. Thiếu nhịp nghỉ (mọi câu đều mang thông tin)
+## 12. Nhịp nghỉ sau đoạn dày
 
-Văn máy có mật độ thông tin 100 phần trăm. Câu nào cũng đẩy bài đi tới. Chính cái sức đẩy đều tăm tắp
-đó là dấu vết, chứ không phải từ vựng.
+Sau công thức, bảng hoặc định nghĩa, kiểm tra xem người đọc cần gì: một đoạn xuống dòng, ví dụ
+cụ thể, hay giải thích ký hiệu dễ nhầm. Dùng cách phù hợp với nội dung và giọng tác giả.
 
-Người viết thật thỉnh thoảng chèn một câu **không mang thông tin nào**, chỉ để chạm vào người đọc:
+Không tự chèn "Bạn thấy chứ?", "Đọc lại một lần nữa đi" chỉ để làm văn có vẻ giống người. Những
+câu này vẫn có thể là giọng thật của tác giả, nhưng không phải bước bắt buộc sau mỗi khối khó.
+Không đặt chỉ tiêu một hay hai câu không mang thông tin cho mỗi bài.
 
-> $$\mathrm{Attention}(Q,K,V) = \mathrm{softmax}(QK^\top/\sqrt{d_k})V$$
->
-> $Q$ là câu hỏi của token đang xét, $K$ là..., softmax..., $\sqrt{d_k}$...
->
-> **Bạn thấy chứ?**
->
-> Chỗ mạnh nằm ở chữ "mọi".
-
-"Bạn thấy chứ?" đứng riêng một dòng, không thêm một chữ kiến thức nào. Nó làm việc mà văn máy không
-bao giờ làm: dừng lại.
-
-**Chỗ đặt mới là điểm mấu chốt.** Câu dẫn của máy nằm TRƯỚC khối khó (giới thiệu). Nhịp nghỉ của người
-nằm SAU khối khó (hồi sức), đúng chỗ mắt người đọc vừa mờ đi vì một công thức, một bảng số, một đoạn
-định nghĩa dày. Câu dẫn phục vụ cấu trúc bài. Nhịp nghỉ phục vụ người đang đọc.
-
-Vài dạng dùng được: "Bạn thấy chứ?", "Đọc lại một lần nữa đi.", "Chỗ này hơi lằng nhằng.", "Tới đây
-thì tạm đủ."
-
-**Đừng biến nó thành khuôn.** Một hoặc hai lần trong cả bài. Ba lần trở lên là lại thành pattern.
+Đoạn ngắn, khoảng trắng hoặc một ví dụ có ích đều có thể tạo nhịp nghỉ. Tránh biến việc chống
+đều tay thành một nhịp dựng sẵn khác.
 
 ## 13. Dịch thuật ngữ quá tay
 
@@ -238,6 +223,13 @@ nó làm câu văn **lạ hơn**, vì chưa ai từng nói từ đó ra miệng.
   context length, RAM, checkpoint. Dịch ngược ra tiếng Anh thì nó vốn là tiếng Anh.
 
 **Thử nghe:** người đọc mục tiêu nói chuyện với đồng nghiệp thì dùng chữ nào? Dùng chữ đó.
+
+Chiều ngược lại cũng cần rà: từ tiếng Anh không thêm độ chính xác thì dùng tiếng Việt. Ví dụ,
+"quyết định eligibility ở bước full text" có thể viết "đọc toàn văn và quyết định bài có đủ điều kiện";
+"lượng citations và thứ hạng venue" thành "số lượt trích dẫn và thứ hạng nơi công bố". Giữ các tên
+khái niệm cần tra cứu như record/report/study, nhưng kiểm tra cả ngữ pháp của câu chứa chúng.
+Không dịch toàn bộ thuật ngữ và không áp tỷ lệ Anh-Việt cố định. Xem thêm
+[authorship-and-evidence.md](authorship-and-evidence.md).
 
 **Cảnh báo khi thay hàng loạt:** đổi "chú ý" thành "attention" bằng find-replace sẽ gãy đúng những chỗ
 "chú ý" đang là từ tiếng Việt bình thường. "sự attention", "chẳng có gì đáng attention", "nó đã
@@ -338,7 +330,7 @@ Trước khi ship prose tiếng Việt, chạy qua checklist:
 - [ ] Một pattern/metaphor lặp 2+ lần gần nhau? -> viết lại một
 - [ ] Có câu nào chỉ để giới thiệu câu sau ("Kể bằng lời thì...", "Gói lại thì...")? -> xoá thử, gần như luôn vẫn đọc được
 - [ ] Bài có tự kể về chính nó ("bài này", "từ đây tới cuối bài", "mấy mục dưới đây")? -> thay bằng tên thứ đang nói
-- [ ] Sau công thức / bảng số / đoạn định nghĩa dày có nhịp nghỉ nào không? -> thêm một câu không mang thông tin
+- [ ] Đoạn dày có cần ngắt đoạn, ví dụ hoặc giải thích không? -> không tự thêm câu rỗng để tạo nhịp
 - [ ] Thuật ngữ có bị dịch sang Việt quá tay không (chú ý, phép tính dấu phẩy động)? -> trả về chữ người đọc thật dùng
 - [ ] Đếm số mục kết bằng câu chốt có nhịp: trên một nửa? -> để vài mục kết phẳng
 - [ ] Có đếm câu/dòng/chữ trong nguồn ("bằng đúng một câu", "gói lại vừa đúng một dòng")? -> bỏ con số đi, kết luận có đổi không; không đổi thì cắt
