@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: This skill should be used when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch", or requests a complete YAML plan under plans/active. It investigates project context first, asks only decision-bearing clarification questions, writes one validated plans/active/<slug>.yaml artifact, and stops without implementing the plan.
-version: 0.1.0
+version: 0.2.0
 ---
 
 # Create exec plan
@@ -53,6 +53,11 @@ valid but the directory does not exist.
 After tracing the change, resolve the destination again. If investigation expands the work from one repo
 to multiple repos, switch to the registered harness root, then inspect that root's active and completed
 plans before continuing. If multi-repo work has no harness root, ask where the shared plan belongs.
+
+When the root's `harness.yaml` has a `hub:` key with a `project`, it is a hub harness: its plans live on
+the evo-agents hub, and the files under `plans/` are read-only copies the hub wrote. The file this skill
+writes is then a draft that goes to the hub once validated (Phase 4), and from that moment the file in git
+is the hub's copy. Nobody writes it by hand again.
 
 ## Phase 1: Investigate
 
@@ -119,9 +124,15 @@ facts. Do not write a draft plan as a substitute for unanswered blocking questio
 ### Slug and collision handling
 
 - Use a short kebab-case slug that names the outcome, not the implementation mechanism.
-- Search active and completed plans for the same goal before choosing it.
-- If the target file exists or an overlapping plan is active, ask whether to update it or choose a new
-  scope. Never silently overwrite or fork duplicate work.
+- Search active and completed plans for the same goal before choosing it. In a hub harness, also run
+  `evo-agents hub plan list` from the harness root: the hub may hold plans whose copies this checkout
+  has not exported yet.
+- If the target file exists, the hub already holds the slug, or an overlapping plan is active, ask whether
+  to update it or choose a new scope. Never silently overwrite or fork duplicate work.
+- Updating a hub plan, once the user confirms, starts from its current copy (`evo-agents hub plan export .`
+  first). Edit that copy as the draft and send it in Phase 4 with
+  `evo-agents hub plan put plans/active/<slug>.yaml --if-revision <N>`, where `<N>` is the `revision`
+  under the copy's `hub:` key.
 
 ### Repository and merge order
 
@@ -162,7 +173,8 @@ migrations before removals, and irreversible operations behind an explicit check
 ## Canonical YAML
 
 Use English field names so `evo harness` can parse and mutate the plan. Write prose in the project's
-documentation language; if no convention exists, follow the user's language.
+documentation language; if no convention exists, follow the user's language. Leave out the `hub:` key and
+the comment line above `id:` that hub copies carry; the hub writes both.
 
 ```yaml
 id: outcome-slug
@@ -280,12 +292,23 @@ After writing:
    `evo harness show <slug>`, `evo harness graph <slug>`, and `evo harness graph <slug>:steps` from that
    root. Do not run `evo harness check <slug>` until every planned branch or ref it checks exists; branch
    absence before implementation is expected, not a failed plan validation.
-4. Run the harness plan or contract validation command when the project provides one.
-5. Compare final git status with the captured baseline to confirm this workflow changed only the plan
-   artifact and any explicitly requested planning metadata.
+4. In a hub harness, send the validated draft to the hub from the harness root:
+   `evo-agents hub plan put plans/active/<slug>.yaml` (add `--if-revision <N>` only when updating an
+   existing plan as above). The hub stores it and rewrites the file as its copy, with a header line and a
+   `hub:` key holding the project, revision and digest. Report any warnings it prints. Without
+   `--if-revision` it never replaces a plan the hub already holds; if it refuses because the slug exists,
+   go back to collision handling instead of adding the flag. When `evo-agents` is missing, not signed in,
+   or the hub does not answer, leave the draft where it is, report the error, and say the plan is not on
+   the hub yet.
+5. Run the harness plan or contract validation command when the project provides one.
+6. Compare final git status with the captured baseline to confirm this workflow changed only the plan
+   artifact and any explicitly requested planning metadata. In a hub harness that artifact is the copy
+   `put` wrote; leave committing it to the user, for whom `evo-agents hub plan export . --commit` commits
+   exactly the copies that changed.
 
-Report the final path, a one-sentence scope summary, and validation results. Mention pre-existing failures
-or deliberately deferred non-blocking questions. Stop there.
+Report the final path, a one-sentence scope summary, and validation results. In a hub harness, also report
+the hub project and revision, or that the push failed. Mention pre-existing failures or deliberately
+deferred non-blocking questions. Stop there.
 
 ## Relationship to harness-engineering
 
