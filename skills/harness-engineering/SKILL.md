@@ -1,7 +1,7 @@
 ---
 name: harness-engineering
 description: This skill should be used when the user asks to "build a harness", "harness engineering", "audit my agent setup", "set up AGENTS.md across my repos", "why does Claude keep forgetting how to run this", "my repos keep breaking each other", "multi-repo agent context", "doc gardening", or mentions maintaining agent scaffolding across a CLUSTER of tightly-related repos (multiple repos, one system). A harness is the environment + constraints + feedback loops around a coding agent: AGENTS.md maps, a docs/ system of record, init scripts, acceptance specs, mechanical linters, cross-repo exec-plans, golden principles. Provides scripts to score a cluster against a 12-dimension rubric (audit), detect drift (doctor), turn real session evidence into proposals for what the harness is missing (garden), and track changes that span N repos with an explicit merge order (plan). Use create-exec-plan when the requested outcome is authoring a complete execution plan. Built on Anthropic "Effective harnesses for long-running agents" and OpenAI "Harness engineering".
-version: 0.1.2
+version: 0.2.0
 ---
 
 # Harness engineering
@@ -52,7 +52,7 @@ harness root (a repo of its own, or .harness/ in the workspace)
   principles/
     golden-principles.md rules learned the hard way, not yet mechanized
     invariants.md        rules a machine enforces; each names its lint
-  plans/active/          cross-repo exec-plans with an explicit merge order
+  plans/active/          cross-repo exec-plans with an explicit merge order (hub copies with hub.project)
   state/
     scan.json            last snapshot of every repo
     sessions/<id>.json   raw session facts, written by the hook (no model)
@@ -146,6 +146,7 @@ On POSIX use `session-end.sh` and `chmod +x` it once.
 | Start a cross-repo change | `python harness.py plan create --name <slug> --repos a,b,c` |
 | Do the branches match the plan? | `python harness.py plan status` |
 | Record why you chose something | `python harness.py plan decide --name <slug> --text "..."` |
+| Move a finished plan to completed | `python harness.py plan complete --name <slug>` |
 
 ## The rubric
 
@@ -228,11 +229,31 @@ say another.
 Log decisions as you go. Three sessions later the *what* is still in the diff; the *why* is gone unless
 you wrote it down.
 
+### Plans on the evo-agents hub
+
+A harness whose `harness.yaml` has `hub: {project: <name>}` keeps its plans on the evo-agents hub. The
+files under `plans/active/` and `plans/completed/` are then read-only copies the hub wrote, each ending in
+a `hub:` key with the revision and a digest. Never edit them by hand: `evo-agents harness validate` and
+`evo harness check` both report the broken digest. `harness.py` follows that split:
+
+- `plan decide` reads the plan with `evo-agents hub plan show <slug>`, appends the decision, sends it back
+  with `evo-agents hub plan put <draft> --if-revision <N>` naming the revision it read, then runs
+  `evo-agents hub plan export` to rewrite the copies.
+- `plan complete` runs `evo-agents hub plan complete <slug>`, which refuses while any step is not done,
+  then the same export.
+- `plan create` still writes only a local skeleton. Fill in the steps, then push it with
+  `evo-agents hub plan put plans/active/<slug>.yaml`; the file becomes the hub's copy.
+- `plan status` reads the copies, so it is as fresh as the last export.
+
+The two writes need `evo-agents` 0.2.0 or later, signed in with `evo-agents hub login`. When it is missing,
+or the hub refuses or does not answer, the command fails and no YAML changes. A revision conflict (someone
+wrote the plan in between) fails the same way; run the command again.
+
 ### Reading a plan without reconstructing it from YAML
 
-`harness.py` in this skill manages the plan lifecycle - `plan create`, `plan decide`, `plan status`. The
-faster way to **read** a plan once it exists is `evo harness` (`pip install evo-cli`), which parses the
-same `plans/active/*.yaml` files this skill manages:
+`harness.py` in this skill manages the plan lifecycle - `plan create`, `plan decide`, `plan status`,
+`plan complete`. The faster way to **read** a plan once it exists is `evo harness` (`pip install evo-cli`),
+which parses the same `plans/active/*.yaml` files this skill manages:
 
 ```bash
 evo harness plans             # one-line progress per plan: steps, debt, open questions
@@ -246,7 +267,9 @@ Reach for `serve` when merge order is the question and you would rather see it t
 `graph` when you only need the dependency shape. Both render an adjacency table beside the DAG, because
 a node-link diagram conveys nothing to a screen reader and does not paste into a document. The
 dashboard is read-only by design; mutations (`step`, `repo`, `debt`, `question`) go through `evo harness`
-subcommands that leave a shell-history entry, not through the browser.
+subcommands that leave a shell-history entry, not through the browser. In a hub harness those subcommands
+send the change to the hub and export the copy, which takes evo-cli 0.29.0 or later (`evo --version`); an
+older one edits the copy in place and breaks its digest.
 
 ## Gotchas
 
