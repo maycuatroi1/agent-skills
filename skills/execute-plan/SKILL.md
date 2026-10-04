@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each cluster in subagents so their working context never enters the main session, verifies before claiming anything, writes status back to the plan, and offers to clear context between clusters.
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Execute exec-plan
@@ -40,6 +40,14 @@ Only `Read` a narrow offset when a specific step's `what`/`verify`/`note` text i
 just that step.
 
 If the slug is ambiguous or missing, `evo harness plans` lists every plan with progress.
+
+Check `harness.yaml` once for a `hub:` key with a `project`. When it has one, this is a hub harness:
+the plan lives on the evo-agents hub, and every file under `plans/` is a read-only copy the hub wrote.
+Nobody edits that YAML, the main session included; section 5 says how writes go instead. The evo-hub
+plugin refreshes the copies at session start. Without the plugin, or when another machine may have
+written since, run `evo-agents hub plan export .` from the harness root before computing the frontier.
+A harness without the key keeps its plans as plain files in git, and everything below works on them
+directly.
 
 ## 2. Compute the ready frontier
 
@@ -106,9 +114,9 @@ Spawn one subagent per step, or per short linear chain of steps that share a fil
 
 A subagent MUST NOT:
 
-- Edit `plans/active/*.yaml`. Concurrent read-modify-write on one YAML file loses updates, and a
-  subagent cannot see whether its verify will survive review. State is written once, by the main
-  session, in section 5.
+- Edit `plans/active/*.yaml`, or write plan state any other way. Concurrent read-modify-write on one
+  YAML file loses updates, and a subagent cannot see whether its verify will survive review. State is
+  written once, by the main session, in section 5.
 - Commit, unless the cluster is serial and the plan assigns commits to that step. Say which applies.
 - Mark its own work done in any form, including in prose.
 - Touch files outside its step's scope.
@@ -160,21 +168,36 @@ For each returned step, in plan order:
    consolation.
 4. If it passes, stage only intended files, inspect staged status/diff once, run required secret scan
    and `gitnexus detect-changes --scope staged` once, then commit when the plan assigns commits.
-5. After the commit:
+5. After the commit, record the step with evidence that cites the commit hash and the verify result,
+   worded like the steps already closed in the same plan:
 
 ```
-evo harness step <slug> <step-id> done
+evo harness step <slug> <step-id> done --evidence "<repo>@<sha>: <verify result>"
 ```
 
-That writes `status` and `done_at` by editing the text in place, and it refuses to save if the
-reparse does not match the expected result, so comments and block scalars survive.
+That sets `status`, `done_at` and `evidence` in one write. Where the write lands depends on the harness:
 
-Then add `evidence:` with `Edit`, citing the commit hash and the verify result, matching the wording
-of steps already closed in the same file.
+- **Hub harness.** `evo harness step` sends the change with `evo-agents hub plan patch`, retries when
+  someone else wrote the plan in between, then runs `evo-agents hub plan export` to rewrite the copy.
+  Never edit the YAML, not even to add evidence: a hand edit breaks the copy's digest, and both
+  `evo-agents harness validate` and `evo harness check` report it. If the write fails (not signed in,
+  no grant, hub down), report the error and leave the step as it is. Do not fall back to editing the
+  file.
+- **File harness.** `evo harness step` edits the text in place and refuses to save if the reparse does
+  not match the expected result, so comments and block scalars survive.
 
-**Never pass `--note`.** Despite its help text saying "append", `_write` in `evo_cli/commands/harness/edit.py`
-does `updates["note"] = note`, which overwrites the step's existing `note:` field. Those notes carry
-the traps the plan author found. Losing one is worse than losing the status update.
+The command above needs evo-cli 0.29.0 or later. Check with `evo --version`, or look for `--evidence` in
+`evo harness step --help`. Releases before 0.29.0 know nothing of the hub, have no `--evidence`, and
+their `--note` overwrites the step's existing `note:` field, which carries the traps the plan author
+found. With an older evo-cli:
+
+- in a hub harness, stop and upgrade (`pip install -U evo-cli`) before writing any state, because the
+  old release edits the copy in place;
+- in a file harness, run `evo harness step <slug> <step-id> done` without `--note`, then add
+  `evidence:` with `Edit`.
+
+From 0.29.0 on, `--note` appends on a line of its own and keeps the existing note, so it is safe for
+something the next session must know that is not evidence.
 
 When every step of a repo has landed, move the repo entry with `evo harness repo <slug> <index> <status>`.
 
@@ -226,7 +249,8 @@ Do not retry the same subagent prompt verbatim, and do not silently narrow the s
   plan. Amending a plan mid-execution is the user's call.
 - The step is genuinely bigger than written: finish what is actually verifiable, leave the step `pending`
   with `evidence:` saying exactly which part landed, per the harness rule that partial work is never
-  `done`.
+  `done`. Write it with `evo harness step <slug> <step-id> pending --evidence "..."`, never by hand in a
+  hub harness.
 
 ## 9. Checklist
 
@@ -238,6 +262,8 @@ Do not retry the same subagent prompt verbatim, and do not silently narrow the s
 - [ ] Targeted test commands were checked for hardcoded broad globs and normalized when equivalent.
 - [ ] Main session accepted current verbatim evidence instead of duplicating successful checks.
 - [ ] Staged diff, secret scan, and `detect_changes` each ran once immediately before commit.
-- [ ] `evo harness step` used without `--note`; `evidence:` added by hand with the commit hash.
+- [ ] `evo harness step ... done --evidence` cited the commit hash, with evo-cli 0.29.0 or later. In a
+      hub harness no YAML was edited by hand; with an older evo-cli in a file harness, no `--note`
+      and `evidence:` added with `Edit`.
 - [ ] `evo harness check <slug>` clean before the next cluster.
 - [ ] User offered the clear after a substantial cluster, with the re-entry command spelled out.

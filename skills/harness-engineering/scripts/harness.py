@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -1443,11 +1444,100 @@ def cmd_reject(args):
     print(f"Rejected: {dest}")
 
 
+HUB_INSTALL = "uv tool install 'evo-ak>=0.2.0'"
+HUB_TIMEOUT = 180
+
+
+class HubFailed(Exception):
+    pass
+
+
+def hub_project(m):
+    """The evo-agents hub project of harness.yaml `hub.project`, or None when the plans are plain files in git."""
+    hub = m.get("hub")
+    project = hub.get("project") if isinstance(hub, dict) else None
+    return project if isinstance(project, str) and project else None
+
+
+def hub(root, *args):
+    """`evo-agents hub ARGS --json` run in the harness, decoded. In a hub harness the plan files are copies the hub
+    writes, so a failure raises HubFailed and nothing falls back to editing the YAML."""
+    exe = shutil.which("evo-agents")
+    if exe is None:
+        raise HubFailed(
+            "This harness keeps its plans on the evo-agents hub (hub.project in harness.yaml), and `evo-agents` "
+            f"is not on PATH. Install it with `{HUB_INSTALL}`, then sign in with `evo-agents hub login`."
+        )
+    shown = "evo-agents hub " + " ".join(args[:2])
+    try:
+        proc = subprocess.run(
+            [exe, "hub", *args, "--json"], cwd=str(root), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=HUB_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise HubFailed(f"`{shown}` gave no answer within {HUB_TIMEOUT}s.") from None
+    if proc.returncode != 0:
+        lines = [line.strip() for line in (proc.stderr or proc.stdout).splitlines() if line.strip()]
+        text = " ".join(line[len("error:"):].strip() if line.startswith("error:") else line for line in lines)
+        raise HubFailed(f"`{shown}` failed: {text or f'exit status {proc.returncode}'}")
+    try:
+        return json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        raise HubFailed(f"`{shown}` did not print the JSON it promises with --json.") from None
+
+
+def hub_export(root, project, done):
+    """Rewrite the plan copies after a write the hub accepted; `done` says what the hub already holds."""
+    try:
+        hub(root, "plan", "export", str(root), "--project", project)
+    except HubFailed as exc:
+        print(f"{done}, but its copy was not rewritten. {exc}", file=sys.stderr)
+        print(f"Run `evo-agents hub plan export {root}` to update the copies.", file=sys.stderr)
+        sys.exit(1)
+    print(f"{done}; the copies under {root / 'plans'} are rewritten.")
+
+
+def hub_decide(root, project, pid, text):
+    plan = hub(root, "plan", "show", pid, "--project", project)
+    body = plan["body"]
+    body["decisions"] = list(body.get("decisions") or []) + [f"{iso()}: {text}"]
+    with tempfile.TemporaryDirectory() as tmp:
+        # `plan put` reads the area from the draft's place (plans/<area>/) and never moves a plan.
+        draft = Path(tmp) / "plans" / plan["area"] / f"{pid}.yaml"
+        write_yaml(body, draft)
+        written = hub(root, "plan", "put", str(draft), "--if-revision", str(plan["revision"]), "--project", project)
+    hub_export(root, project, f"Logged the decision in plan {pid} on the hub ({project}, revision {written['revision']})")
+
+
+def hub_complete(root, project, pid):
+    result = hub(root, "plan", "complete", pid, "--project", project)
+    if result.get("changed"):
+        done = f"Completed plan {pid} on the hub ({project}, revision {result['revision']})"
+    else:
+        done = f"Plan {pid} was already completed on the hub ({project})"
+    hub_export(root, project, done)
+
+
 def cmd_plan(args):
     root = need_root(args)
     m = manifest(root)
+    project = hub_project(m)
     active = root / "plans" / "active"
     active.mkdir(parents=True, exist_ok=True)
+
+    if project and args.action in ("decide", "complete"):
+        if not args.name or (args.action == "decide" and not args.text):
+            print(f"plan {args.action} needs --name" + (" and --text" if args.action == "decide" else ""), file=sys.stderr)
+            sys.exit(1)
+        try:
+            if args.action == "decide":
+                hub_decide(root, project, slug(args.name), args.text)
+            else:
+                hub_complete(root, project, slug(args.name))
+        except HubFailed as exc:
+            print(exc, file=sys.stderr)
+            sys.exit(1)
+        return
 
     if args.action == "create":
         if not args.name:
@@ -1472,6 +1562,11 @@ def cmd_plan(args):
         write_yaml(plan, f)
         print(f"Created {f}")
         print("Edit it: set the merge order, depends_on, and the steps. Order matters: an owner repo merges before its consumers.")
+        if project:
+            print(
+                f"This harness keeps its plans on the evo-agents hub ({project}). Once the steps are written, push the "
+                f"plan with `evo-agents hub plan put plans/active/{pid}.yaml`; the file then becomes the hub's read-only copy."
+            )
         return
 
     if args.action == "status":
@@ -1622,7 +1717,13 @@ def main():
     p.add_argument("id")
     p.set_defaults(func=cmd_reject)
 
-    p = sub.add_parser("plan", help="cross-repo execution plans")
+    p = sub.add_parser(
+        "plan",
+        help="cross-repo execution plans",
+        description="Cross-repo execution plans. When harness.yaml has hub.project, the plans live on the evo-agents "
+        "hub: decide and complete go through `evo-agents hub plan` and rewrite the read-only copies under plans/, "
+        "and create still writes only a local skeleton to push with `evo-agents hub plan put`.",
+    )
     p.add_argument("action", choices=["create", "status", "decide", "complete"])
     p.add_argument("--name")
     p.add_argument("--goal")
