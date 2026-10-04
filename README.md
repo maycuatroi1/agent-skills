@@ -4,16 +4,47 @@ Agent skills for AI coding agents, following the [Agent Skills](https://agentski
 
 ## Installation
 
+The skills reach the team's machines through the
+[evo-agents hub](https://github.com/maycuatroi1/evo-agents/blob/main/docs/hub.md). A hub admin publishes
+every skill directory from a clean checkout of `main`; a skill whose files did not change keeps its
+version.
+
+```bash
+for name in $(ls skills); do
+  evo-agents hub skills publish skills/$name --scope global \
+    --source-repo agent-skills --source-commit $(git rev-parse HEAD)
+done
+```
+
+Each machine, signed in with `evo-agents hub login`, then writes the latest versions into every agent
+runtime it has (`claude`, `agents`, `codex`, `cursor`, `gemini`):
+
+```bash
+evo-agents hub skills sync --check   # say what would change, write nothing
+evo-agents hub skills sync           # install or update every skill the hub lists
+evo-agents hub skills sync --adopt   # also take over copies the hub did not write, after a backup
+```
+
+Sync changes only directories it wrote itself, and saves a copy under `~/.evo/hub/backups/` before
+replacing anything. A copy made by `install.py` or skillfish stays as it is until `--adopt` takes it over.
+`evo-agents hub skills list --scope global` shows what is published, and from which commit.
+
+Without the hub, install straight from GitHub:
+
 ```bash
 npx skillfish add maycuatroi1/agent-skills
 ```
 
-## Install the skills onto this machine
+## Fallback: install.py
 
-`setup.py` only writes `~/.claude/CLAUDE.md`; it never copied a single skill. Without `install.py` the
-checked-in skills and the ones the agents actually load drift apart in silence - on 2026-07-30 the
-runtime copy of `harness-engineering` was 5 days behind source and produced 13 findings that had
-already been fixed.
+`install.py` copies `skills/` into the runtimes of a machine that does not sync from the hub. Do not run
+it on one that does: it deletes every file the source lacks, including the `.evo-hub.json` marker that
+sync keeps in each skill it wrote, and sync then treats those directories as copies made by hand.
+
+`setup.py` only writes `~/.claude/CLAUDE.md`; it never copied a single skill. Without hub sync or
+`install.py` the checked-in skills and the ones the agents actually load drift apart in silence - on
+2026-07-30 the runtime copy of `harness-engineering` was 5 days behind source and produced 13 findings
+that had already been fixed.
 
 ```bash
 python install.py --check   # compare only, exit 1 and name every file that differs
@@ -63,6 +94,7 @@ python3 setup.py
 - Node.js 18+ + `npm i -g @dokploy/cli` + `~/.omelet.json` (`dokploy_url`, `dokploy_api_key`) — for `dokploy-cli`
 - Node.js 18+ (`npm i -g gitnexus`) - for `gitnexus` (optional `python3`/`make`/`g++` to also parse Dart/Kotlin/Swift)
 - `python3` + `pyyaml` + `git` - for `harness-engineering` (`claude` CLI only for `garden --headless`). Runs on Windows and POSIX.
+- `evo-agents` >= 0.2.0 (`uv tool install 'evo-ak>=0.2.0'`), signed in with `evo-agents hub login` - for hub sync, and for `harness-engineering`, `create-exec-plan` and `execute-plan` in a harness whose `harness.yaml` has `hub.project`, where `execute-plan` also needs `evo` >= 0.29.0 (`pip install -U evo-cli`)
 - macOS + Homebrew (`dvisvgm`, `mupdf-tools`, `ffmpeg`, `texlive`, `font-inter`) + [`uv`](https://github.com/astral-sh/uv) + Python 3.12 - for `manim-explainer-video` (`scripts/setup.sh` installs all of it, idempotent)
 - [`uv`](https://github.com/astral-sh/uv) + a Vbee app (`vbee.app_id`, `vbee.token`) and/or `openai_api_key` in the omelet store - for `speak`. `uv` resolves `evo_cli` from the server's PEP 723 metadata, so nothing is installed globally. `ffmpeg` (or any of `mpv`/`vlc`/`afplay`) for playback
 
