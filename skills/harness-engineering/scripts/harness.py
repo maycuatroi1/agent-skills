@@ -62,7 +62,7 @@ def seam_waiver(seam):
 
 
 def read_yaml(path):
-    p = Path(path)
+    p = resolve_path(path)
     if not p.exists():
         return None
     with open(p, "r", encoding="utf-8") as f:
@@ -70,14 +70,14 @@ def read_yaml(path):
 
 
 def write_yaml(obj, path):
-    p = Path(path)
+    p = resolve_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
         yaml.safe_dump(obj, f, sort_keys=False, allow_unicode=True, default_flow_style=False)
 
 
 def read_json(path, default=None):
-    p = Path(path)
+    p = resolve_path(path)
     if not p.exists():
         return default
     try:
@@ -88,7 +88,7 @@ def read_json(path, default=None):
 
 
 def write_json(obj, path):
-    p = Path(path)
+    p = resolve_path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, ensure_ascii=False)
@@ -113,11 +113,27 @@ def is_git_repo(p):
     return (Path(p) / ".git").exists()
 
 
-def expand(p, default=None):
+def resolve_path(value, base=None):
+    """Turn a path that came from a manifest, the environment or the CLI into a real Path.
+
+    harness.yaml is written by hand, so it carries `~/github/foo` and `$HOME/foo`.
+    Path() does not expand either, and every caller that skipped this saw a repo that is
+    sitting right there as "not on disk". Relative paths are anchored under `base`.
+    """
+    p = Path(value if value is not None else "")
+    if isinstance(value, str):
+        s = os.path.expandvars(value) if "$" in value else value
+        p = Path(os.path.expanduser(s))
+    if base is not None and not p.is_absolute():
+        p = Path(base) / p
+    return p
+
+
+def expand(p, default=None, base=None):
     s = str(p or "").strip()
     if not s:
         return Path(default) if default is not None else None
-    return Path(s).expanduser()
+    return resolve_path(s, base=base)
 
 
 def portable(p):
@@ -151,7 +167,7 @@ def register(root, name, workspace, repo_paths):
 
 def find_root(start=None, name=None):
     if os.environ.get("HARNESS_ROOT"):
-        p = Path(os.environ["HARNESS_ROOT"])
+        p = resolve_path(os.environ["HARNESS_ROOT"])
         if (p / MANIFEST).exists():
             return p
 
@@ -162,7 +178,7 @@ def find_root(start=None, name=None):
                 return Path(c["root"])
         return None
 
-    cur = Path(start or Path.cwd()).resolve()
+    cur = resolve_path(start or Path.cwd()).resolve()
     for p in [cur] + list(cur.parents):
         if (p / MANIFEST).exists():
             return p
@@ -203,12 +219,12 @@ def manifest(root):
 
 
 def repo_paths(root, m, present_only=True):
-    ws = expand(m.get("workspace"), default=root)
+    ws = expand(m.get("workspace"), default=root, base=root)
     out = []
     for r in m.get("repos", []):
         if present_only and not r.get("present", True):
             continue
-        p = expand(r.get("path"), default=ws / r["name"])
+        p = expand(r.get("path"), default=ws / r["name"], base=ws)
         if not p.is_absolute():
             p = (ws / p).resolve()
         out.append((r, p))
@@ -334,12 +350,12 @@ def git_state(p):
 
 
 def cmd_init(args):
-    ws = Path(args.workspace).resolve()
+    ws = resolve_path(args.workspace).resolve()
     if not ws.is_dir():
         print(f"Workspace not found: {ws}", file=sys.stderr)
         sys.exit(1)
 
-    root = Path(args.root).resolve() if args.root else (ws / ".harness")
+    root = resolve_path(args.root).resolve() if args.root else (ws / ".harness")
     if (root / MANIFEST).exists() and not args.force:
         print(f"Harness already exists at {root}. Use --force to overwrite the manifest.", file=sys.stderr)
         sys.exit(1)
@@ -770,7 +786,7 @@ def cmd_doctor(args):
         if not p.is_dir():
             findings.append(("manifest", r["name"], "declared present but not on disk; set present: false or clone it"))
 
-    ws = expand(m.get("workspace"), default=root)
+    ws = expand(m.get("workspace"), default=root, base=root)
     for r, p in repo_paths(root, m):
         if not p.is_dir():
             continue

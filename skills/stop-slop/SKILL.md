@@ -1,7 +1,7 @@
 ---
 name: stop-slop
-description: This skill should be used when the user asks to "remove AI tells", "make this sound human", "de-slop this", "bỏ giọng AI", "viết cho tự nhiên", "sửa văn phong AI", "edit this draft", "review my writing", or is drafting/editing/reviewing English or Vietnamese prose (blog posts, essays, docs, READMEs, release notes, emails, landing copy) that must not read as machine-written. Supplies the banned-phrase list, the structural clichés to avoid, before/after rewrites, Vietnamese-specific AI tells (calque, binary contrast, signpost, slogan, usher sentences, over-translated terms, uniform density), and a 5-dimension score to decide whether a draft ships or gets revised.
-version: 0.4.0
+description: Draft, edit, or review English and Vietnamese prose to remove AI tells while preserving facts, uncertainty, and the author's voice. Use for "bỏ giọng AI", "viết cho tự nhiên", "stop-slop", prose rewrites, or editorial reviews. Includes phrase and structural checks, Vietnamese usage guidance, authorship and evidence boundaries, and a six-dimension review rubric. Not a style filter for code, formulas, or structured data.
+version: 0.5.0
 ---
 
 # stop-slop
@@ -10,7 +10,7 @@ Remove predictable AI writing patterns from prose.
 
 Ported from [hardikpandya/stop-slop](https://github.com/hardikpandya/stop-slop) by
 [Hardik Pandya](https://hvpandya.com), MIT. Upstream is the source of truth for the pattern lists;
-re-sync when it changes.
+re-sync when it changes, preserving the local authorship, evidence, and Vietnamese adaptations.
 
 ## When to use
 
@@ -21,10 +21,23 @@ re-sync when it changes.
 Do not apply to code, code comments, commit messages, or structured output (YAML, JSON, tables).
 Terse machine-facing text is not slop.
 
+## Preserve meaning before style
+
+Keep facts, quantities, units, attribution, conditions, and uncertainty intact. Do not make a claim
+more certain or invent an experience to make prose sound confident or personal. Preserve the user's
+genre and intended voice: a proposal may need future tense; a technical distinction may need a
+contrast. The pattern lists are review prompts, not automatic deletion rules. Functional questions,
+three-part definitions, and qualifications such as "may", "if", "có thể", or "chưa đủ" can be essential.
+
+For ghostwriting, technical explanations, or illustrated articles, read
+[references/authorship-and-evidence.md](references/authorship-and-evidence.md). It covers narrator
+identity, repeated plan narration, evidence caveats, bilingual terminology, and captions.
+
 ## Core rules
 
-1. **Cut filler phrases.** Remove throat-clearing openers, emphasis crutches, business jargon, and all
-   adverbs. See [references/phrases.md](references/phrases.md).
+1. **Cut filler phrases.** Remove throat-clearing openers, emphasis crutches, business jargon, and empty
+   intensifiers. Keep modifiers that specify frequency, precision, or uncertainty. See
+   [references/phrases.md](references/phrases.md).
 
 2. **Break formulaic structures.** Avoid binary contrasts, negative listings, dramatic fragmentation,
    rhetorical setups, false agency. See [references/structures.md](references/structures.md).
@@ -38,10 +51,11 @@ Terse machine-facing text is not slop.
 5. **Put the reader in the room.** No narrator-from-a-distance voice. "You" beats "People". Specifics
    beat abstractions.
 
-6. **Vary rhythm.** Mix sentence lengths. Two items beat three. End paragraphs differently. No em
-   dashes.
+6. **Vary rhythm.** Mix sentence lengths. Avoid repeating a decorative three-part cadence; keep lists
+   whose items serve the content. End paragraphs differently. No em dashes.
 
-7. **Trust readers.** State facts directly. Skip softening, justification, hand-holding.
+7. **Trust readers.** State facts directly. Cut performative reassurance and hand-holding; retain
+   limitations that change how the reader should interpret a claim.
 
 8. **Cut quotables.** If it sounds like a pull-quote, rewrite it.
 
@@ -63,18 +77,19 @@ Terse machine-facing text is not slop.
     "this post", "from here to the end", "I'll come back to this throughout". See
     [references/vietnamese-patterns.md](references/vietnamese-patterns.md) section 11.
 
-12. **Leave a beat after the hard part.** Machine prose runs at 100 percent information density, every
-    sentence advancing. That unrelenting forward pressure is the tell, not the vocabulary. After a
-    formula, a table, or a dense definition, drop one sentence that carries no information and only
-    touches the reader ("Bạn thấy chứ?", "Read that again."). Placement is the point: an usher goes
-    BEFORE the hard block, a beat goes AFTER it. Once or twice per piece, never as a template. See
-    section 12.
+12. **Vary pace without adding filler.** After a formula, table, or dense definition, use a paragraph
+    break, a concrete example, or a short explanation of a likely stumbling point when needed. Do not
+    automatically append "Bạn thấy chứ?" or "Read that again." A natural conversational aside may fit
+    the author's voice, but there is no quota for zero-information sentences. See
+    [references/vietnamese-patterns.md](references/vietnamese-patterns.md) section 12.
 
 13. **Vietnamese: do not over-translate technical terms.** Rule 10 applied too hard becomes its own
     error. Kill calqued metaphors and idioms; keep technical nouns the reader already says out loud.
     "attention" beats "chú ý", "RAM" beats "ngốn máy", "context length" beats "chiều dài". Test: if
     translating the phrase back to English lands on a familiar idiom, it is a calque; if it was English
-    to begin with, leave it. See section 13.
+    to begin with, consider the audience and context. Ordinary terms may read better in Vietnamese;
+    avoid awkward mixed-language grammar. See section 13 and the bilingual examples in
+    [references/authorship-and-evidence.md](references/authorship-and-evidence.md).
 
 14. **Never count source text units for effect.** "in exactly one sentence on page 13", "the whole
     paragraph collapses to one line", "a mere three lines on this". Test: delete the number. If the
@@ -129,10 +144,10 @@ Terse machine-facing text is not slop.
 
 Run this pass before delivering prose:
 
-- Any adverbs? Kill them.
+- Any empty intensifiers? Cut them; preserve modifiers carrying evidence, precision, or conditions.
 - Any passive voice? Find the actor, make them the subject.
 - Inanimate thing doing a human verb ("the decision emerges")? Name the person.
-- Sentence starts with a Wh- word? Restructure it.
+- A Wh- opener used only as a rhetorical setup? Restructure it; keep actual research or diagnostic questions.
 - Any "here's what/this/that" throat-clearing? Cut to the point.
 - Any "not X, it's Y" contrasts? State Y directly.
 - Three consecutive sentences match length? Break one.
@@ -143,7 +158,7 @@ Run this pass before delivering prose:
 - Meta-joiners ("The rest of this essay...")? Delete. Let the essay move.
 - Any sentence that only introduces the next one? Delete it and re-read. It almost always survives.
 - Does the piece narrate itself ("this post", "from here on")? Name the subject instead.
-- Any formula/table/dense definition with no beat after it? Add one zero-information sentence.
+- Does a dense block need breathing room? Try spacing, an example, or clarification, not compulsory filler.
 - Count sections ending on a shaped punchline. Over half? Let some end flat.
 - Counting sentences or lines in a source ("in exactly one sentence")? Delete the number; if nothing changes, leave it deleted.
 - Any sentence rating a fact instead of stating one ("surprisingly simple", "easy to miss")? Cut the rating, show the fact.
@@ -176,13 +191,27 @@ check section for the full list):
 - Pointing at your own text ("dòng này", "mục ba", "bài này")? Name the thing instead. If you can
   name it, the location is noise. If a section number is genuinely needed, write "mục 3".
 
+## Authorship, evidence, and captions
+
+- Check who "I/mình" refers to. Assistant work status is not an author's biography or experience.
+- Read repeated "mình sẽ / mình dự kiến" across the whole draft. In an explainer, replace task narration
+  with the method itself; preserve genuine plans in proposals and user-supplied personal context.
+- Put evidence limits beside the relevant example or claim. Keep "Số liệu minh họa" with invented
+  numbers; avoid repeating the same disclaimer in the intro, body, caption, and footer.
+- Captions explain the figure, units, provenance, and material edits. Put rendering tools and QA logs
+  in production notes unless the article is teaching those tools. Do not add production-style
+  headers/footers to screenshots by default.
+
+Examples and counterexamples: [authorship-and-evidence.md](references/authorship-and-evidence.md).
+
 ## Blacklist quét bằng máy (tiếng Việt)
 
 [references/blacklist-vi.txt](references/blacklist-vi.txt) giữ các cụm đã bị bắt tại
 trận, dạng pattern ERE mỗi dòng một cái. Chạy trước khi ship:
 
 ```bash
-grep -vE '^[[:space:]]*(#|$)' blacklist-vi.txt | grep -n -i -E -f - bai.mdx
+# Run from the skill directory; replace bai.mdx with the draft path.
+grep -vE '^[[:space:]]*(#|$)' references/blacklist-vi.txt | grep -n -i -E -f - bai.mdx
 ```
 
 Kết quả là chỗ cần nhìn, không phải chỗ phải sửa. Đọc từng câu rồi mới quyết, vì có
@@ -201,11 +230,13 @@ Rate 1-10 on each dimension:
 | Rhythm | Varied or metronomic? |
 | Trust | Respects reader intelligence? |
 | Authenticity | Sounds human? |
-| Density | Anything cuttable? Anywhere running at 100 percent with no beat? |
+| Density | Anything cuttable? Are dense passages readable without padding? |
 | Evenness | Do all sections land the same shape? Uniform is worse than lumpy. |
 
 Below 42/60: revise and re-score. Report the score only when the user asked for a review; when they
-asked for a draft, apply the rules silently and hand over the clean text.
+asked for a draft, apply the rules silently and hand over the clean text. Scores are subjective,
+not evidence that a draft is free of slop. A user-identified issue overrides a previous passing score;
+inspect the whole draft for the same cause before scoring again.
 
 ## Workflow
 
@@ -213,20 +244,27 @@ asked for a draft, apply the rules silently and hand over the clean text.
 is uncertain, search it (rule 18) at the moment of doubt rather than shipping it and hoping the review
 pass catches it. The review pass only catches patterns already on a list.
 
+**Sửa bằng cách xoá (thêm 20/09/2026, tiếng Việt).** Mọi lần sửa phải là xoá hoặc thay tại chỗ. Chữa một lỗi bằng cách chèn thêm câu giải thích hay thú nhận là cách slop sinh ra nhanh nhất: ngày 20/09/2026, một bài đã qua lượt stop-slop vẫn đầy slop, và 5/9 câu bị bắt là do chính lượt review chèn vào. Đo bằng số chữ trước và sau: lượt sửa slop mà làm bài dài ra thì phải giải trình từng câu đã thêm. Hit blacklist thì xoá ý đó, đừng đảo câu cho lọt regex.
+
 **Editing a draft.** Read [references/phrases.md](references/phrases.md) and
 [references/structures.md](references/structures.md) first, then rewrite. For Vietnamese prose, also
-read [references/vietnamese-patterns.md](references/vietnamese-patterns.md). Return the revised text.
+read [references/vietnamese-patterns.md](references/vietnamese-patterns.md). Include headings,
+captions, and closing notes in a full-piece review. Do not edit source quotations or code as prose.
+Read the revised piece again for flow and check that scope, evidence limits, numbers, and attribution
+survived. Return the revised text.
 List the cuts only if the user asked what changed.
 
-**Reviewing.** Quote the offending span, name the pattern, give the replacement. One line each. Then
-score.
+**Reviewing.** Quote the offending span, name the pattern, give the replacement. Explain any
+apparently similar construction kept for meaning or genre. Then score. When asked for skill
+improvements, distinguish existing rules from genuinely missing guidance and propose changes; do
+not modify the skill unless the user requests it.
 
 See [references/examples.md](references/examples.md) for before/after transformations.
 
-## Repo conventions this skill inherits
+## Typography convention
 
-`~/.claude/CLAUDE.md` already bans em dashes, en dashes, and smart quotes machine-wide. This skill
-bans them too, for a different reason: they are an AI tell. ASCII `-`, `"`, `'` only.
+Use ASCII `-`, `"`, and `'` in authored prose for this skill. Preserve verbatim source quotations,
+code, formulas, and identifiers; do not normalize them as a prose-style edit.
 
 ## Separator convention
 

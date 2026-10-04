@@ -1,5 +1,8 @@
 # Structures to avoid
 
+Apply these to decorative patterns, not meaningful technical distinctions. Keep research questions,
+conditional claims, and functional lists even when their shape matches an example below.
+
 ## Binary contrasts
 
 These create false drama. State the point directly.
@@ -124,7 +127,7 @@ name the specific constraint.
 
 | Pattern | Fix |
 |---------|-----|
-| Three-item lists | Use two items or one |
+| Decorative three-item lists | Break repeated cadence; keep functional lists intact |
 | Questions answered immediately | Let questions breathe or cut them |
 | Every paragraph ends punchily | Vary endings |
 | Em dashes | Remove. Use commas, colons, or periods. No em dashes at all. |

@@ -1,7 +1,7 @@
 ---
 name: harness-engineering
 description: This skill should be used when the user asks to "build a harness", "harness engineering", "audit my agent setup", "set up AGENTS.md across my repos", "why does Claude keep forgetting how to run this", "my repos keep breaking each other", "multi-repo agent context", "doc gardening", or mentions maintaining agent scaffolding across a CLUSTER of tightly-related repos (multiple repos, one system). A harness is the environment + constraints + feedback loops around a coding agent: AGENTS.md maps, a docs/ system of record, init scripts, acceptance specs, mechanical linters, cross-repo exec-plans, golden principles. Provides scripts to score a cluster against a 12-dimension rubric (audit), detect drift (doctor), turn real session evidence into proposals for what the harness is missing (garden), and track changes that span N repos with an explicit merge order (plan). Use create-exec-plan when the requested outcome is authoring a complete execution plan. Built on Anthropic "Effective harnesses for long-running agents" and OpenAI "Harness engineering".
-version: 0.2.0
+version: 0.2.1
 ---
 
 # Harness engineering

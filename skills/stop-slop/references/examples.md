@@ -20,10 +20,10 @@
 > to admit they're confused. And that's okay."
 
 **After:**
-> "Teams struggle with alignment. Nobody admits confusion."
+> "Most teams struggle with alignment. Nobody wants to admit confusion."
 
-**Changes:** Cut hedging ("most"), removed throat-clearing phrases, deleted permission-granting
-ending.
+**Changes:** Removed throat-clearing phrases and the permission-granting ending. Kept "most"
+and "wants to" because deleting them changes the scope and meaning of the supplied claim.
 
 ---
 
