@@ -1,14 +1,14 @@
 ---
 name: execute-plan
-description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each cluster in subagents so their working context never enters the main session, verifies before claiming anything, writes status back to the plan, and offers to clear context between clusters.
-version: 0.3.0
+description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a plan-step subagent that implements, verifies and commits it, writes status back from the main session, and keeps going until the plan is done or needs the user.
+version: 0.4.0
 ---
 
 # Execute exec-plan
 
 Drive an existing `plans/active/<slug>.yaml` to completion. The plan is the only durable state, so
-the main session stays thin: it orchestrates, verifies, and writes state. Subagents do the reading,
-editing, and test-running, and their context dies with them.
+the main session stays thin: it orchestrates, checks reports, and writes state. Subagents read, edit,
+test and commit, and their context dies with them.
 
 Do not use this skill to author a plan. That is `create-exec-plan`.
 
@@ -19,9 +19,14 @@ reads, failed edits, and test output. None of that is worth keeping. A subagent 
 and returns twenty lines. This is context clearing that needs no hook and no user action, and it is
 the single largest token saving available while implementing a plan.
 
-The main session must therefore never read product code, never run the test suite for exploration,
-and never open a large file to "check" a subagent. It reads plan state, reads subagent reports, and
-runs verify commands.
+Every main-session turn re-reads the whole conversation, so its cost grows with the session. On one
+measured run with about 230k tokens of context, closing a single step took 7 main-session turns and
+1.6M cache-read tokens, and 3 of those turns were the main session reading product code. Count
+main-session turns per step and keep them near two: one spawn, one combined check-and-record call.
+
+The main session therefore never reads product code, never runs tests for exploration, never opens a
+file to "check" a subagent, and never stages or commits product changes. When a report raises a
+question about the code, the next subagent answers it, or the user does.
 
 This workflow is evidence-driven, not ceremony-driven. Do not repeat a command when the same working
 tree state already has trustworthy verbatim output from the subagent. Do not run full-repo checks for
@@ -36,8 +41,7 @@ evo harness step <slug> --no-input     # step board: id, status, blocking, depen
 ```
 
 Use these, not `Read` on the YAML. A mature plan is 25k+ tokens of prose; the board is a few hundred.
-Only `Read` a narrow offset when a specific step's `what`/`verify`/`note` text is needed, and read
-just that step.
+The main session rarely needs a step's full text, since the subagent reads its own step.
 
 If the slug is ambiguous or missing, `evo harness plans` lists every plan with progress.
 
@@ -51,42 +55,45 @@ directly.
 
 ## 2. Compute the ready frontier
 
-A step is ready when its `status` is `pending` and every id in its `depends_on` is `done`.
+A step is ready when its `status` is `pending` and every id in its `depends_on` is `done`. That is the
+whole rule, and it is the rule `ready_steps` in `evo_agents/hub/runs.py` applies to hub runs.
 
-Two hard gates before anything runs:
+`blocking` does not hold back steps that do not depend on it. Plan templates put `blocking: true` on
+nearly every step, and reading it as "nothing ordered after this may start" turned a 22-step plan whose
+`depends_on` allowed 14 levels into 22 serial steps. `blocking: true` marks a step the plan cannot
+finish without; `blocking: false` marks one whose failure the user may accept. Section 8 uses it.
 
-- A `blocking: true` step that is not `done` stops every step ordered after it. Never route around it.
-- A step whose `what` is a checkpoint (verification, baseline comparison) is a barrier by intent even
-  when `depends_on` would allow overtaking it.
+One barrier remains. A step whose `what` is a checkpoint (full-suite verification, baseline
+comparison, release, deploy) starts only after every step ordered before it is `done`, and no step
+ordered after it starts until it is `done`, even when `depends_on` would allow it.
 
 If the frontier is empty but pending steps remain, report exactly which unmet dependency is holding
 the plan and stop. Do not invent work.
 
 ## 3. Group the frontier into clusters
 
-A cluster is a set of steps that can run at the same time without corrupting each other. Assume
-serial until a rule below proves parallel is safe.
+A cluster is the set of ready steps that run at the same time. Each subagent commits, so two of them
+never share a working tree.
 
-Parallel is safe when:
+- A single ready step, or a short linear chain that shares files, runs serially in the repo's main
+  checkout on the plan branch.
+- Ready steps in different repos run in parallel, each in its repo's checkout on the plan branch.
+- Ready steps in the same repo run in parallel, each in its own git worktree on its own branch. Run
+  them serially instead when they will certainly conflict on merge: both add a migration or bump a
+  schema version, both register in the same router, index or `__init__`, or both edit a file the plan
+  names for each.
 
-- The steps are in different repos. Different working trees, no shared index.
-- The steps only create new files under disjoint paths, and no subagent commits.
+A step whose `verify` builds or typechecks the whole repo is safe in a worktree, since it sees only its
+own tree. Create the worktrees for a cluster in one call from the main session:
 
-Parallel is NOT safe when:
+```
+git -C <repo> worktree add ../<repo>-wt/<slug>-<id> -b <plan-branch>-step-<id> <plan-branch>
+```
 
-- Two steps touch the same file. The second edit silently loses the first.
-- Two steps in the same repo both need to commit. One working tree has one index; concurrent
-  `git add`/`git commit` produce commits containing each other's work. If a plan says "one commit per
-  step" (common when working directly on a shared branch), that alone forces serial commits.
-- A step's `verify` runs a build or typecheck over the whole repo. It will see another step's
-  half-written file and fail for the wrong reason.
+The Agent tool's `isolation: "worktree"` makes a worktree of the session's own repository. In a harness
+session that is the harness, not the code repo, so do not use it for code steps.
 
-When steps must share a repo but are genuinely independent, either run them serially, or give each
-subagent `isolation: "worktree"` and merge afterwards. Worktrees cost setup time and a merge, so
-only reach for them when the parallel win is real.
-
-State the chosen grouping to the user in one line per cluster before running anything, including why
-anything was forced serial.
+State the grouping to the user in one line per cluster, with the reason anything runs serially.
 
 ### Prepare GitNexus without dirtying the worktree
 
@@ -99,134 +106,114 @@ gitnexus analyze --index-only --name <repo>-<plan-slug>
 
 Use a unique alias for temporary worktrees and pass the worktree path to later `--repo` arguments when
 aliases are ambiguous. Never run bare `gitnexus analyze` in an implementation worktree: it injects or
-updates `AGENTS.md`, `CLAUDE.md`, and GitNexus skill files, creating unrelated diffs. Run impact before
-editing as required by the repository, but run `detect_changes` only once after the intended files are
-staged and immediately before commit.
+updates `AGENTS.md`, `CLAUDE.md`, and GitNexus skill files, creating unrelated diffs.
 
-## 4. The subagent contract
+## 4. Spawn a plan-step subagent
 
-Spawn one subagent per step, or per short linear chain of steps that share a file. Give each one:
-
-- The step's `id`, `what`, `verify`, and `note`, quoted verbatim from the plan.
-- The repo path and the branch it must stay on.
-- The relevant `references:` entries so it does not rediscover them.
-- The explicit prohibitions below.
-
-A subagent MUST NOT:
-
-- Edit `plans/active/*.yaml`, or write plan state any other way. Concurrent read-modify-write on one
-  YAML file loses updates, and a subagent cannot see whether its verify will survive review. State is
-  written once, by the main session, in section 5.
-- Commit, unless the cluster is serial and the plan assigns commits to that step. Say which applies.
-- Mark its own work done in any form, including in prose.
-- Touch files outside its step's scope.
-
-The subagent must inspect its own diff once before returning. Do not spawn a separate review agent by
-default. Add an independent review only when per-symbol impact is HIGH or CRITICAL, the step changes an
-authorization/secret/destructive-mutation boundary, or the user explicitly requests review.
-
-A subagent MUST return, and nothing more:
+The subagent contract lives in `agents/plan-step.md` next to this file: what the subagent may and must
+not do, how it verifies and commits, and the exact report it returns. The main session does not
+restate it per step. Spawn with `subagent_type: "plan-step"`. When that agent type is missing, link it
+once:
 
 ```
-step: <id>
-files: <paths changed or created>
-verify_command: <the exact command run>
-verify_result: pass | fail
-verify_output: <last 15 lines, verbatim, never paraphrased>
-notes: <anything the plan got wrong, max 3 lines>
+mkdir -p ~/.claude/agents && ln -sf <this skill's directory>/agents/plan-step.md ~/.claude/agents/plan-step.md
 ```
 
-Verbatim output matters. A subagent reporting "tests pass" without the run is the failure mode this
-whole workflow exists to prevent, and it is the same failure that makes plan state lie.
+Until the runtime has loaded it, and in runtimes without agent types, spawn a general-purpose subagent
+whose prompt starts with `Read <this skill's directory>/agents/plan-step.md and follow it.`
 
-### Normalize misleading targeted test commands
-
-Before running a verify command such as `npm test -- tests/foo.test.ts`, inspect the package's `test`
-script once. If that script already hardcodes a broad glob such as `tests/*.test.ts`, the appended path
-does not filter the suite. Replace only that invocation with the repository's underlying runner and the
-requested target, for example:
+The prompt carries only what the contract and the plan cannot:
 
 ```
-node --test --import tsx tests/foo.test.ts
+plan: <slug>
+harness: <harness directory>
+step: <id>, or a chain such as 7,8
+repo: <main checkout or worktree path>
+branch: <branch it commits on>
+mode: serial | parallel
+commit: yes | no
+context: <at most 10 lines the plan does not say: decisions taken earlier in this run, the sha a
+dependency landed in, a trap an earlier report found>
 ```
 
-Record both the plan command and the effective command in `verify_command`. Do not guess a replacement
-for an unfamiliar runner. If equivalence is unclear, run the plan command as written once. Full-suite
-test, lint, typecheck, and build belong at an explicit checkpoint or final verification step, not after
-every targeted implementation step.
+The subagent reads the step's `what`, `verify`, `note` and the plan's `references` itself. Do not paste
+them: quoting a step costs the main session output tokens and adds nothing. Set `commit: no` only when
+the plan assigns the commit to a later step or checkpoint.
+
+Do not spawn a separate review agent by default. Add an independent review only when per-symbol impact
+is HIGH or CRITICAL, the step changes an authorization, secret or destructive-mutation boundary, or the
+user asks for review.
 
 ## 5. Write state back, from the main session only
 
-For each returned step, in plan order:
+Subagents never write plan state. The main session writes it once per step, after reading the report.
+For each report, in plan order:
 
-1. Validate that the report contains the exact command, a pass result, and verbatim output for the
-   current working tree state. Do not re-run it when no files changed after the subagent's run.
-2. Re-run only missing or failed checks, external/manual acceptance the subagent could not perform,
-   checks invalidated by later edits, and final checkpoint commands. Never re-run merely to duplicate
-   evidence.
-3. If verification fails, leave the step `pending` and record what happened. Do not mark `in_progress` as a
+1. Check that it has the exact command, `result: pass`, verbatim output, and a commit sha when
+   `commit: yes`. Do not re-run a check the report already shows passing on that commit.
+2. Re-run only what is missing or failed, external or manual acceptance the subagent could not do, and
+   checks a later merge invalidated.
+3. After a parallel same-repo cluster, merge each step branch into the plan branch in step order with
+   `git -C <repo> merge --no-ff <plan-branch>-step-<id>`, then run the merged steps' verify commands
+   once, together in one call. On a merge conflict, abort the merge, leave that step `pending`, and run
+   it again serially on the merged branch. Remove merged worktrees and their branches.
+4. Check the commit and record the step in one call:
+
+   ```
+   git -C <repo> show --stat --format='%h %s' <sha> && \
+   evo harness step <slug> <step-id> done --evidence "<repo>@<sha>: <verify result>"
+   ```
+
+   Word the evidence like the steps already closed in the same plan. Compare the `--stat` list with the
+   report's `files` and `outside_scope`; a file you did not expect is a reason to question the report,
+   not to read the code.
+5. When verification fails, leave the step `pending` and record what happened with
+   `evo harness step <slug> <step-id> pending --evidence "..."`. Do not mark `in_progress` as a
    consolation.
-4. If it passes, stage only intended files, inspect staged status/diff once, run required secret scan
-   and `gitnexus detect-changes --scope staged` once, then commit when the plan assigns commits.
-5. After the commit, record the step with evidence that cites the commit hash and the verify result,
-   worded like the steps already closed in the same plan:
 
-```
-evo harness step <slug> <step-id> done --evidence "<repo>@<sha>: <verify result>"
-```
-
-That sets `status`, `done_at` and `evidence` in one write. Where the write lands depends on the harness:
+`evo harness step` sets `status`, `done_at` and `evidence` in one write. Where the write lands depends
+on the harness:
 
 - **Hub harness.** `evo harness step` sends the change with `evo-agents hub plan patch`, retries when
   someone else wrote the plan in between, then runs `evo-agents hub plan export` to rewrite the copy.
   Never edit the YAML, not even to add evidence: a hand edit breaks the copy's digest, and both
   `evo-agents harness validate` and `evo harness check` report it. If the write fails (not signed in,
   no grant, hub down), report the error and leave the step as it is. Do not fall back to editing the
-  file.
+  file. When the copies are tracked in git, commit them once per cluster, not once per step:
+  `evo-agents hub plan export . --commit`.
 - **File harness.** `evo harness step` edits the text in place and refuses to save if the reparse does
   not match the expected result, so comments and block scalars survive.
 
-The command above needs evo-cli 0.29.0 or later. Check with `evo --version`, or look for `--evidence` in
-`evo harness step --help`. Releases before 0.29.0 know nothing of the hub, have no `--evidence`, and
-their `--note` overwrites the step's existing `note:` field, which carries the traps the plan author
-found. With an older evo-cli:
-
-- in a hub harness, stop and upgrade (`pip install -U evo-cli`) before writing any state, because the
-  old release edits the copy in place;
-- in a file harness, run `evo harness step <slug> <step-id> done` without `--note`, then add
-  `evidence:` with `Edit`.
-
-From 0.29.0 on, `--note` appends on a line of its own and keeps the existing note, so it is safe for
-something the next session must know that is not evidence.
+This needs evo-cli 0.29.0 or later (`evo --version`, or `--evidence` in `evo harness step --help`).
+Older releases know nothing of the hub, have no `--evidence`, and their `--note` overwrites the step's
+existing `note:`. With an older evo-cli, stop and upgrade (`pip install -U evo-cli`) in a hub harness;
+in a file harness, run `evo harness step <slug> <step-id> done` without `--note`, then add `evidence:`
+with `Edit`. From 0.29.0 on, `--note` appends on a line of its own, so it is safe for something the next
+session must know that is not evidence.
 
 When every step of a repo has landed, move the repo entry with `evo harness repo <slug> <index> <status>`.
 
-Close the loop before moving on:
+Close the loop after each cluster with `evo harness check <slug>`, which compares what the plan claims
+against real git. Report a mismatch immediately rather than starting the next cluster on top of it.
 
-```
-evo harness check <slug>
-```
+## 6. Run to the end
 
-It compares what the plan claims against real git. Report any mismatch immediately rather than
-starting the next cluster on top of it.
+Keep going, cluster after cluster, until the frontier is empty. Do not ask between clusters and do not
+offer `/clear` as a question. After each cluster, write one status line: the steps closed with their
+shas, and the next cluster.
 
-## 6. Offer to clear between clusters
+Stop and ask only when:
 
-Nothing in Claude Code lets an agent clear its own context. `/clear` is a built-in command; hooks
-cannot trigger it and the model cannot invoke it. So the skill asks, and the user presses the key.
+- the next step is outward-facing or hard to reverse: a push to a shared branch, a merge to the default
+  branch, a release or publish, a deploy, creating or rotating credentials, changing a production
+  database, or sending a message on someone's behalf;
+- the plan text says the user decides or confirms;
+- a step failed or its premise is wrong (section 8) and no other step is ready.
 
-After a substantial cluster, with state written and `check` clean, use `AskUserQuestion`:
-
-- Continue to the next cluster in this session.
-- `/clear`, then re-invoke this skill with the same slug.
-- Stop here.
-
-Do not interrupt the user after every small serial step. Recommend the clear when the cluster produced
-several subagent reports or when their verify output was long. Say plainly what re-entry costs: one
-`evo harness show` plus one step board, a few hundred tokens against a session that may be carrying a
-hundred thousand.
-
-Tell the user the exact re-entry line, for example `/execute-plan deployments-control-plane`.
+Nothing lets an agent clear its own context. When the session passes about half its window, say so
+once in the status line together with the re-entry command, for example
+`/execute-plan deployments-control-plane`, and keep going; whether to clear is the user's call.
+Re-entry costs one `evo harness show` plus one step board.
 
 ## 7. Resuming is the normal case
 
@@ -240,30 +227,35 @@ Both are worse than a slow session.
 
 ## 8. When a step fails
 
-Do not retry the same subagent prompt verbatim, and do not silently narrow the step.
+Do not retry the same subagent prompt verbatim, and do not silently narrow the step. Leave the failed
+step `pending` with evidence of what happened, keep running ready steps that do not depend on it, and
+ask the user once nothing else is ready.
 
-- Verify failed for an environmental reason (missing credential, service down): leave `pending`,
-  report the blocker, ask the user.
-- The step's premise is wrong (the file it names does not exist, the API shape differs): leave
-  `pending`, report the discrepancy against the plan's `references:`, and ask whether to amend the
-  plan. Amending a plan mid-execution is the user's call.
-- The step is genuinely bigger than written: finish what is actually verifiable, leave the step `pending`
-  with `evidence:` saying exactly which part landed, per the harness rule that partial work is never
-  `done`. Write it with `evo harness step <slug> <step-id> pending --evidence "..."`, never by hand in a
-  hub harness.
+- Verify failed for an environmental reason (missing credential, service down): report the blocker.
+- The step's premise is wrong (the file it names does not exist, the API shape differs): report the
+  discrepancy against the plan's `references:` and ask whether to amend the plan. Amending a plan
+  mid-execution is the user's call.
+- The step is genuinely bigger than written: keep what is actually verifiable and record with
+  `evo harness step <slug> <step-id> pending --evidence "..."` exactly which part landed, per the
+  harness rule that partial work is never `done`.
+
+A subagent whose verify failed in the main checkout stashes its changes and reports the stash, so the
+next serial step starts clean. Put the stash name in the step's evidence.
+
+A failed `blocking: true` step means the plan cannot finish without it; say so in the final report. A
+failed `blocking: false` step can be left behind if the user accepts it.
 
 ## 9. Checklist
 
 - [ ] Plan state loaded via `evo harness show` / `step --no-input`, not a full file read.
-- [ ] Frontier computed from `depends_on`, blocking steps and checkpoints respected.
-- [ ] Clustering decided and stated, with any forced-serial reason given.
+- [ ] Frontier computed from `depends_on` alone; checkpoint steps kept as barriers.
+- [ ] Clustering stated, with any forced-serial reason; same-repo parallel steps in their own worktrees.
 - [ ] A stale GitNexus index was refreshed with `--index-only`, never a bare analyze in the worktree.
-- [ ] Every subagent told: no plan edits, no self-marking, verbatim verify output.
-- [ ] Targeted test commands were checked for hardcoded broad globs and normalized when equivalent.
-- [ ] Main session accepted current verbatim evidence instead of duplicating successful checks.
-- [ ] Staged diff, secret scan, and `detect_changes` each ran once immediately before commit.
-- [ ] `evo harness step ... done --evidence` cited the commit hash, with evo-cli 0.29.0 or later. In a
-      hub harness no YAML was edited by hand; with an older evo-cli in a file harness, no `--note`
-      and `evidence:` added with `Edit`.
-- [ ] `evo harness check <slug>` clean before the next cluster.
-- [ ] User offered the clear after a substantial cluster, with the re-entry command spelled out.
+- [ ] Subagents spawned as `plan-step` (or told to read `agents/plan-step.md`), with a short prompt and
+      no pasted step text.
+- [ ] Main session read no product code and accepted current verbatim evidence instead of re-running it.
+- [ ] Commit checked and step recorded in one call, the evidence citing the commit hash, with evo-cli
+      0.29.0 or later. In a hub harness no YAML was edited by hand.
+- [ ] `evo harness check <slug>` clean after each cluster.
+- [ ] No question between clusters; stopped only at outward-facing steps, user decisions, or when a
+      failure left nothing else ready.
