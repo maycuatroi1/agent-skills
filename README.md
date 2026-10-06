@@ -83,6 +83,7 @@ python3 setup.py
 | `speak` | Text to speech via [`evo tts`](https://github.com/maycuatroi/evo-cli): Vbee for Vietnamese (realtime `mode: sync`, bulk `mode: async` + polling), OpenAI `gpt-4o-mini-tts` for everything else. Ships the `evo-tts` MCP server (`mcp/tts/server.py`) whose `speak` tool lets an agent hand over a spoken summary through your speakers. One-shot setup: `bash mcp/tts/install.sh` |
 | `manim-explainer-video` | Build animated technical explainer videos with [Manim Community](https://www.manim.community/): light theme, Vietnamese narration, real computed numbers, plus a timecoded dubbing script and frame-accurate SRT subtitles. Ships a working scaffold (`scripts/new-video.sh <dir>`) and the macOS workarounds Manim needs to render LaTeX + Vietnamese at all |
 | `stop-slop` | Strip AI tells out of English prose. Banned-phrase list (throat-clearing openers, emphasis crutches, business jargon, all adverbs, vague declaratives), structural clichés (binary contrasts, negative listing, dramatic fragmentation, false agency, passive voice), before/after rewrites, and a 5-dimension score with a ship/revise threshold. Ported from [hardikpandya/stop-slop](https://github.com/hardikpandya/stop-slop) (MIT); no dependencies |
+| `update-evo-agents` | Bring evo-agents up to the latest release on this machine and in a harness's CI: checks the CLI, the `evo-hub` and `evo-kg` plugins, the worker daemon and the `evo-ak==` pins, then an `evo-agents-updater` subagent upgrades what is behind, restarts an idle daemon and opens a pull request per pin. `scripts/check.py --notice` in a SessionStart hook says when something is behind |
 
 ## Requirements
 
@@ -95,6 +96,7 @@ python3 setup.py
 - Node.js 18+ (`npm i -g gitnexus`) - for `gitnexus` (optional `python3`/`make`/`g++` to also parse Dart/Kotlin/Swift)
 - `python3` + `pyyaml` + `git` - for `harness-engineering` (`claude` CLI only for `garden --headless`). Runs on Windows and POSIX.
 - `evo-agents` >= 0.2.0 (`uv tool install 'evo-ak>=0.2.0'`), signed in with `evo-agents hub login` - for hub sync, and for `harness-engineering`, `create-exec-plan` and `execute-plan` in a harness whose `harness.yaml` has `hub.project`, where `execute-plan` also needs `evo` >= 0.29.0 (`pip install -U evo-cli`)
+- `evo-agents` + `uv` + `gh` CLI + the `claude` CLI - for `update-evo-agents` (`python3` 3.9+ for its `scripts/check.py`, stdlib only)
 - macOS + Homebrew (`dvisvgm`, `mupdf-tools`, `ffmpeg`, `texlive`, `font-inter`) + [`uv`](https://github.com/astral-sh/uv) + Python 3.12 - for `manim-explainer-video` (`scripts/setup.sh` installs all of it, idempotent)
 - [`uv`](https://github.com/astral-sh/uv) + a Vbee app (`vbee.app_id`, `vbee.token`) and/or `openai_api_key` in the omelet store - for `speak`. `uv` resolves `evo_cli` from the server's PEP 723 metadata, so nothing is installed globally. `ffmpeg` (or any of `mpv`/`vlc`/`afplay`) for playback
 
