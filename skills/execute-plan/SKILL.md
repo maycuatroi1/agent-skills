@@ -1,7 +1,7 @@
 ---
 name: execute-plan
-description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a plan-step subagent that implements, verifies and commits it, writes status back from the main session, and keeps going until the plan is done or needs the user.
-version: 0.4.0
+description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a plan-step subagent that implements, verifies and commits it, writes status back from the main session, and keeps going until the plan is done or needs the user. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness.
+version: 0.5.0
 ---
 
 # Execute exec-plan
@@ -34,6 +34,10 @@ targeted steps unless the plan explicitly makes them acceptance criteria or the 
 the target in isolation.
 
 ## 1. Load state cheaply
+
+First check `echo "${EVO_RUN_KIND:-}"`. `plan` means this session is the agent of an evo-agents worker plan run:
+there is no harness checkout and no `evo harness`, and section 9 says what replaces them. `step` means a run of one
+step, whose prompt, not this skill, says what to do. Empty means an ordinary session; read on.
 
 ```
 evo harness show <slug>
@@ -245,7 +249,121 @@ next serial step starts clean. Put the stash name in the step's evidence.
 A failed `blocking: true` step means the plan cannot finish without it; say so in the final report. A
 failed `blocking: false` step can be left behind if the user accepts it.
 
-## 9. Checklist
+## 9. Inside a worker plan run
+
+An evo-agents worker can take a whole plan as one run. Its daemon starts the agent in a run directory that holds a
+worktree of each repo of the plan, on the branch the plan names for that repo, and `.evo-run/plan.yaml`, the plan as
+the run was claimed. The environment has `EVO_RUN_KIND=plan`, `EVO_RUN_ID` and `EVO_WORKER_HOME`. The owner who
+dispatched the run is not watching, and the hub keeps the plan. The agent reaches the hub only through four commands
+that use the worker's token and refuse to run outside the run: `evo-agents worker plan`, `evo-agents worker step`,
+`evo-agents worker ask` and `evo-agents worker notify`. They come with the evo-agents that runs the worker (0.4.0 or
+later). Where this section differs from sections 1 to 8, it wins.
+
+**Read the plan.** Before each cluster, read the plan as the hub holds it now; the owner may have edited it since the
+run was claimed. A step board costs a few hundred tokens:
+
+```
+evo-agents worker plan --json | python3 -c 'import sys, json; b = json.load(sys.stdin)["body"]; [print(s["id"], s.get("status", "pending"), s.get("repo", "-"), s.get("depends_on", []), s.get("title", "")) for s in b["steps"]]'
+```
+
+`.evo-run/plan.yaml` holds each step's full text as claimed. Compute the frontier as section 2 says. Checkpoint steps
+stay barriers, and they are the agent's to do.
+
+**Clusters.** Steps in different repos may run in parallel, each in its repo's worktree. Steps in the same repo run
+one after another in that worktree: `evo-agents worker step <id> done` commits whatever the worktree holds, so a
+second step in flight would land in the first one's commit. Never switch a worktree's branch; the worker refuses to
+commit or push from any branch but the run's.
+
+**Subagents.** Spawn plan-step subagents as section 4 says, with `plan_file` in place of `harness`:
+
+```
+plan: <plan id>
+plan_file: <run directory>/.evo-run/plan.yaml
+step: <id>
+repo: <that repo's worktree, as the run's prompt lists it>
+branch: <the branch that worktree is on>
+mode: serial
+commit: yes
+context: <as in section 4>
+```
+
+`mode` is always `serial` here, so a subagent whose verify failed stashes its changes and the next step's `done`
+does not commit them.
+
+**Record each step.** Subagents never report to the hub. The main session marks a step when it spawns the subagent
+and records it after reading the report:
+
+```
+evo-agents worker step <id> in_progress --repo <repo>
+evo-agents worker step <id> done --repo <repo> --evidence "<text>" --verify "<command>"
+evo-agents worker step <id> pending --repo <repo> --evidence "<what landed, what failed, the stash>"
+```
+
+`done` runs each `--verify` command again with `/bin/sh` in the repo's worktree (repeat `--verify` once per command)
+and refuses the step when one exits non-zero. Otherwise it commits what is left in the worktree, pushes the run's
+branch to the branch the plan names (never forced), and records the commit with the step. Take the commands from the
+report's `verify_command`, the effective one when it differs, as they run from the worktree root: a plan `verify` that
+starts with `cd ~/github/<repo>` points at a developer's checkout, not at this worktree. The hub writes the run,
+`repo@commit` and each verify command's exit code into the evidence itself, so `--evidence` says what was done, plus
+the `Decision:` lines below. Never use `evo harness step`, `evo-agents hub plan` or the hub's `plan_step` tool here:
+the hub writes the step from the worker's report, as the member who dispatched the run.
+
+**Ask only what the owner must decide.** Use `evo-agents worker ask` only for a decision of one of the categories the
+run's prompt lists:
+
+- `deploy`: deploying or releasing anything to any environment, a checkpoint step that deploys included;
+- `delete_data`: deleting data that is not the run's own scratch: database rows, files, buckets, other people's
+  branches;
+- `live_migration`: a migration, backfill or bulk change on real data rather than a test database;
+- `external_send`: sending anything to a service outside the machine and the repos' own remotes: mail, chat, issues,
+  third-party APIs;
+- `spend_money`: anything that costs money beyond the runtime's own usage: paid APIs, cloud resources, purchases;
+- `architecture`: an architectural choice the plan leaves open;
+- `scope`: a question of scope the plan leaves open: adding, dropping or reshaping a step or what it delivers.
+
+```
+evo-agents worker ask --category deploy --question "<one or two sentences>" --context-file <notes.md> --option "go=Deploy now" --option "hold=Wait:Deploy after the owner checks staging" --recommended hold --step <id>
+```
+
+It takes 2 to 6 options and prints the decision's id. Go on with the steps that do not depend on the answer; when none
+is left, end the turn. The run waits for the owner, the waiting time does not count toward its timeout, and the answer
+comes back in this session as a message naming the decision. Read the plan again, then go on; section 7 holds.
+
+Decide everything else yourself, and write each such choice with its reason in the step's evidence, on a line that
+starts with `Decision:`. Section 6's stops and section 8's questions to the user become either a decision of a listed
+category or a `Decision:` line. A wrong premise, or a step bigger than written, is a `scope` decision; hand the step
+back with `pending` and go on with other ready steps meanwhile.
+
+**Checkpoints.** A checkpoint step (full-suite verification, review, release, deploy) is the agent's: do it like any
+step. When it includes a deploy or a release, or anything else in the list above, ask first with `--step <id>`, do the
+parts that do not depend on the answer, and end the turn.
+
+**Push and merge.** The agent may push, and merge into, the branch the plan names for a repo, even when it is the
+repo's default branch. It never pushes or merges into a branch the plan does not name for that repo, never
+force-pushes, and never rewrites history it pushed. A step that needs more, such as merging a feature branch the plan
+names into `main`, is a `scope` decision. `evo-agents worker step <id> done` sends its own notice for its pushes; after
+a push or merge into a default branch the agent makes itself, it runs:
+
+```
+evo-agents worker notify --kind merge_default_branch --title "<one line>" --body "<what and why>" --repo <repo> --branch <branch> --commit <sha>
+```
+
+with `--kind push_default_branch` for a push, and `--commit` once per commit.
+
+**Stop.** When the frontier is empty and no decision is open, write `.evo-run/result.json` in the run directory, not
+in a repo, and end the turn:
+
+```json
+{"summary": "Done: 1, 2, 4. Decided: ... Left: 3 pending (why), 5 waits on 3."}
+```
+
+The summary says which steps finished, what the agent decided itself, and what is left and why. Write the file only
+when stopping for good, never when ending a turn to wait for an answer: the worker reads it as the run's final
+summary, and the Claude Code adapter takes it as the sign that the agent has finished. Keep `.evo-run/` out of every
+commit. The worker then commits what is left in each worktree and pushes each plan branch whose commits origin
+lacks; it runs no verify command at the end, since `evo-agents worker step` ran each step's.
+
+## 10. Checklist
 
 - [ ] Plan state loaded via `evo harness show` / `step --no-input`, not a full file read.
 - [ ] Frontier computed from `depends_on` alone; checkpoint steps kept as barriers.
@@ -259,3 +377,8 @@ failed `blocking: false` step can be left behind if the user accepts it.
 - [ ] `evo harness check <slug>` clean after each cluster.
 - [ ] No question between clusters; stopped only at outward-facing steps, user decisions, or when a
       failure left nothing else ready.
+- [ ] In a worker plan run (`EVO_RUN_KIND=plan`): plan read with `evo-agents worker plan` before each
+      cluster, same-repo steps serial in the run's worktree, steps recorded only with
+      `evo-agents worker step` and runnable `--verify` commands, the owner asked only in the listed
+      categories, a `Decision:` line for every other choice, a notice after each push or merge into a
+      default branch, and `.evo-run/result.json` written once, at the end.
