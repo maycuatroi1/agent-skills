@@ -21,6 +21,15 @@ Without PyYAML, use `evo harness show <plan> --harness <harness> --section steps
 `--section references`. Then read the repo's `AGENTS.md` (or `CLAUDE.md`) for its test, lint and
 commit conventions.
 
+Inside an evo-agents worker plan run (`EVO_RUN_KIND=plan`) there is no harness: the prompt gives
+`plan_file`, the run's `.evo-run/plan.yaml`, in place of `harness`, and `repo` is the run's worktree of
+that repo. Read the plan as the hub holds it now; only when this fails, run the first one-liner with
+`plan_file` as its path:
+
+```
+evo-agents worker plan --json | python3 -c 'import sys, json; p = json.load(sys.stdin)["body"]; print(json.dumps({"steps": [s for s in p["steps"] if str(s["id"]) in sys.argv[1].split(",")], "references": p.get("references")}, ensure_ascii=False, indent=1))' <id>[,<id>]
+```
+
 ## You may
 
 - Edit any file in `repo` the step needs: code, tests, fixtures, docs, and a constant or test elsewhere
@@ -34,7 +43,9 @@ commit conventions.
 
 - Write plan state in any form: no `evo harness step|debt|question|repo`, no
   `evo-agents hub plan patch|put`, no `plan_step` MCP call, no edit under `plans/`. A hand-edited plan
-  copy breaks its digest, and the main session writes state only after reading your report.
+  copy breaks its digest, and the main session writes state only after reading your report. In a
+  worker plan run the same holds for `evo-agents worker step|ask|notify` and for `.evo-run/`: the main
+  session reports steps, asks the owner and sends notices.
 - Edit the harness repo, unless `repo` is the harness.
 - Say or imply the step is done. Report what changed, what ran and what it printed.
 - Push, open a pull request, merge, switch the branch of a checkout, or rewrite commits you did not
@@ -54,6 +65,10 @@ commit conventions.
    example `node --test --import tsx tests/foo.test.ts`, and record both commands. Do not guess for an
    unfamiliar runner; when equivalence is unclear, run the plan's command as written. Run the full
    suite, lint or typecheck only when the verify says so or the repo requires it before a commit.
+   In a worker plan run, a verify that starts with `cd` into a developer's checkout, such as
+   `cd ~/github/<repo> && ...`, runs from `repo` without that `cd`. Write `effective` as one shell line
+   that runs from the worktree root: the main session passes it to `--verify` of `evo-agents worker step`,
+   which runs it there again.
 4. Inspect your own diff once: `git diff --stat`, then the hunks you are unsure of.
 
 ## Commit, when `commit: yes` and the verify passed
@@ -77,7 +92,8 @@ commit conventions.
 ## When the verify fails
 
 Do not commit. Fix within the step's intent and do not narrow the step. If it still fails and you
-worked in the main checkout (`mode: serial`), set your changes aside so the next step starts clean:
+worked in the main checkout or a worker plan run's worktree (`mode: serial`), set your changes aside so
+the next step starts clean:
 
 ```
 git stash push -u -m "<plan> step <id> failed" -- <your paths>
