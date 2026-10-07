@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a plan-step subagent that implements, verifies and commits it, writes status back from the main session, and keeps going until the plan is done or needs the user. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness.
-version: 0.5.0
+version: 0.6.0
 ---
 
 # Execute exec-plan
@@ -9,6 +9,13 @@ version: 0.5.0
 Drive an existing `plans/active/<slug>.yaml` to completion. The plan is the only durable state, so
 the main session stays thin: it orchestrates, checks reports, and writes state. Subagents read, edit,
 test and commit, and their context dies with them.
+
+The plan fixes the contract: goal, acceptance criteria, invariants, non-goals, seam order, checkpoints.
+Inside that contract the agent doing the work chooses the route. A step with an `acceptance` list is an
+outcome step: it says what must become true, and the files, the order and the commits are the
+subagent's to choose. A step without one is prescribed: its `what` fixes the operations, because a wrong
+route there cannot be undone. Either way, a choice the plan did not make is made by whoever holds the
+code in context, and written down as a `Decision:` line, not sent to the user.
 
 Do not use this skill to author a plan. That is `create-exec-plan`.
 
@@ -27,6 +34,13 @@ main-session turns per step and keep them near two: one spawn, one combined chec
 The main session therefore never reads product code, never runs tests for exploration, never opens a
 file to "check" a subagent, and never stages or commits product changes. When a report raises a
 question about the code, the next subagent answers it, or the user does.
+
+One subagent owns one step, an outcome step included, however many files and commits it takes: its
+writes stay in one thread and its choices stay consistent. Do not split a step into smaller subagent
+tasks from the main session, and do not run a separate subagent to re-verify one that reported a pass.
+The exception is a step small enough to finish in a few tool calls, such as a version bump or one line
+of documentation: spawning costs more than the work, so the main session does it, following
+`agents/plan-step.md` for the verify, the commit and the report it would have received.
 
 This workflow is evidence-driven, not ceremony-driven. Do not repeat a command when the same working
 tree state already has trustworthy verbatim output from the subagent. Do not run full-repo checks for
@@ -140,9 +154,10 @@ context: <at most 10 lines the plan does not say: decisions taken earlier in thi
 dependency landed in, a trap an earlier report found>
 ```
 
-The subagent reads the step's `what`, `verify`, `note` and the plan's `references` itself. Do not paste
-them: quoting a step costs the main session output tokens and adds nothing. Set `commit: no` only when
-the plan assigns the commit to a later step or checkpoint.
+The subagent reads the step's `what`, `verify`, `note` and `acceptance`, and the plan's `acceptance`,
+`non_goals` and `references`, itself. Do not paste them: quoting a step costs the main session output
+tokens and adds nothing. Set `commit: no` only when the plan assigns the commit to a later step or
+checkpoint. An outcome step may come back with several commits.
 
 Do not spawn a separate review agent by default. Add an independent review only when per-symbol impact
 is HIGH or CRITICAL, the step changes an authorization, secret or destructive-mutation boundary, or the
@@ -153,24 +168,26 @@ user asks for review.
 Subagents never write plan state. The main session writes it once per step, after reading the report.
 For each report, in plan order:
 
-1. Check that it has the exact command, `result: pass`, verbatim output, and a commit sha when
-   `commit: yes`. Do not re-run a check the report already shows passing on that commit.
+1. Check that it has the exact command, `result: pass`, verbatim output, and at least one commit sha
+   when `commit: yes`. Do not re-run a check the report already shows passing on its last commit.
 2. Re-run only what is missing or failed, external or manual acceptance the subagent could not do, and
    checks a later merge invalidated.
 3. After a parallel same-repo cluster, merge each step branch into the plan branch in step order with
    `git -C <repo> merge --no-ff <plan-branch>-step-<id>`, then run the merged steps' verify commands
    once, together in one call. On a merge conflict, abort the merge, leave that step `pending`, and run
    it again serially on the merged branch. Remove merged worktrees and their branches.
-4. Check the commit and record the step in one call:
+4. Check the commits and record the step in one call:
 
    ```
-   git -C <repo> show --stat --format='%h %s' <sha> && \
-   evo harness step <slug> <step-id> done --evidence "<repo>@<sha>: <verify result>"
+   git -C <repo> log --stat --format='%h %s' <first-sha>^..<last-sha> && \
+   evo harness step <slug> <step-id> done --evidence "<repo>@<last-sha>: <verify result>
+   Decision: <one line per entry of the report's decisions>"
    ```
 
-   Word the evidence like the steps already closed in the same plan. Compare the `--stat` list with the
-   report's `files` and `outside_scope`; a file you did not expect is a reason to question the report,
-   not to read the code.
+   Word the evidence like the steps already closed in the same plan, and carry every `Decision:` line of
+   the report into it unchanged: they are how the user and later steps learn what the plan did not say.
+   Compare the `--stat` list with the report's `files` and `outside_scope`; a file you did not expect is
+   a reason to question the report, not to read the code.
 5. When verification fails, leave the step `pending` and record what happened with
    `evo harness step <slug> <step-id> pending --evidence "..."`. Do not mark `in_progress` as a
    consolation.
@@ -204,7 +221,8 @@ against real git. Report a mismatch immediately rather than starting the next cl
 
 Keep going, cluster after cluster, until the frontier is empty. Do not ask between clusters and do not
 offer `/clear` as a question. After each cluster, write one status line: the steps closed with their
-shas, and the next cluster.
+shas, and the next cluster. Before writing it, check each claim in it against a report or command output
+of this session; say "not verified" for anything you cannot point to.
 
 Stop and ask only when:
 
@@ -212,7 +230,12 @@ Stop and ask only when:
   branch, a release or publish, a deploy, creating or rotating credentials, changing a production
   database, or sending a message on someone's behalf;
 - the plan text says the user decides or confirms;
-- a step failed or its premise is wrong (section 8) and no other step is ready.
+- going on would change the contract: an acceptance criterion, an invariant, a non-goal, the seam order
+  or the rollback;
+- a step failed (section 8) and no other step is ready.
+
+Everything else, a wrong file name in a step, an API shaped differently than the plan assumed, a better
+order, an extra file to touch, is decided by the subagent or by you and recorded as a `Decision:` line.
 
 Nothing lets an agent clear its own context. When the session passes about half its window, say so
 once in the status line together with the re-entry command, for example
@@ -236,12 +259,14 @@ step `pending` with evidence of what happened, keep running ready steps that do 
 ask the user once nothing else is ready.
 
 - Verify failed for an environmental reason (missing credential, service down): report the blocker.
-- The step's premise is wrong (the file it names does not exist, the API shape differs): report the
-  discrepancy against the plan's `references:` and ask whether to amend the plan. Amending a plan
-  mid-execution is the user's call.
-- The step is genuinely bigger than written: keep what is actually verifiable and record with
-  `evo harness step <slug> <step-id> pending --evidence "..."` exactly which part landed, per the
-  harness rule that partial work is never `done`.
+- The step's premise is wrong (the file it names does not exist, the API shape differs): that is a
+  route problem, not a failure. The subagent finds the way to the step's outcome and reports the choice
+  as a `Decision:` line. Ask the user only when no route reaches the outcome without changing the
+  contract (section 6), and then name the criterion, invariant or non-goal that would change.
+- The step is bigger than one subagent's context: keep what is verifiable, record with
+  `evo harness step <slug> <step-id> pending --evidence "..."` exactly which part landed (partial work is
+  never `done`), and spawn the next subagent on the same step with that evidence as its `context`.
+  Do not split the step in the plan to make it fit.
 
 A subagent whose verify failed in the main checkout stashes its changes and reports the stash, so the
 next serial step starts clean. Put the stash name in the step's evidence.
@@ -331,8 +356,12 @@ comes back in this session as a message naming the decision. Read the plan again
 
 Decide everything else yourself, and write each such choice with its reason in the step's evidence, on a line that
 starts with `Decision:`. Section 6's stops and section 8's questions to the user become either a decision of a listed
-category or a `Decision:` line. A wrong premise, or a step bigger than written, is a `scope` decision; hand the step
-back with `pending` and go on with other ready steps meanwhile.
+category or a `Decision:` line. The route of an outcome step is left open on purpose, so choosing it is not an
+`architecture` decision: ask under `architecture` only for a choice that would change a contract the plan fixes (a
+schema, an API, a CLI surface, a seam) or be hard to reverse. A wrong premise is a `Decision:` line, as section 8 says;
+it becomes a `scope` decision only when no route reaches the step's outcome without changing an acceptance criterion,
+an invariant or a non-goal. A step bigger than one subagent's context is not a decision: record what landed with
+`pending` and spawn the next subagent on it.
 
 **Checkpoints.** A checkpoint step (full-suite verification, review, release, deploy) is the agent's: do it like any
 step. When it includes a deploy or a release, or anything else in the list above, ask first with `--step <id>`, do the
@@ -370,13 +399,17 @@ lacks; it runs no verify command at the end, since `evo-agents worker step` ran 
 - [ ] Clustering stated, with any forced-serial reason; same-repo parallel steps in their own worktrees.
 - [ ] A stale GitNexus index was refreshed with `--index-only`, never a bare analyze in the worktree.
 - [ ] Subagents spawned as `plan-step` (or told to read `agents/plan-step.md`), with a short prompt and
-      no pasted step text.
+      no pasted step text; one subagent per step, an outcome step included, and a few-call step done
+      by the main session itself.
 - [ ] Main session read no product code and accepted current verbatim evidence instead of re-running it.
-- [ ] Commit checked and step recorded in one call, the evidence citing the commit hash, with evo-cli
-      0.29.0 or later. In a hub harness no YAML was edited by hand.
+- [ ] Commits checked and step recorded in one call, the evidence citing the last commit hash and every
+      `Decision:` line of the report, with evo-cli 0.29.0 or later. In a hub harness no YAML was edited
+      by hand.
 - [ ] `evo harness check <slug>` clean after each cluster.
-- [ ] No question between clusters; stopped only at outward-facing steps, user decisions, or when a
-      failure left nothing else ready.
+- [ ] No question between clusters; stopped only at outward-facing steps, user decisions, changes to
+      the contract, or when a failure left nothing else ready. A wrong premise became a `Decision:`
+      line, not a question.
+- [ ] Every claim in a status line checked against a report or command output of this session.
 - [ ] In a worker plan run (`EVO_RUN_KIND=plan`): plan read with `evo-agents worker plan` before each
       cluster, same-repo steps serial in the run's worktree, steps recorded only with
       `evo-agents worker step` and runnable `--verify` commands, the owner asked only in the listed

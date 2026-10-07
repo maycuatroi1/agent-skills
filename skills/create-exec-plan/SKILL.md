@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: This skill should be used when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch", or requests a complete YAML plan under plans/active. It investigates project context first, asks only decision-bearing clarification questions, writes one validated plans/active/<slug>.yaml artifact, and stops without implementing the plan.
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Create exec plan
@@ -9,6 +9,14 @@ version: 0.2.0
 Create a durable implementation plan, not a chat outline. Investigate first, separate facts from
 decisions, resolve every blocking ambiguity with the user, then write the complete plan to
 `plans/active/<slug>.yaml`.
+
+A plan fixes the contract and leaves the route to the agent that executes it. The contract is the goal,
+the acceptance criteria and their checks, the invariants, the non-goals, the seam order, and the
+checkpoints before anything irreversible. The route is which files change, in what order, through which
+intermediate states. The executing agent reads the code when it gets there and chooses the route then;
+a route written before anyone touched the code goes stale: on the largest plan written with this
+workflow, 24 of 29 steps recorded a deviation from it. Prescribe the route only where a wrong one cannot
+be undone.
 
 The plan is the only deliverable. Do not create branches, edit product code, commit, push, or begin
 implementation after writing it.
@@ -21,7 +29,9 @@ implementation after writing it.
 - The user explicitly wants a plan under `plans/active/`.
 
 Do not use this skill for a short answer, brainstorming with no requested artifact, personal planning,
-or a trivial edit whose implementation is clearer than a plan.
+or a trivial edit whose implementation is clearer than a plan. A change that one session can finish and
+one command can prove needs no plan file: state the goal and the check, and do it. If the user asked for a
+plan anyway, say so once and let them choose.
 
 ## Non-negotiable rules
 
@@ -30,8 +40,9 @@ or a trivial edit whose implementation is clearer than a plan.
 3. Ask all known decision-bearing questions in one grouped round when possible.
 4. Do not write the plan while any blocking question remains unanswered.
 5. Never overwrite an existing plan without explicit confirmation.
-6. Every implementation step must name its repository, concrete change, dependencies, verification,
-   status, and whether it blocks completion.
+6. Every implementation step must name its repository, the outcome it makes true, dependencies,
+   verification, status, and whether it blocks completion. Only a prescribed step (Phase 3) also fixes
+   the exact operations.
 7. A multi-repo plan must derive merge order from contract ownership. Owners land before consumers.
 8. The final YAML must contain no placeholders such as `TBD`, `<repo>`, `later`, or `figure this out`.
 9. Stop after writing and validating the plan.
@@ -81,6 +92,9 @@ Build enough context that another agent can execute the plan without repeating d
   and other compatibility constraints.
 - Determine the smallest set of repositories and files that must change. Record checked-but-not-needed
   repositories when omitting them could look accidental.
+- Write what the investigation found into `context` and `references`, which every step's executor
+  reads. Do not copy it into each step as instructions: in a step it reads as a route to follow, and it
+  is only a starting point.
 
 ### Establish verification
 
@@ -151,21 +165,77 @@ For multi-repo work:
 - Keep the repo status `pending` while its planned branch has not been created or checked out. Lifecycle
   checks treat that mismatch as planned work; change the status to `in_progress` when execution starts.
 
+### Acceptance criteria and invariants
+
+Give every acceptance criterion an `id` (`a1`, `a2`, ...), so steps can name the criteria they make true.
+Mark a criterion `invariant: true` when it must hold after every step and not only at the end, such as
+"the OpenAPI document does not change" or "the full suite stays green". Every acceptance criterion needs a
+`verify` an agent can run, or a precise manual check when no command can prove it.
+
+### Two kinds of step
+
+**Outcome steps are the default.** An outcome step says what becomes true and leaves the files, the order
+and the intermediate commits to the executor, who records each choice it makes as a `Decision:` line in
+the step's evidence. A step is an outcome step exactly when it has an `acceptance` list. Each item is the
+id of a plan criterion the step satisfies (`a1`), or, for an intermediate outcome no plan criterion
+covers, one sentence stating it ("hub code gets its connections from the engine; driver() still works").
+The step's `verify` proves every item.
+
+**Prescribed steps** fix the exact operations. Write one only where a wrong route cannot be undone, or the
+user asked for that detail:
+
+- a migration, backfill or bulk change on real data;
+- a deploy, release or publish;
+- creating, rotating or revoking credentials, or changing a production service;
+- a seam change whose owner and consumers must move in lockstep;
+- deleting data or history that is not the plan's own scratch.
+
+A prescribed step has no `acceptance` key. Its `what` names the operations in order, and its `verify` and
+the plan's `rollback` say how to check and reverse them.
+
+### Where to cut steps
+
+Cut a step where something has to happen between two pieces of work, not to keep each step small:
+
+- an outcome that can be verified on its own is one step, however many files it touches; a mechanical
+  change across a whole package with one machine check is one step, not one step per directory;
+- a seam owner's change is a step its consumers' steps depend on;
+- a checkpoint (a prescribed step, a full-suite comparison, a review the user wants) gets its own step;
+- work that can run in parallel, in another repo or on files no other step touches, gets its own step.
+
+A repository usually needs a handful of outcome steps. If a plan reaches the old shape of one step per
+module, merge steps that share a verify and have no checkpoint between them.
+
 ### Step construction
 
-Each step is one reviewable state transition. It must:
+Every step:
 
-- Carry a `title` of at most 60 characters, written in the same prose language as the rest of the plan
+- Carries a `title` of at most 60 characters, written in the same prose language as the rest of the plan
   and with full diacritics when that language uses them. The title names the resulting outcome, not the
   mechanism, and must be distinguishable from every other step in the same repository. `title` is only the
   label shown in a step list or dependency graph; `what` remains the full description and is never
   shortened to compensate.
-- Name exact files, modules, symbols, schemas, or commands when investigation identified them.
-- Explain the behavioral result, not just "update code" or "add tests".
-- Depend only on earlier step IDs.
-- Include a runnable verification command or a precise manual verification procedure.
-- State why it is blocking or non-blocking when that is not obvious.
-- Include contract, documentation, migration, generated artifact, and cleanup work where applicable.
+- Depends only on earlier step IDs.
+- Has a `verify` of runnable commands, written to run from the repo root (a worker runs it again in its
+  own worktree), or a precise manual procedure when nothing can be run.
+- States why it is blocking or non-blocking when that is not obvious.
+
+An outcome step's `what`:
+
+- states the outcome as behavior, and restates in words each plan criterion its `acceptance` names by
+  id: a worker's single-step run sees the step's `what`, `verify` and `note`, not the plan's
+  `acceptance`;
+- names the constraints that bind this step, including the contracts it must keep (schemas, APIs, CLI
+  surfaces, file formats) and the invariants it could break;
+- may point at starting points the investigation found, phrased as starting points ("the queries live
+  mostly in ..."), never as a file-by-file sequence;
+- includes the contract, documentation, generated-artifact and cleanup work the outcome implies.
+
+Its `verify` runs the checks of every item of its `acceptance`, plus the checks of the invariants it
+could break.
+
+A prescribed step's `what` names exact files, symbols, commands and order, as far as the investigation
+established them.
 
 Put owner-side contract changes before consumer changes. Put compatibility bridges before migrations,
 migrations before removals, and irreversible operations behind an explicit checkpoint and rollback.
@@ -186,8 +256,13 @@ context: >
   Current behavior, root cause, constraints, and why the change is needed.
 
 acceptance:
-  - criterion: Observable completion condition.
+  - id: a1
+    criterion: Observable completion condition.
     verify: Exact command or manual check that proves it.
+  - id: a2
+    criterion: Condition that must hold after every step, such as an unchanged public contract.
+    verify: Exact command that proves it.
+    invariant: true
 
 non_goals:
   - Explicitly excluded behavior or follow-up.
@@ -209,12 +284,24 @@ steps:
     repo: repository-name
     title: Short outcome label, at most 60 characters.
     what: >
-      Concrete implementation state transition with files or symbols.
+      The behavior that becomes true, each criterion it satisfies restated in words, the contracts and
+      invariants it must keep, and starting points the investigation found. No file-by-file route.
+    acceptance: [a1]
     depends_on: []
-    verify: Exact runnable command or precise manual procedure.
+    verify: Commands of a1 and of the invariants this step could break, runnable from the repo root.
     status: pending
     blocking: true
     note: Why this ordering or verification matters.
+  - id: 2
+    repo: repository-name
+    title: Short outcome label of an irreversible operation.
+    what: >
+      Exact operations in order, with files, commands and the checkpoint before the irreversible one.
+    depends_on: [1]
+    verify: Exact runnable command or precise manual procedure.
+    status: pending
+    blocking: true
+    note: Why this step is prescribed rather than an outcome.
 
 seams_touched:
   - name: contract-name
@@ -277,6 +364,11 @@ Before writing, verify that:
 - Merge order follows every touched seam.
 - Every step has a non-empty `title` of at most 60 characters.
 - Every blocking step has verification.
+- Every acceptance criterion has an `id` and is proven by the `verify` of at least one step.
+- Every id in an outcome step's `acceptance` names an existing criterion, and its `what` restates those
+  criteria in words.
+- No outcome step lays out a file-by-file route, and every prescribed step is one of the cases Phase 3
+  lists or one the user asked for.
 - Rollback is honest about irreversible actions.
 - No blocking question, placeholder, invented command, or unsupported factual claim remains.
 
@@ -287,7 +379,8 @@ After writing:
 
 1. Parse the file with PyYAML or the project's YAML parser.
 2. Re-read it and check required fields, unique step IDs, dependency references, acyclic dependencies,
-   contiguous repo order, allowed statuses, and absence of placeholders.
+   contiguous repo order, allowed statuses, acceptance ids that steps reference, and absence of
+   placeholders.
 3. When the resolved root contains `harness.yaml` and `evo harness` is available, run
    `evo harness show <slug>`, `evo harness graph <slug>`, and `evo harness graph <slug>:steps` from that
    root. Do not run `evo harness check <slug>` until every planned branch or ref it checks exists; branch
