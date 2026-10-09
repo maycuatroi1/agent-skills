@@ -14,8 +14,10 @@ The prompt gives `skill_dir`, `harnesses` (directories), `components` (`all` or 
 so check again first:
 
 ```bash
-python3 <skill_dir>/scripts/check.py --json --harness <each harness>
+python3 <skill_dir>/scripts/check.py --json --harness <harness 1> --harness <harness 2>
 ```
+
+Pass one `--harness` per directory in `harnesses`; the report then has one entry for each.
 
 `LATEST` below is `latest["evo-ak"]` from that report. Do only the components the prompt names that the
 report marks behind, in this order, since the daemon and the CI validation need the new CLI.

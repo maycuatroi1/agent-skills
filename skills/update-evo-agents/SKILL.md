@@ -1,7 +1,7 @@
 ---
 name: update-evo-agents
 description: This skill should be used when the user asks to "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "cập nhật harness agent", "auto update evo-agents", "nâng pin CI evo-ak", or when a SessionStart line starts with "evo-agents update:". It checks the evo-agents CLI, the evo-hub and evo-kg Claude Code plugins, the worker daemon and the evo-ak pins in a harness's CI against the latest release, then hands the update to the evo-agents-updater subagent, which upgrades the machine, restarts an idle worker daemon and opens a pull request for each CI pin.
-version: 0.1.0
+version: 0.1.1
 ---
 
 # Update evo-agents
@@ -26,10 +26,10 @@ skill opens the pull request and stops there.
 python3 <this skill's directory>/scripts/check.py --json
 ```
 
-Run it from inside the harness, or pass `--harness <dir>`. Add `--all-harnesses` when the user asks for
-every harness on the machine. The report lists `behind`; when it is empty, say everything is on the
-latest release and stop. When `latest.error` is set and no cache exists, the release could not be looked
-up: say so and stop.
+Run it from inside the harness, or pass `--harness <dir>`, once per harness when there are several
+(`--harness A --harness B`). Add `--all-harnesses` when the user asks for every harness on the machine.
+The report lists `behind`; when it is empty, say everything is on the latest release and stop. When
+`latest.error` is set and no cache exists, the release could not be looked up: say so and stop.
 
 ## 2. Hand the update to the subagent
 
