@@ -7,7 +7,8 @@ Stdlib only, Python 3.9+.
   check.py --json           the same as JSON, read by the evo-agents-updater agent
   check.py --notice         one line for a SessionStart hook, printed only when something is behind;
                             the release lookup is cached for 12 hours and any failure prints nothing
-  check.py --harness DIR    the harness whose CI pins to read (default: walk up from the current directory)
+  check.py --harness DIR    a harness whose CI pins to read; repeat it for several
+                            (default: walk up from the current directory)
   check.py --all-harnesses  also every harness in this machine's harness registry
 
 The notice stays silent inside an evo-agents worker run (EVO_RUN_ID is set) and when
@@ -237,6 +238,16 @@ def behind_list(report: dict) -> list[str]:
     return items
 
 
+def harness_roots(args) -> list[Path]:
+    roots = [Path(h).resolve() for h in args.harness]
+    if not roots:
+        here = find_harness(Path.cwd().resolve())
+        roots = [here] if here else []
+    if args.all_harnesses:
+        roots += [r.resolve() for r in registry_roots()]
+    return list(dict.fromkeys(roots))
+
+
 def build(args) -> dict:
     latest = latest_versions(use_cache=args.notice)
     newest = latest.get(PACKAGE)
@@ -244,13 +255,7 @@ def build(args) -> dict:
     report = {"latest": latest, "cli": cli, "plugins": plugin_state(latest.get("plugins", {}))}
     if not args.notice:
         report["worker"] = worker_state(cli["version"], newest)
-    roots: list[Path] = []
-    here = Path(args.harness).resolve() if args.harness else find_harness(Path.cwd().resolve())
-    if here:
-        roots.append(here)
-    if args.all_harnesses:
-        roots += [r for r in registry_roots() if r.resolve() not in {x.resolve() for x in roots}]
-    report["harnesses"] = [harness_state(r, newest) for r in roots]
+    report["harnesses"] = [harness_state(r, newest) for r in harness_roots(args)]
     report["behind"] = behind_list(report)
     return report
 
@@ -279,7 +284,7 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--json", action="store_true")
     mode.add_argument("--notice", action="store_true")
-    parser.add_argument("--harness")
+    parser.add_argument("--harness", action="append", default=[], metavar="DIR")
     parser.add_argument("--all-harnesses", action="store_true")
     args = parser.parse_args()
 
@@ -296,6 +301,9 @@ def main() -> int:
                   "evo-agents-updater agent in the background.")
         return 0
 
+    missing = [h for h in args.harness if not Path(h, "harness.yaml").is_file()]
+    if missing:
+        parser.error(f"no harness.yaml in {', '.join(missing)}")
     report = build(args)
     if args.json:
         print(json.dumps(report, indent=1))
