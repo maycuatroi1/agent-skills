@@ -1,7 +1,7 @@
 ---
 name: execute-plan
-description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a plan-step subagent that implements, verifies and commits it, writes status back from the main session, and keeps going until the plan is done or needs the user. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness.
-version: 0.6.0
+description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a plan-step subagent that implements, verifies and commits it, writes status back from the main session, waits in the background for the required CI checks of a pull request it opened, and keeps going until the plan is done or needs the user. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness.
+version: 0.7.0
 ---
 
 # Execute exec-plan
@@ -171,7 +171,7 @@ For each report, in plan order:
 1. Check that it has the exact command, `result: pass`, verbatim output, and at least one commit sha
    when `commit: yes`. Do not re-run a check the report already shows passing on its last commit.
 2. Re-run only what is missing or failed, external or manual acceptance the subagent could not do, and
-   checks a later merge invalidated.
+   checks a later merge invalidated. A verify that needs CI runs once the wait of section 6 ends green.
 3. After a parallel same-repo cluster, merge each step branch into the plan branch in step order with
    `git -C <repo> merge --no-ff <plan-branch>-step-<id>`, then run the merged steps' verify commands
    once, together in one call. On a merge conflict, abort the merge, leave that step `pending`, and run
@@ -232,10 +232,72 @@ Stop and ask only when:
 - the plan text says the user decides or confirms;
 - going on would change the contract: an acceptance criterion, an invariant, a non-goal, the seam order
   or the rollback;
-- a step failed (section 8) and no other step is ready.
+- a step failed (section 8) and no other step is ready;
+- the CI a step waits on gave no result in 90 minutes (below).
 
 Everything else, a wrong file name in a step, an API shaped differently than the plan assumed, a better
 order, an extra file to touch, is decided by the subagent or by you and recorded as a `Decision:` line.
+
+### Wait for CI in the background
+
+A step's verify, or a merge the plan asks for, may need the CI of a pull request: the verify calls
+`gh pr checks` or checks that the PR is merged, or the plan says the checks must pass before the merge.
+After the main session pushes such a branch or opens such a PR, it waits for the PR's required checks
+itself, in the background. It never runs `sleep` in the foreground and never asks the user to say when
+CI is done. On one plan, a red CI went unnoticed for almost four hours because the session stopped to
+wait and only the user's message woke it. Plan-step subagents keep their rules (no push, no pull
+request, no rebase), so the wait belongs to the main session.
+
+Start the watch as a background command. In Claude Code that is Bash with `run_in_background: true`,
+which wakes the session when the command exits; another runtime uses its own way to wait on a command.
+
+```sh
+end=$(( $(date +%s) + 5400 ))
+gh pr checks <pr> --repo <owner/repo> --watch --required --fail-fast --interval 60 & w=$!
+while kill -0 $w 2>/dev/null; do
+  [ "$(date +%s)" -lt "$end" ] || { kill $w; echo "ci-wait: no result after 90 minutes"; exit 124; }
+  sleep 10
+done
+wait $w
+```
+
+While it runs, go on with ready steps that do not depend on it, and end the turn when none is left.
+When the command ends, read only the last lines of its output and act on its exit status:
+
+- `0`: every required check passed. Do what was waiting: run the step's verify and record it as section
+  5 says, or go on to the merge, which still needs the user's agreement when the first list above says
+  so.
+- `1`, printing `no checks reported` or `no required checks reported` at once: CI has not registered the
+  push yet, or the PR has no required check. `gh run list --repo <owner/repo> --commit <sha>` tells
+  which. Start the watch again, without `--required` when the PR has checks but none is required. When
+  no workflow runs on the commit there is no CI to wait for; say so in the status line instead of
+  inventing a check.
+- `1` otherwise: a required check failed. Read the failed log of its whole workflow run, not only its
+  job: a required check is often a summary job whose log says only that another job failed. The run id
+  is the number after `/actions/runs/` in the link.
+
+  ```
+  gh pr checks <pr> --repo <owner/repo> --required --json name,bucket,link -q '.[] | select(.bucket=="fail") | .link'
+  gh run view <run-id> --repo <owner/repo> --log-failed > "${TMPDIR:-/tmp}/ci-<run-id>.log"; tail -n 80 "${TMPDIR:-/tmp}/ci-<run-id>.log"
+  ```
+
+  Spawn a plan-step subagent on the step whose verify or merge waits on this CI, with the PR, the failed
+  job, the log file and its failing lines as `context`; the step stays `pending`. Push the subagent's
+  commits to the same branch, never forced (the user already agreed to push that branch), and start the
+  watch again. When the log shows nothing from the repo's own commands (a lost runner, a cancelled run, a
+  download that timed out), rerun the failed jobs once with
+  `gh run rerun <run-id> --repo <owner/repo> --failed` instead of spawning a fix. When the same check is
+  still red after two fix rounds, treat the step as failed (section 8).
+- `124`: no result after 90 minutes. Ask the user, naming the PR and the checks still pending
+  (`gh pr checks <pr> --repo <owner/repo> --required`), whether to wait longer or stop there.
+
+A push with no pull request, straight to a branch the plan names, has no PR checks. Wait on the
+workflow runs of the pushed commit instead: one wrapper as above for each id that
+`gh run list --repo <owner/repo> --commit <sha> --json databaseId -q '.[].databaseId'` prints, with
+`gh run watch <run-id> --repo <owner/repo> --exit-status --interval 60` in place of the `gh pr checks`
+line. An empty list right after the push means CI has not started, not that it passed.
+
+A `gh` that is missing or not signed in is an environmental blocker (section 8).
 
 Nothing lets an agent clear its own context. When the session passes about half its window, say so
 once in the status line together with the re-entry command, for example
@@ -379,6 +441,19 @@ evo-agents worker notify --kind merge_default_branch --title "<one line>" --body
 
 with `--kind push_default_branch` for a push, and `--commit` once per commit.
 
+**CI.** Section 6's wait for CI holds here, with the same watch, the same exit statuses and the same fix
+subagents. `evo-agents worker step <id> done` runs `--verify` before it pushes, so a step whose verify
+needs CI of a commit not yet on the remote is pushed by the agent first, as the paragraph above allows,
+then recorded with `done` once the wait ends green. With Claude Code, the worker keeps the session open
+at most 30 minutes after a turn ends while a background command runs, so put `1500` in place of `5400`
+and start the watch again each time it ends with `124`, until 90 minutes have passed since the push. The
+agent pushes fix commits to the run's branch itself, never forced, with the notice above when that is a
+default branch. After 90 minutes without a result, ask the owner and end the turn:
+
+```
+evo-agents worker ask --category scope --question "CI of <PR or commit> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --step <id>
+```
+
 **Stop.** When the frontier is empty and no decision is open, write `.evo-run/result.json` in the run directory, not
 in a repo, and end the turn:
 
@@ -410,6 +485,10 @@ lacks; it runs no verify command at the end, since `evo-agents worker step` ran 
       the contract, or when a failure left nothing else ready. A wrong premise became a `Decision:`
       line, not a question.
 - [ ] Every claim in a status line checked against a report or command output of this session.
+- [ ] After a push or pull request whose CI a step's verify or a merge needs: required checks watched in
+      the background with a 90-minute limit, no foreground `sleep`, no request that the user report CI;
+      a red check's run read with `gh run view --log-failed` and handed to a fix subagent; the user asked
+      only when 90 minutes passed without a result.
 - [ ] In a worker plan run (`EVO_RUN_KIND=plan`): plan read with `evo-agents worker plan` before each
       cluster, same-repo steps serial in the run's worktree, steps recorded only with
       `evo-agents worker step` and runnable `--verify` commands, the owner asked only in the listed
