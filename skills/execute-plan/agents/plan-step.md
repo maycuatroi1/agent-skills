@@ -31,6 +31,22 @@ that repo. Read the plan as the hub holds it now; only when this fails, run the 
 evo-agents worker plan --json | python3 -c 'import sys, json; p = json.load(sys.stdin)["body"]; print(json.dumps({"steps": [s for s in p["steps"] if str(s["id"]) in sys.argv[1].split(",")], **{k: p.get(k) for k in ("acceptance", "non_goals", "references")}}, ensure_ascii=False, indent=1))' <id>[,<id>]
 ```
 
+You start with a fresh context: the main session sends no history, only the prompt above. What the steps
+before yours did and decided comes from the plan's handoff for your step: the plan's goal, the commits and
+`Decision:` lines (verbatim) and evidence of the steps your step depends on first, then the other steps done
+and the steps left. Read it once, before the code. Use the evo-hub MCP tool `plan_handoff` with `plan_id`
+and `step` when this session has it; otherwise run, from `harness` (its `harness.yaml` names the hub project):
+
+```
+evo-agents hub plan handoff <plan> --step <id>
+```
+
+In a worker plan run, add `--project "$EVO_RUN_PROJECT"` and run it from anywhere; it needs this machine to be
+signed in to the hub, and when it fails, the `evidence` of the steps in your step's `depends_on` is in
+`evo-agents worker plan --json`. A harness without a `hub:` key in `harness.yaml` has no handoff: read that
+`evidence` in the plan file. The handoff is a budgeted summary; a note at its end names what it left out, and
+the plan has it whole.
+
 ## Outcome steps and prescribed steps
 
 A step with an `acceptance` list is an outcome step. Each item is the id of a plan criterion (look it up

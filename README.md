@@ -96,7 +96,7 @@ python3 setup.py
 - Node.js 18+ + `npm i -g @dokploy/cli` + `~/.omelet.json` (`dokploy_url`, `dokploy_api_key`) — for `dokploy-cli`
 - Node.js 18+ (`npm i -g gitnexus`) - for `gitnexus` (optional `python3`/`make`/`g++` to also parse Dart/Kotlin/Swift)
 - `python3` + `pyyaml` + `git` - for `harness-engineering` (`claude` CLI only for `garden --headless`). Runs on Windows and POSIX.
-- `evo-agents` >= 0.2.0 (`uv tool install 'evo-ak>=0.2.0'`), signed in with `evo-agents hub login` - for hub sync, and for `harness-engineering`, `create-exec-plan` and `execute-plan` in a harness whose `harness.yaml` has `hub.project`, where `execute-plan` also needs `evo` >= 0.29.0 (`pip install -U evo-cli`)
+- `evo-agents` >= 0.2.0 (`uv tool install 'evo-ak>=0.2.0'`), signed in with `evo-agents hub login` - for hub sync, and for `harness-engineering`, `create-exec-plan` and `execute-plan` in a harness whose `harness.yaml` has `hub.project`, where `execute-plan` also needs `evo` >= 0.29.0 (`pip install -U evo-cli`), and `evo-agents` >= 0.13.0 for the plan handoff its subagents read (`evo-agents hub plan handoff`, the evo-hub tool `plan_handoff`)
 - `gh` CLI, signed in - for `execute-plan` to wait on the CI of a pull request it opened
 - An evo-agents worker daemon >= 0.9.0 - for `create-exec-plan` in an author run; the worker brings `evo-agents worker plan` and `worker put`, and the hub hands the run its own copy of the skill
 - `python3` 3.9+ and `git` - for `curator` (standard library only; PyYAML used when present to read `harness.yaml`)
