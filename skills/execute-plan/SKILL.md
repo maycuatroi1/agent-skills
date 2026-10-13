@@ -1,7 +1,7 @@
 ---
 name: execute-plan
-description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a plan-step subagent that implements, verifies and commits it, writes status back from the main session, waits in the background for the required CI checks of a pull request it opened, and keeps going until the plan is done or needs the user. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness.
-version: 0.7.0
+description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a fresh plan-step subagent (never a fork of the session) that reads the plan's handoff and implements, verifies and commits the step, writes status back from the main session, waits in the background for the required CI checks of a pull request it opened, and keeps going until the plan is done or needs the user. It works in Claude Code and Codex. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness, and in a plan run with a session per step it does only that session's step.
+version: 0.8.0
 ---
 
 # Execute exec-plan
@@ -35,6 +35,17 @@ The main session therefore never reads product code, never runs tests for explor
 file to "check" a subagent, and never stages or commits product changes. When a report raises a
 question about the code, the next subagent answers it, or the user does.
 
+The saving holds only when each subagent starts with a fresh context. A forked subagent (Claude Code's
+`fork` subagent type, or Codex's `spawn_agent` with `fork_turns` left at its default `"all"`) starts with
+a copy of the main session's history: it pays for every turn before it and gains nothing the step needs.
+Spawn every subagent fresh, as section 4 says, and let it read the plan's handoff instead of any history.
+`evo-agents hub plan handoff <slug> --step <id>`, or the evo-hub MCP tool `plan_handoff` with the same
+plan and step, returns the same text: the plan's goal, each step done with its title, commits and
+`Decision:` lines verbatim, the evidence of the steps this one depends on first, and the steps not done
+with their status and `depends_on`, within a token budget (`--budget-tokens`, 1000 to 8000, default
+4000). A note at its end names what the budget left out; `plan_show` has the plan whole. The hub builds
+the handoff from the plan it holds, so it is as current as the main session's writes of section 5.
+
 One subagent owns one step, an outcome step included, however many files and commits it takes: its
 writes stay in one thread and its choices stay consistent. Do not split a step into smaller subagent
 tasks from the main session, and do not run a separate subagent to re-verify one that reported a pass.
@@ -50,8 +61,11 @@ the target in isolation.
 ## 1. Load state cheaply
 
 First check `echo "${EVO_RUN_KIND:-}"`. `plan` means this session is the agent of an evo-agents worker plan run:
-there is no harness checkout and no `evo harness`, and section 9 says what replaces them. `step` means a run of one
-step, whose prompt, not this skill, says what to do. Empty means an ordinary session; read on.
+there is no harness checkout and no `evo harness`, and section 9 says what replaces them. When the run's prompt
+starts `You are running step <key> of the plan <id>` and says the session is `in an agent session of its own`, the
+run gives each step a session of its own (`EVO_RUN_KIND` is still `plan` and `EVO_RUN_STEP` is empty): do only that
+step, as section 9 ends by saying. `step` means a run of one step, whose prompt, not this skill, says what to do.
+Empty means an ordinary session; read on.
 
 ```
 evo harness show <slug>
@@ -108,8 +122,9 @@ own tree. Create the worktrees for a cluster in one call from the main session:
 git -C <repo> worktree add ../<repo>-wt/<slug>-<id> -b <plan-branch>-step-<id> <plan-branch>
 ```
 
-The Agent tool's `isolation: "worktree"` makes a worktree of the session's own repository. In a harness
-session that is the harness, not the code repo, so do not use it for code steps.
+In Claude Code, the Agent tool's `isolation: "worktree"` makes a worktree of the session's own repository.
+In a harness session that is the harness, not the code repo, so do not use it for code steps. Codex has no
+such option; the `git worktree add` above serves both runtimes.
 
 State the grouping to the user in one line per cluster, with the reason anything runs serially.
 
@@ -126,21 +141,36 @@ Use a unique alias for temporary worktrees and pass the worktree path to later `
 aliases are ambiguous. Never run bare `gitnexus analyze` in an implementation worktree: it injects or
 updates `AGENTS.md`, `CLAUDE.md`, and GitNexus skill files, creating unrelated diffs.
 
-## 4. Spawn a plan-step subagent
+## 4. Spawn a fresh plan-step subagent
 
 The subagent contract lives in `agents/plan-step.md` next to this file: what the subagent may and must
-not do, how it verifies and commits, and the exact report it returns. The main session does not
-restate it per step. Spawn with `subagent_type: "plan-step"`. When that agent type is missing, link it
-once:
+not do, how it reads the plan and its handoff, how it verifies and commits, and the exact report it
+returns. The main session does not restate it per step.
 
-```
-mkdir -p ~/.claude/agents && ln -sf <this skill's directory>/agents/plan-step.md ~/.claude/agents/plan-step.md
-```
+Every subagent starts with a fresh context: never a fork of this session, and never an earlier subagent
+resumed for another step or another fix round. How to spawn one depends on the runtime:
 
-Until the runtime has loaded it, and in runtimes without agent types, spawn a general-purpose subagent
-whose prompt starts with `Read <this skill's directory>/agents/plan-step.md and follow it.`
+- **Claude Code.** The Agent tool with `subagent_type: "plan-step"`. Never `subagent_type: "fork"`, and
+  never send a new step to a finished subagent with SendMessage: both carry history the step does not
+  need. When the `plan-step` agent type is missing, link it once:
 
-The prompt carries only what the contract and the plan cannot:
+  ```
+  mkdir -p ~/.claude/agents && ln -sf <this skill's directory>/agents/plan-step.md ~/.claude/agents/plan-step.md
+  ```
+
+  Until the runtime has loaded it, spawn a `general-purpose` subagent whose prompt starts with
+  `Read <this skill's directory>/agents/plan-step.md and follow it.`
+- **Codex.** `spawn_agent` with `fork_turns: "none"`. Its default, `"all"`, copies every turn of this
+  session into the subagent; `fork_context` is deprecated, so do not use it either. Codex has no
+  `plan-step` agent type, so leave `agent_type` out and start `message` with
+  `Read <this skill's directory>/agents/plan-step.md and follow it.`, followed by the prompt below. Name
+  the task after the step (`task_name: "step_7"`). Spawn every step of a cluster before waiting, then call
+  `wait_agent` (with the agents' ids where the tool takes them; some Codex versions take only
+  `timeout_ms`) until each subagent's final answer, its report, has come back. It also returns on another
+  message or on its timeout, so call it again until every report is in.
+- **Other runtimes.** Their way to start a subagent with an empty context, with the same first line.
+
+The prompt carries only what the contract, the plan and its handoff cannot:
 
 ```
 plan: <slug>
@@ -150,14 +180,19 @@ repo: <main checkout or worktree path>
 branch: <branch it commits on>
 mode: serial | parallel
 commit: yes | no
-context: <at most 10 lines the plan does not say: decisions taken earlier in this run, the sha a
-dependency landed in, a trap an earlier report found>
+context: <at most 10 lines that neither the plan nor its handoff holds: what the user said in this
+session, a trap an earlier report found that its evidence does not name, a commit of this run not
+recorded yet>
 ```
 
 The subagent reads the step's `what`, `verify`, `note` and `acceptance`, and the plan's `acceptance`,
-`non_goals` and `references`, itself. Do not paste them: quoting a step costs the main session output
-tokens and adds nothing. Set `commit: no` only when the plan assigns the commit to a later step or
-checkpoint. An outcome step may come back with several commits.
+`non_goals` and `references`, itself, then the handoff for its step, as the Inputs of
+`agents/plan-step.md` say: the commits and `Decision:` lines of the steps it depends on come from there.
+Do not paste any of it, and do not retell earlier reports or this session's history: quoting costs the
+main session output tokens, and the handoff holds the recorded `Decision:` lines verbatim. A harness
+without a hub has no handoff; there the subagent reads the `evidence` of the steps its step depends on
+in the plan file. Set `commit: no` only when the plan assigns the commit to a later step or checkpoint.
+An outcome step may come back with several commits.
 
 Do not spawn a separate review agent by default. Add an independent review only when per-symbol impact
 is HIGH or CRITICAL, the step changes an authorization, secret or destructive-mutation boundary, or the
@@ -249,7 +284,10 @@ wait and only the user's message woke it. Plan-step subagents keep their rules (
 request, no rebase), so the wait belongs to the main session.
 
 Start the watch as a background command. In Claude Code that is Bash with `run_in_background: true`,
-which wakes the session when the command exits; another runtime uses its own way to wait on a command.
+which wakes the session when the command exits. In Codex, `exec_command` hands back a session id when the
+command is still running after its `yield_time_ms`; check the watch between steps with `write_stdin` and
+empty `chars`, and when no ready step is left, keep polling it with a long `yield_time_ms` rather than
+ending the turn. Another runtime uses its own way to wait on a command.
 
 ```sh
 end=$(( $(date +%s) + 5400 ))
@@ -281,11 +319,11 @@ When the command ends, read only the last lines of its output and act on its exi
   gh run view <run-id> --repo <owner/repo> --log-failed > "${TMPDIR:-/tmp}/ci-<run-id>.log"; tail -n 80 "${TMPDIR:-/tmp}/ci-<run-id>.log"
   ```
 
-  Spawn a plan-step subagent on the step whose verify or merge waits on this CI, with the PR, the failed
-  job, the log file and its failing lines as `context`; the step stays `pending`. Push the subagent's
-  commits to the same branch, never forced (the user already agreed to push that branch), and start the
-  watch again. When the log shows nothing from the repo's own commands (a lost runner, a cancelled run, a
-  download that timed out), rerun the failed jobs once with
+  Spawn a fresh plan-step subagent on the step whose verify or merge waits on this CI, with the PR, the
+  failed job, the log file and its failing lines as `context`; the step stays `pending`. Push the
+  subagent's commits to the same branch, never forced (the user already agreed to push that branch), and
+  start the watch again. When the log shows nothing from the repo's own commands (a lost runner, a
+  cancelled run, a download that timed out), rerun the failed jobs once with
   `gh run rerun <run-id> --repo <owner/repo> --failed` instead of spawning a fix. When the same check is
   still red after two fix rounds, treat the step as failed (section 8).
 - `124`: no result after 90 minutes. Ask the user, naming the PR and the checks still pending
@@ -301,8 +339,9 @@ A `gh` that is missing or not signed in is an environmental blocker (section 8).
 
 Nothing lets an agent clear its own context. When the session passes about half its window, say so
 once in the status line together with the re-entry command, for example
-`/execute-plan deployments-control-plane`, and keep going; whether to clear is the user's call.
-Re-entry costs one `evo harness show` plus one step board.
+`/execute-plan deployments-control-plane` in Claude Code, and keep going; whether to clear is the user's
+call. Re-entry costs one `evo harness show` plus one step board: the subagents read what earlier steps
+decided from the handoff, so the new session needs none of this one's history.
 
 ## 7. Resuming is the normal case
 
@@ -375,7 +414,10 @@ context: <as in section 4>
 ```
 
 `mode` is always `serial` here, so a subagent whose verify failed stashes its changes and the next step's `done`
-does not commit them.
+does not commit them. Each subagent starts fresh and reads the handoff for its step, as section 4 says; the
+worker's own note to the agent asks the same. `EVO_RUN_PLAN` and `EVO_RUN_PROJECT` name the plan and the project
+for `evo-agents hub plan handoff`, which needs this machine to be signed in to the hub. When it is not, the
+subagent reads the evidence of the steps its step depends on from `evo-agents worker plan --json`.
 
 **Record each step.** Subagents never report to the hub. The main session marks a step when it spawns the subagent
 and records it after reading the report:
@@ -467,6 +509,20 @@ summary, and the Claude Code adapter takes it as the sign that the agent has fin
 commit. The worker then commits what is left in each worktree and pushes each plan branch whose commits origin
 lacks; it runs no verify command at the end, since `evo-agents worker step` ran each step's.
 
+**A session per step.** A plan run dispatched with `evo-agents hub run plan <plan> --session-per-step`, or with the
+switch in the hub's Run plan box, gives each step not done yet a new agent session of its own, in the order
+`depends_on` allows. That session's prompt starts `You are running step <key> of the plan <id>`, says the session
+runs `in an agent session of its own`, tells it to do that step and nothing else, holds the step's what, verify and
+note, and ends with the handoff of the plan for the step. `EVO_RUN_KIND` is `plan` there too and `EVO_RUN_STEP` is
+empty, so the prompt is how to tell. In such a session this skill does not drive the plan: no frontier, no clusters,
+no other step, and no subagent for a step the prompt does not name. Do the named step in this session as its prompt
+says; its rules for `evo-agents worker step`, `evo-agents worker ask` and `.evo-run/result.json` win over the rest of
+this section. The Work and Commit sections of `agents/plan-step.md` still hold for the edits, the verify and the
+commits; recording the step is this session's own job, with the commands its prompt gives. The handoff is already in
+the prompt: read the plan with `evo-agents worker plan` only for what it left out. When one part of the step would
+crowd this session's context, hand that part to a fresh subagent as section 4 says. The daemon starts the next step's
+session after this one ends.
+
 ## 10. Checklist
 
 - [ ] Plan state loaded via `evo harness show` / `step --no-input`, not a full file read.
@@ -476,6 +532,10 @@ lacks; it runs no verify command at the end, since `evo-agents worker step` ran 
 - [ ] Subagents spawned as `plan-step` (or told to read `agents/plan-step.md`), with a short prompt and
       no pasted step text; one subagent per step, an outcome step included, and a few-call step done
       by the main session itself.
+- [ ] Every subagent started with a fresh context, never a fork or a resumed one (Claude Code: no
+      `fork` subagent type; Codex: `spawn_agent` with `fork_turns: "none"`), and read the plan's
+      handoff (`evo-agents hub plan handoff`, or the evo-hub tool `plan_handoff`) instead of this
+      session's history.
 - [ ] Main session read no product code and accepted current verbatim evidence instead of re-running it.
 - [ ] Commits checked and step recorded in one call, the evidence citing the last commit hash and every
       `Decision:` line of the report, with evo-cli 0.29.0 or later. In a hub harness no YAML was edited
@@ -494,3 +554,5 @@ lacks; it runs no verify command at the end, since `evo-agents worker step` ran 
       `evo-agents worker step` and runnable `--verify` commands, the owner asked only in the listed
       categories, a `Decision:` line for every other choice, a notice after each push or merge into a
       default branch, and `.evo-run/result.json` written once, at the end.
+- [ ] In a plan run with a session per step (the prompt says `in an agent session of its own`): only
+      the named step done, recorded with the commands its prompt gives, no frontier and no other step.
