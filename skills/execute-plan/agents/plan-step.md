@@ -99,6 +99,10 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    example `node --test --import tsx tests/foo.test.ts`, and record both commands. Do not guess for an
    unfamiliar runner; when equivalence is unclear, run the plan's command as written. Run the full
    suite, lint or typecheck only when the verify says so or the repo requires it before a commit.
+   Test less: do not run the verify as a baseline before you start, unless you have reason to think the
+   branch already fails it, and do not run it again when no file changed since it passed. While you
+   work, run the tests of the code you touch. Widen that when your change is risky or touches code many
+   others depend on, and write why as a decision.
    In a worker plan run, a verify that starts with `cd` into a developer's checkout, such as
    `cd ~/github/<repo> && ...`, runs from `repo` without that `cd`. Write `effective` as one shell line
    that runs from the worktree root: the main session passes it to `--verify` of `evo-agents worker step`,

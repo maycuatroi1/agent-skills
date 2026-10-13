@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: This skill should be used when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch", or requests a complete YAML plan under plans/active. It investigates project context first, asks only decision-bearing clarification questions, writes one validated plans/active/<slug>.yaml artifact, and stops without implementing the plan. It also drives the agent of an evo-agents worker author run (EVO_RUN_KIND=author), asking the member in the run's chat and putting the plan on the hub through evo-agents worker put.
-version: 0.4.0
+version: 0.5.0
 ---
 
 # Create exec plan
@@ -172,8 +172,22 @@ For multi-repo work:
 
 Give every acceptance criterion an `id` (`a1`, `a2`, ...), so steps can name the criteria they make true.
 Mark a criterion `invariant: true` when it must hold after every step and not only at the end, such as
-"the OpenAPI document does not change" or "the full suite stays green". Every acceptance criterion needs a
-`verify` an agent can run, or a precise manual check when no command can prove it.
+"the OpenAPI document does not change". Every step that could break an invariant runs its check, so keep
+an invariant's `verify` cheap: a contract test, lint, a narrow slice of tests. Every acceptance criterion
+needs a `verify` an agent can run, or a precise manual check when no command can prove it.
+
+### How much each step tests
+
+Test less, and lean toward the broad check at the end. By default a step's `verify` runs the tests of what
+that step changes plus the repo's cheap whole-repo checks (lint, import rules, contract tests). The broad
+check, meaning the whole test suite, the end-to-end suite or the CI of the pull request, is a criterion
+that a late step proves, usually the step that brings the branch up to date with the base branch and
+waits for CI. There, prefer the CI's result over running the same suites locally. "The full suite stays
+green" is not an invariant by default: checked after every step, it repeats the slowest check of the
+repository many times for little gain.
+
+This is a default, not a rule. Give a step a wider `verify` when its change is risky or touches code many
+others depend on, such as a migration, a shared module or a seam, and say why in its `note`.
 
 ### Two kinds of step
 
@@ -235,7 +249,7 @@ An outcome step's `what`:
 - includes the contract, documentation, generated-artifact and cleanup work the outcome implies.
 
 Its `verify` runs the checks of every item of its `acceptance`, plus the checks of the invariants it
-could break.
+could break, scoped to what the step changes as "How much each step tests" says.
 
 A prescribed step's `what` names exact files, symbols, commands and order, as far as the investigation
 established them.
@@ -264,7 +278,7 @@ acceptance:
     verify: Exact command or manual check that proves it.
   - id: a2
     criterion: Condition that must hold after every step, such as an unchanged public contract.
-    verify: Exact command that proves it.
+    verify: Cheap exact command that proves it, such as a contract test.
     invariant: true
 
 non_goals:
@@ -291,7 +305,7 @@ steps:
       invariants it must keep, and starting points the investigation found. No file-by-file route.
     acceptance: [a1]
     depends_on: []
-    verify: Commands of a1 and of the invariants this step could break, runnable from the repo root.
+    verify: Tests of what this step changes, for a1 and the invariants it could break, from the repo root.
     status: pending
     blocking: true
     note: Why this ordering or verification matters.
@@ -368,6 +382,8 @@ Before writing, verify that:
 - Every step has a non-empty `title` of at most 60 characters.
 - Every blocking step has verification.
 - Every acceptance criterion has an `id` and is proven by the `verify` of at least one step.
+- The whole suite, the end-to-end suite and CI are checked near the end, not in every step's `verify`,
+  unless a step's `note` says why its change needs them earlier.
 - Every id in an outcome step's `acceptance` names an existing criterion, and its `what` restates those
   criteria in words.
 - No outcome step lays out a file-by-file route, and every prescribed step is one of the cases Phase 3

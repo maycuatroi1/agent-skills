@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a fresh plan-step subagent (never a fork of the session) that reads the plan's handoff and implements, verifies and commits the step, writes status back from the main session, waits in the background for the required CI checks of a pull request it opened, and keeps going until the plan is done or needs the user. It works in Claude Code and Codex. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness, and in a plan run with a session per step it does only that session's step.
-version: 0.8.0
+version: 0.9.0
 ---
 
 # Execute exec-plan
@@ -57,6 +57,13 @@ This workflow is evidence-driven, not ceremony-driven. Do not repeat a command w
 tree state already has trustworthy verbatim output from the subagent. Do not run full-repo checks for
 targeted steps unless the plan explicitly makes them acceptance criteria or the repository cannot run
 the target in isolation.
+
+Test less, and lean toward the broad check at the end. No baseline run of a verify before the work
+starts, unless there is reason to think the branch already fails it; no rerun on a tree that has not
+changed since a passing run; no whole suite "for regressions" in a step whose verify does not ask for
+one. The plan's late step and the pull request's CI carry the broad check. This is a default, not a
+rule: a subagent may test wider when its change is risky or touches code many others depend on, and
+writes why as a `Decision:` line.
 
 ## 1. Load state cheaply
 
@@ -304,7 +311,8 @@ When the command ends, read only the last lines of its output and act on its exi
 
 - `0`: every required check passed. Do what was waiting: run the step's verify and record it as section
   5 says, or go on to the merge, which still needs the user's agreement when the first list above says
-  so.
+  so. Suites of the verify that this CI ran green on the same commit are not run again locally: cite the
+  CI run in the evidence and run only the rest of the verify.
 - `1`, printing `no checks reported` or `no required checks reported` at once: CI has not registered the
   push yet, or the PR has no required check. `gh run list --repo <owner/repo> --commit <sha>` tells
   which. Start the watch again, without `--required` when the PR has checks but none is required. When
@@ -434,7 +442,9 @@ branch to the branch the plan names (never forced), and records the commit with 
 report's `verify_command`, the effective one when it differs, as they run from the worktree root: a plan `verify` that
 starts with `cd ~/github/<repo>` points at a developer's checkout, not at this worktree. The hub writes the run,
 `repo@commit` and each verify command's exit code into the evidence itself, so `--evidence` says what was done, plus
-the `Decision:` lines below. Never use `evo harness step`, `evo-agents hub plan` or the hub's `plan_step` tool here:
+the `Decision:` lines below. When the pull request's CI ran some of the verify's suites green on the commit being
+recorded, pass the rest of the verify and `gh pr checks <pr> --repo <owner/repo>` to `--verify` in their place, and
+name the CI run in `--evidence`. Never use `evo harness step`, `evo-agents hub plan` or the hub's `plan_step` tool here:
 the hub writes the step from the worker's report, as the member who dispatched the run.
 
 **Ask only what the owner must decide.** Use `evo-agents worker ask` only for a decision of one of the categories the
@@ -537,6 +547,8 @@ session after this one ends.
       handoff (`evo-agents hub plan handoff`, or the evo-hub tool `plan_handoff`) instead of this
       session's history.
 - [ ] Main session read no product code and accepted current verbatim evidence instead of re-running it.
+- [ ] No baseline run, no rerun on an unchanged tree, and no whole suite a step's verify did not ask for,
+      unless a `Decision:` line says why; suites the CI ran green on the recorded commit cited, not rerun.
 - [ ] Commits checked and step recorded in one call, the evidence citing the last commit hash and every
       `Decision:` line of the report, with evo-cli 0.29.0 or later. In a hub harness no YAML was edited
       by hand.
