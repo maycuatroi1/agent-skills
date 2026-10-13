@@ -1,21 +1,23 @@
 ---
 name: update-evo-agents
-description: This skill should be used when the user asks to "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "cập nhật harness agent", "auto update evo-agents", "nâng pin CI evo-ak", or when a SessionStart line starts with "evo-agents update:". It checks the evo-agents CLI, the evo-hub and evo-kg Claude Code plugins, the worker daemon and the evo-ak pins in a harness's CI against the latest release, then hands the update to the evo-agents-updater subagent, which upgrades the machine, restarts an idle worker daemon and opens a pull request for each CI pin.
-version: 0.1.1
+description: This skill should be used when the user asks to "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "cập nhật harness agent", "auto update evo-agents", "nâng pin CI evo-ak", or when a SessionStart line starts with "evo-agents update:". It checks the evo-agents CLI and the worker daemon against the nightly tag of main, the evo-hub and evo-kg Claude Code plugins against main, and the evo-ak pins in a harness's CI against the latest release, then hands the update to the evo-agents-updater subagent, which reinstalls the CLI from the nightly tag, restarts an idle worker daemon and opens a pull request for each CI pin.
+version: 0.2.0
 ---
 
 # Update evo-agents
 
-One release of evo-agents (PyPI `evo-ak`, command `evo-agents`) reaches a machine and a harness in five
-places, and each one moves on its own:
+evo-agents (PyPI `evo-ak`, command `evo-agents`) reaches a machine and a harness in five places, and each
+one moves on its own. Team machines follow main: a workflow of evo-agents moves the git tag `nightly` every
+night to the newest commit of main whose `ci` push run passed, and the CLI and the daemon run that commit.
+CI pins follow PyPI releases.
 
-| Component | Where it lives | How it is updated |
-|---|---|---|
-| CLI | `uv tool` (or pip) | reinstall at the latest version with the same extras |
-| Plugins `evo-hub`, `evo-kg` | Claude Code, marketplace `evo-agents` | `claude plugin marketplace update`, then `claude plugin update` |
-| Worker daemon | LaunchAgent or systemd user unit | `evo-agents worker service install` again, only while it holds no run |
-| CI pin | `.github/workflows/*` of a harness, `evo-ak==X` | a branch and a pull request, never a push to the default branch |
-| Hub server | ghcr image on the hub's host | out of scope: a deploy, done by whoever runs the hub |
+| Component | Follows | Where it lives | How it is updated |
+|---|---|---|---|
+| CLI | tag `nightly` | `uv tool` (or pip) | reinstall from `git+https://github.com/maycuatroi1/evo-agents@nightly` with the same extras |
+| Plugins `evo-hub`, `evo-kg` | main | Claude Code, marketplace `evo-agents` | `claude plugin marketplace update`, then `claude plugin update` |
+| Worker daemon | the CLI | LaunchAgent or systemd user unit | `evo-agents worker service install` again, only while it holds no run |
+| CI pin | PyPI release | `.github/workflows/*` of a harness, `evo-ak==X` | a branch and a pull request, never a push to the default branch |
+| Hub server | | ghcr image on the hub's host | out of scope: a deploy, done by whoever runs the hub |
 
 The pin is deliberate: a schema change in evo-agents must reach a harness through a reviewed bump, so this
 skill opens the pull request and stops there.
@@ -28,8 +30,11 @@ python3 <this skill's directory>/scripts/check.py --json
 
 Run it from inside the harness, or pass `--harness <dir>`, once per harness when there are several
 (`--harness A --harness B`). Add `--all-harnesses` when the user asks for every harness on the machine.
-The report lists `behind`; when it is empty, say everything is on the latest release and stop. When
-`latest.error` is set and no cache exists, the release could not be looked up: say so and stop.
+The report lists `behind`; when it is empty, say everything is up to date (the CLI at `nightly.commit`,
+the CI pins at `latest["evo-ak"]`) and stop. When `latest.error` is set and no cache exists, the release
+could not be looked up: say so and stop. When `nightly.commit` is null, the tag is missing or could not be
+looked up (`nightly.error`): the CLI and the daemon are not compared, so say so and go on with the rest. A
+CLI whose `cli.source` is `local` (an editable or local install) is left alone.
 
 ## 2. Hand the update to the subagent
 
@@ -68,9 +73,9 @@ Relay it as is, plus:
 ## Automatic check at session start
 
 `check.py --notice` prints one line when something is behind and nothing otherwise. It caches the
-release lookup for 12 hours, never fails the session (exit 0 on any error), and stays silent inside an
-evo-agents worker run (`EVO_RUN_ID`) and when `EVO_AGENTS_UPDATE_NOTICE=0`. Wire it into
-`~/.claude/settings.json` once per machine:
+release and nightly lookups for 12 hours, never fails the session (exit 0 on any error), and stays
+silent inside an evo-agents worker run (`EVO_RUN_ID`) and when `EVO_AGENTS_UPDATE_NOTICE=0`. Wire it
+into `~/.claude/settings.json` once per machine:
 
 ```json
 {

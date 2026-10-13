@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""How far this machine, and the harness around the current directory, are behind the latest evo-agents.
+"""How far this machine, and the harness around the current directory, are behind evo-agents.
 
-Stdlib only, Python 3.9+.
+The CLI and the worker daemon follow the nightly tag of main, the plugins follow main, the CI pins
+follow the latest PyPI release. Stdlib only, Python 3.9+.
 
   check.py                  a readable report
   check.py --json           the same as JSON, read by the evo-agents-updater agent
   check.py --notice         one line for a SessionStart hook, printed only when something is behind;
-                            the release lookup is cached for 12 hours and any failure prints nothing
+                            the release and nightly lookups are cached for 12 hours and any failure
+                            prints nothing
   check.py --harness DIR    a harness whose CI pins to read; repeat it for several
                             (default: walk up from the current directory)
   check.py --all-harnesses  also every harness in this machine's harness registry
@@ -33,7 +35,11 @@ PLUGINS = ("evo-hub", "evo-kg")
 MARKETPLACE = "evo-agents"
 PYPI_URL = f"https://pypi.org/pypi/{PACKAGE}/json"
 PLUGIN_URL = "https://raw.githubusercontent.com/maycuatroi1/evo-agents/main/plugins/{name}/.claude-plugin/plugin.json"
+REPO_URL = "https://github.com/maycuatroi1/evo-agents"
+NIGHTLY = "nightly"
+NIGHTLY_API = f"https://api.github.com/repos/maycuatroi1/evo-agents/git/ref/tags/{NIGHTLY}"
 CACHE = Path.home() / ".cache" / "evo-agents-update" / "latest.json"
+NIGHTLY_CACHE = CACHE.with_name("nightly.json")
 CACHE_SECONDS = 12 * 3600
 HTTP_TIMEOUT = 4
 PIN_RE = re.compile(r"evo-ak(?:\[[^\]]*\])?\s*==\s*([0-9][0-9A-Za-z.+-]*)")
@@ -50,9 +56,14 @@ def older(version: str | None, latest: str | None) -> bool:
     return bool(version and latest and vkey(version) < vkey(latest))
 
 
-def run(cmd: list[str], cwd: Path | None = None, timeout: int = 20) -> str | None:
+def short(commit: str | None) -> str | None:
+    return commit[:7] if commit else None
+
+
+def run(cmd: list[str], cwd: Path | None = None, timeout: int = 20, env: dict | None = None) -> str | None:
     try:
-        out = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        out = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout,
+                             env={**os.environ, **env} if env else None)
     except (OSError, subprocess.TimeoutExpired):
         return None
     return out.stdout if out.returncode == 0 else None
@@ -63,30 +74,53 @@ def fetch_json(url: str) -> dict:
         return json.load(resp)
 
 
-def latest_versions(use_cache: bool) -> dict:
+def cached_lookup(path: Path, use_cache: bool, lookup, unknown: dict) -> dict:
     cached = None
     try:
-        cached = json.loads(CACHE.read_text())
+        cached = json.loads(path.read_text())
     except (OSError, ValueError):
         pass
     if use_cache and cached and time.time() - cached.get("fetched_at", 0) < CACHE_SECONDS:
         return {**cached, "source": "cache"}
     try:
-        found = {
-            PACKAGE: fetch_json(PYPI_URL)["info"]["version"],
-            "plugins": {name: fetch_json(PLUGIN_URL.format(name=name))["version"] for name in PLUGINS},
-            "fetched_at": time.time(),
-        }
-    except Exception as exc:  # network, JSON or key errors all mean "unknown"
+        found = {**lookup(), "fetched_at": time.time()}
+    except Exception as exc:  # network, JSON, key errors and a missing tag all mean "unknown"
         if cached:
             return {**cached, "source": "cache", "error": f"lookup failed, using the cache: {exc}"}
-        return {PACKAGE: None, "plugins": {}, "source": None, "error": f"lookup failed: {exc}"}
+        return {**unknown, "source": None, "error": f"lookup failed: {exc}"}
     try:
-        CACHE.parent.mkdir(parents=True, exist_ok=True)
-        CACHE.write_text(json.dumps(found))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(found))
     except OSError:
         pass
     return {**found, "source": "network"}
+
+
+def latest_versions(use_cache: bool) -> dict:
+    return cached_lookup(CACHE, use_cache, lambda: {
+        PACKAGE: fetch_json(PYPI_URL)["info"]["version"],
+        "plugins": {name: fetch_json(PLUGIN_URL.format(name=name))["version"] for name in PLUGINS},
+    }, {PACKAGE: None, "plugins": {}})
+
+
+def nightly_commit() -> dict:
+    ref = f"refs/tags/{NIGHTLY}"
+    # An annotated tag lists its tag object; the peeled ^{} line is the commit.
+    out = run(["git", "ls-remote", REPO_URL, ref, ref + "^{}"], timeout=8, env={"GIT_TERMINAL_PROMPT": "0"})
+    if out is not None:
+        shas = {name: sha for sha, name in (line.split("\t", 1) for line in out.splitlines() if "\t" in line)}
+        commit = shas.get(ref + "^{}") or shas.get(ref)
+        if not commit:
+            raise LookupError(f"no tag {NIGHTLY} on {REPO_URL}")
+        return {"tag": NIGHTLY, "commit": commit}
+    obj = fetch_json(NIGHTLY_API)["object"]  # git missing or failed; a missing tag is a 404
+    if obj.get("type") == "tag":
+        obj = fetch_json(obj["url"])["object"]
+    return {"tag": NIGHTLY, "commit": obj["sha"]}
+
+
+def nightly_state(use_cache: bool) -> dict:
+    return cached_lookup(NIGHTLY_CACHE, use_cache, nightly_commit, {"tag": NIGHTLY, "commit": None})
 
 
 def uv_receipt() -> Path | None:
@@ -99,9 +133,39 @@ def uv_receipt() -> Path | None:
     return receipt if receipt.is_file() else None
 
 
-def cli_state(latest: str | None) -> dict:
+def direct_url(receipt: Path | None, exe: str) -> dict | None:
+    """direct_url.json of the installed evo-ak: {} when it came from an index (PyPI), None when not found."""
+    if receipt:
+        env = receipt.parent
+        dists = sorted(env.glob("lib/python*/site-packages/evo_ak-*.dist-info")) or sorted(
+            env.glob("Lib/site-packages/evo_ak-*.dist-info"))
+        if not dists:
+            return None
+        try:
+            return json.loads((dists[-1] / "direct_url.json").read_text())
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError):
+            return None
+    try:  # pip: ask the Python that owns the script
+        with open(exe) as f:
+            shebang = f.readline()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not shebang.startswith("#!"):
+        return None
+    out = run([*shebang[2:].split(), "-c", "import importlib.metadata as m; "
+               f"print(m.distribution('{PACKAGE}').read_text('direct_url.json') or '{{}}')"], timeout=10)
+    try:
+        return json.loads(out) if out else None
+    except ValueError:
+        return None
+
+
+def cli_state(nightly: str | None) -> dict:
     exe = shutil.which("evo-agents")
-    state = {"path": exe, "version": None, "installer": None, "extras": [], "requirement": None, "behind": False}
+    state = {"path": exe, "version": None, "installer": None, "extras": [], "requirement": None, "behind": False,
+             "source": None, "url": None, "commit": None, "requested_revision": None, "action": None}
     if not exe:
         state["error"] = "evo-agents is not on PATH"
         return state
@@ -116,8 +180,20 @@ def cli_state(latest: str | None) -> dict:
     else:
         state["installer"] = "pip"
     extras = f"[{','.join(state['extras'])}]" if state["extras"] else ""
-    state["requirement"] = f"{PACKAGE}{extras}=={latest}" if latest else None
-    state["behind"] = older(state["version"], latest)
+    state["requirement"] = f"{PACKAGE}{extras} @ git+{REPO_URL}@{NIGHTLY}"
+    direct = direct_url(receipt, exe)
+    if isinstance(direct, dict):
+        vcs = direct.get("vcs_info") or {}
+        # pypi: from the index; git: a git install; local: an editable or local install, left alone.
+        state["source"] = "git" if vcs else ("local" if direct else "pypi")
+        state["url"] = direct.get("url")
+        state["commit"] = vcs.get("commit_id")
+        state["requested_revision"] = vcs.get("requested_revision")
+    if nightly and state["source"] == "pypi":
+        state["action"] = "switch to nightly"
+    elif nightly and state["source"] == "git" and state["commit"] != nightly:
+        state["action"] = "reinstall at nightly"
+    state["behind"] = bool(state["action"])
     return state
 
 
@@ -147,7 +223,7 @@ def plugin_state(latest: dict) -> list[dict]:
     return rows
 
 
-def worker_state(cli_version: str | None, latest: str | None) -> dict:
+def worker_state(cli: dict) -> dict:
     exe = shutil.which("evo-agents")
     out = run([exe, "worker", "status", "--json"], timeout=30) if exe else None
     if not out:
@@ -160,7 +236,6 @@ def worker_state(cli_version: str | None, latest: str | None) -> dict:
     held = hub.get("held_runs")
     held = len(held) if isinstance(held, list) else (held or 0)
     daemon_version = hub.get("agent_version")
-    target = max([v for v in (cli_version, latest) if v], key=vkey, default=None)
     return {
         "installed": True,
         "name": data.get("name"),
@@ -170,7 +245,8 @@ def worker_state(cli_version: str | None, latest: str | None) -> dict:
         "held_runs": held,
         "drained": bool(hub.get("drained_at")),
         "hub_error": data.get("hub_error"),
-        "behind": bool(data.get("daemon_pid")) and older(daemon_version, target),
+        # The daemon runs the CLI's code: behind when the CLI is, or when it still runs an older CLI.
+        "behind": bool(data.get("daemon_pid")) and (cli["behind"] or older(daemon_version, cli["version"])),
     }
 
 
@@ -224,17 +300,19 @@ def registry_roots() -> list[Path]:
 
 def behind_list(report: dict) -> list[str]:
     items = []
-    if report["cli"]["behind"]:
-        items.append(f"CLI {report['cli']['version']}")
+    cli, latest = report["cli"], report["latest"][PACKAGE]
+    if cli["behind"]:
+        where = "PyPI" if cli["source"] == "pypi" else f"git {short(cli['commit'])}"
+        items.append(f"CLI {cli['version']} ({where}) -> {NIGHTLY} {short(report['nightly']['commit'])}")
     for row in report["plugins"]:
         if row["behind"]:
-            items.append(f"plugin {row['id'].split('@')[0]} {row['version']}")
+            items.append(f"plugin {row['id'].split('@')[0]} {row['version']} -> {row['latest']}")
     if report.get("worker", {}).get("behind"):
         items.append(f"worker daemon {report['worker']['daemon_version']}")
     for h in report["harnesses"]:
         if h["behind"]:
-            versions = sorted({p["version"] for p in h["pins"] if older(p["version"], report["latest"][PACKAGE])})
-            items.append(f"CI pin of {h['name']} {', '.join(versions)}")
+            versions = sorted({p["version"] for p in h["pins"] if older(p["version"], latest)})
+            items.append(f"CI pin of {h['name']} {', '.join(versions)} -> {latest}")
     return items
 
 
@@ -250,11 +328,12 @@ def harness_roots(args) -> list[Path]:
 
 def build(args) -> dict:
     latest = latest_versions(use_cache=args.notice)
+    nightly = nightly_state(use_cache=args.notice)
     newest = latest.get(PACKAGE)
-    cli = cli_state(newest)
-    report = {"latest": latest, "cli": cli, "plugins": plugin_state(latest.get("plugins", {}))}
+    cli = cli_state(nightly.get("commit"))
+    report = {"latest": latest, "nightly": nightly, "cli": cli, "plugins": plugin_state(latest.get("plugins", {}))}
     if not args.notice:
-        report["worker"] = worker_state(cli["version"], newest)
+        report["worker"] = worker_state(cli)
     report["harnesses"] = [harness_state(r, newest) for r in harness_roots(args)]
     report["behind"] = behind_list(report)
     return report
@@ -265,8 +344,16 @@ def print_report(report: dict) -> None:
     print(f"latest {PACKAGE}: {latest.get(PACKAGE)} (plugins {latest.get('plugins')}, from {latest.get('source')})")
     if latest.get("error"):
         print(f"  {latest['error']}")
+    nightly = report["nightly"]
+    print(f"{NIGHTLY}: {short(nightly.get('commit')) or 'unknown'}"
+          + (f" (from {nightly['source']})" if nightly.get("source") else ""))
+    if nightly.get("error"):
+        print(f"  {nightly['error']}")
     cli = report["cli"]
-    print(f"CLI: {cli['version']} via {cli['installer']} at {cli['path']}" + ("  BEHIND" if cli["behind"] else ""))
+    where = {"pypi": "PyPI", "git": f"git {short(cli['commit'])} (rev {cli['requested_revision']})",
+             "local": f"local {cli['url']}"}.get(cli["source"], "an unknown source")
+    print(f"CLI: {cli['version']} via {cli['installer']} at {cli['path']}, from {where}"
+          + (f"  BEHIND: {cli['action']}" if cli["behind"] else ""))
     for row in report["plugins"]:
         print(f"plugin {row['id']}: {row['version']} (latest {row['latest']})" + ("  BEHIND" if row["behind"] else ""))
     w = report.get("worker", {})
@@ -296,9 +383,8 @@ def main() -> int:
         except Exception:
             return 0
         if report["behind"]:
-            print(f"evo-agents update: {PACKAGE} {report['latest'][PACKAGE]} is out; behind: "
-                  f"{'; '.join(report['behind'])}. Use the update-evo-agents skill, which runs the "
-                  "evo-agents-updater agent in the background.")
+            print(f"evo-agents update: {'; '.join(report['behind'])}. Use the update-evo-agents skill, "
+                  "which runs the evo-agents-updater agent in the background.")
         return 0
 
     missing = [h for h in args.harness if not Path(h, "harness.yaml").is_file()]

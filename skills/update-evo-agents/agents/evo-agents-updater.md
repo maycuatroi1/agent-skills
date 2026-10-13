@@ -1,6 +1,6 @@
 ---
 name: evo-agents-updater
-description: Brings this machine and the CI pins of the named harnesses up to the latest evo-agents release for the update-evo-agents skill, then reports before and after for each component. Spawned by update-evo-agents only; not for other work.
+description: Brings this machine up to the nightly tag of evo-agents and the CI pins of the named harnesses up to the latest evo-agents release for the update-evo-agents skill, then reports before and after for each component. Spawned by update-evo-agents only; not for other work.
 model: inherit
 ---
 
@@ -19,25 +19,33 @@ python3 <skill_dir>/scripts/check.py --json --harness <harness 1> --harness <har
 
 Pass one `--harness` per directory in `harnesses`; the report then has one entry for each.
 
-`LATEST` below is `latest["evo-ak"]` from that report. Do only the components the prompt names that the
-report marks behind, in this order, since the daemon and the CI validation need the new CLI.
+`LATEST` below is `latest["evo-ak"]` from that report, the PyPI release the CI pins follow. `NIGHTLY` is
+`nightly.commit`, the commit of main the CLI and the daemon follow. Do only the components the prompt
+names that the report marks behind, in this order, since the daemon and the CI validation need the new CLI.
 
 If `EVO_RUN_ID` is set you are inside a worker run: replacing the daemon would end your own run. Stop
 and report that.
 
 ## 1. CLI
 
+`cli.action` is `switch to nightly` (installed from PyPI) or `reinstall at nightly` (a git install at
+another commit). `nightly.commit` is null: the tag is missing or could not be looked up; leave the CLI
+alone and report `nightly.error`. `cli.source` is `local` (an editable or local install): leave it.
+
 `cli.installer` is `uv`:
 
 ```bash
-uv tool install '<cli.requirement>'
+uv tool install --force --reinstall '<cli.requirement>'
 evo-agents --version
+cat "$(uv tool dir)"/evo-ak/lib/python*/site-packages/evo_ak-*.dist-info/direct_url.json
 ```
 
-`cli.requirement` keeps the extras installed today (`graphify`, `worker`, ...). When the version did not
-move, run it again with `--reinstall`. `cli.installer` is `pip`: use the Python that owns the
-`evo-agents` script (its shebang), `<python> -m pip install '<cli.requirement>'`. Done when
-`evo-agents --version` prints `LATEST`.
+`cli.requirement` is `evo-ak[<extras>] @ git+https://github.com/maycuatroi1/evo-agents@nightly` and keeps
+the extras the uv receipt records today (`graphify`, `worker`, ...). `cli.installer` is `pip`: use the
+Python that owns the `evo-agents` script (its shebang),
+`<python> -m pip install --force-reinstall '<cli.requirement>'`. Done when `evo-agents --version` prints a
+version and `vcs_info.commit_id` in `direct_url.json` is `NIGHTLY`; when the tag moved since the check, a
+fresh `check.py --json` gives the new `nightly.commit` and shows `cli.behind` false.
 
 ## 2. Plugins
 
@@ -51,7 +59,8 @@ The running session keeps the old plugin until the next one starts; say so in th
 
 ## 3. Worker daemon
 
-Only when `worker.installed` and the daemon reports a version older than the CLI now installed:
+Only when `worker.installed`, and either the report from the start marks `worker.behind` (the daemon runs
+the CLI's code, so it is behind whenever the CLI was) or the CLI moved in step 1:
 
 ```bash
 evo-agents worker status --json      # hub.held_runs, hub.agent_version, daemon_pid
@@ -64,8 +73,8 @@ evo-agents worker status --json      # hub.held_runs, hub.agent_version, daemon_
   a terminal. Leave it and report it.
 - Otherwise run `evo-agents worker service install`. It stops the old daemon, starts one on the new CLI
   and keeps every `EVO_WORKER_*` variable. Run `evo-agents worker status --json` again until
-  `hub.agent_version` is `LATEST` and `hub.status` is `online` (a few tries; the first heartbeat comes
-  within seconds).
+  `daemon_pid` is a new one, `hub.agent_version` is what `evo-agents --version` prints and `hub.status`
+  is `online` (a few tries; the first heartbeat comes within seconds).
 
 ## 4. CI pins
 
@@ -109,11 +118,11 @@ For each harness whose entry in the report is behind:
 ## Report
 
 ```
-## evo-agents LATEST
+## evo-agents nightly <NIGHTLY, 7 characters>, release LATEST
 
 | Component | Before | After | Action | Evidence |
 |---|---|---|---|---|
-| CLI | 0.4.0 | 0.5.0 | uv tool install | evo-agents --version: evo-agents 0.5.0 |
+| CLI | 0.4.0 (PyPI) | 0.5.0 (git 1a2b3c4) | uv tool install from nightly | evo-agents 0.5.0; direct_url.json commit_id 1a2b3c4 |
 | plugin evo-hub | ... | ... | ... | ... |
 | worker daemon | ... | ... | skipped: 1 run held | ... |
 | CI pin <harness> | 0.2.1 | 0.5.0 | PR <url> | validate: 82 file(s), 0 with errors |
