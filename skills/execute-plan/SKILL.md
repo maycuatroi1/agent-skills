@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a fresh plan-step subagent (never a fork of the session) that reads the plan's handoff and implements, verifies and commits the step, writes status back from the main session, waits in the background for the required CI checks of a pull request it opened, and keeps going until the plan is done or needs the user. It works in Claude Code and Codex. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness, and in a plan run with a session per step it does only that session's step.
-version: 0.9.0
+version: 0.10.0
 ---
 
 # Execute exec-plan
@@ -277,6 +277,11 @@ Stop and ask only when:
 - a step failed (section 8) and no other step is ready;
 - the CI a step waits on gave no result in 90 minutes (below).
 
+A merge that needs the user's agreement and also waits on CI is asked for as soon as the PR is open, not
+once CI ends: "merge PR <n> once its required checks pass?". Start the background watch below in the
+same turn, and when it ends with `0`, merge without asking again. A "no" or a red check leaves the PR
+open as it is.
+
 Everything else, a wrong file name in a step, an API shaped differently than the plan assumed, a better
 order, an extra file to touch, is decided by the subagent or by you and recorded as a `Decision:` line.
 
@@ -287,8 +292,10 @@ A step's verify, or a merge the plan asks for, may need the CI of a pull request
 After the main session pushes such a branch or opens such a PR, it waits for the PR's required checks
 itself, in the background. It never runs `sleep` in the foreground and never asks the user to say when
 CI is done. On one plan, a red CI went unnoticed for almost four hours because the session stopped to
-wait and only the user's message woke it. Plan-step subagents keep their rules (no push, no pull
-request, no rebase), so the wait belongs to the main session.
+wait and only the user's message woke it. On others the person had to write "CI xanh rồi, merge đi"
+(CI is green, merge): the session had asked for the merge only after CI, or had marked a step "waiting
+for CI of PR #37", run a one-shot `gh pr checks` and ended its turn. Plan-step subagents keep their
+rules (no push, no pull request, no rebase), so the wait belongs to the main session.
 
 Start the watch as a background command. In Claude Code that is Bash with `run_in_background: true`,
 which wakes the session when the command exits. In Codex, `exec_command` hands back a session id when the
@@ -307,12 +314,17 @@ wait $w
 ```
 
 While it runs, go on with ready steps that do not depend on it, and end the turn when none is left.
+Never end a turn while a step's evidence or the status line says it waits for CI unless a background
+watch for that PR or run is still running. A one-shot `gh pr checks` or `gh run view` is
+a look, not a wait: it wakes nobody when CI ends. A merge consent asked as above is acted on when
+this watch ends.
 When the command ends, read only the last lines of its output and act on its exit status:
 
 - `0`: every required check passed. Do what was waiting: run the step's verify and record it as section
   5 says, or go on to the merge, which still needs the user's agreement when the first list above says
-  so. Suites of the verify that this CI ran green on the same commit are not run again locally: cite the
-  CI run in the evidence and run only the rest of the verify.
+  so; when the user already agreed to merge once the required checks pass, merge now without asking
+  again. Suites of the verify that this CI ran green on the same commit are not run again locally: cite
+  the CI run in the evidence and run only the rest of the verify.
 - `1`, printing `no checks reported` or `no required checks reported` at once: CI has not registered the
   push yet, or the PR has no required check. `gh run list --repo <owner/repo> --commit <sha>` tells
   which. Start the watch again, without `--required` when the PR has checks but none is required. When
@@ -500,7 +512,10 @@ then recorded with `done` once the wait ends green. With Claude Code, the worker
 at most 30 minutes after a turn ends while a background command runs, so put `1500` in place of `5400`
 and start the watch again each time it ends with `124`, until 90 minutes have passed since the push. The
 agent pushes fix commits to the run's branch itself, never forced, with the notice above when that is a
-default branch. After 90 minutes without a result, ask the owner and end the turn:
+default branch. A merge that needs the owner's consent and waits on CI is asked with
+`evo-agents worker ask` as soon as the PR is open, worded "merge PR <n> once its required checks pass?",
+with the watch started in the same turn; on `0` with a yes, merge without asking again.
+After 90 minutes without a result, ask the owner and end the turn:
 
 ```
 evo-agents worker ask --category scope --question "CI of <PR or commit> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --step <id>
