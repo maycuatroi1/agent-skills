@@ -1,7 +1,7 @@
 ---
 name: update-evo-agents
-description: This skill should be used when the user asks to "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "cập nhật harness agent", "auto update evo-agents", "nâng pin CI evo-ak", or when a SessionStart line starts with "evo-agents update:". It checks the evo-agents CLI and the worker daemon against the nightly tag of main, the evo-hub and evo-kg Claude Code plugins against main, and the evo-ak pins in a harness's CI against the latest release, then hands the update to the evo-agents-updater subagent, which reinstalls the CLI from the nightly tag, restarts an idle worker daemon and opens a pull request for each CI pin.
-version: 0.2.0
+description: This skill should be used when the user asks to "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "cập nhật harness agent", "auto update evo-agents", "nâng pin CI evo-ak", "update CLI, skill, plugin", "cập nhật máy", "cập nhật local", "sync skills", "update local", or when a SessionStart line starts with "evo-agents update:". It checks the evo-agents CLI and the worker daemon against the nightly tag of main, the evo-hub and evo-kg Claude Code plugins against main, the evo-ak those plugins' hooks run against uv's cache, the skills against the hub, the hub's own version, and the evo-ak pins in a harness's CI against the latest release, then hands the update to the evo-agents-updater subagent, which reinstalls the CLI from the nightly tag, restarts an idle worker daemon, updates the plugins and warms their evo-ak, syncs the skills and opens a pull request for each CI pin. "local" does this machine only, without CI pins.
+version: 0.3.0
 ---
 
 # Update evo-agents
@@ -15,9 +15,11 @@ CI pins follow PyPI releases.
 |---|---|---|---|
 | CLI | tag `nightly` | `uv tool` (or pip) | reinstall from `git+https://github.com/maycuatroi1/evo-agents@nightly` with the same extras |
 | Plugins `evo-hub`, `evo-kg` | main | Claude Code, marketplace `evo-agents` | `claude plugin marketplace update`, then `claude plugin update` |
+| Plugin runtime | the plugin's pin | uv's cache, `evo-ak==X` in the plugin's `hooks/hooks.json` and `.mcp.json` | `uvx --from evo-ak==X evo-agents --version`: the hooks run `uvx --offline`, so an X not cached makes them silent no-ops |
 | Worker daemon | the CLI | LaunchAgent or systemd user unit | `evo-agents worker service install` again, only while it holds no run |
+| Skills | the hub | `~/.claude/skills` and the other runtimes, `.claude/skills` of each harness | `evo-agents hub skills sync`, never `--adopt` unasked |
 | CI pin | PyPI release | `.github/workflows/*` of a harness, `evo-ak==X` | a branch and a pull request, never a push to the default branch |
-| Hub server | | ghcr image on the hub's host | out of scope: a deploy, done by whoever runs the hub |
+| Hub server | | ghcr image on the hub's host | reported (`/v1/health`), never updated: a deploy, done by whoever runs the hub |
 
 The pin is deliberate: a schema change in evo-agents must reach a harness through a reviewed bump, so this
 skill opens the pull request and stops there.
@@ -30,8 +32,10 @@ python3 <this skill's directory>/scripts/check.py --json
 
 Run it from inside the harness, or pass `--harness <dir>`, once per harness when there are several
 (`--harness A --harness B`). Add `--all-harnesses` when the user asks for every harness on the machine.
-The report lists `behind`; when it is empty, say everything is up to date (the CLI at `nightly.commit`,
-the CI pins at `latest["evo-ak"]`) and stop. When `latest.error` is set and no cache exists, the release
+For this machine alone ("cập nhật máy", "update local", "CLI, skill, plugin"), run `check.py --json --local`:
+no harness is read and no CI pin is touched. The report lists `behind`; when it is empty, say everything
+is up to date (the CLI at `nightly.commit`, the CI pins at `latest["evo-ak"]`, the hub's version and the
+skills left unmanaged) and stop. When `latest.error` is set and no cache exists, the release
 could not be looked up: say so and stop. When `nightly.commit` is null, the tag is missing or could not be
 looked up (`nightly.error`): the CLI and the daemon are not compared, so say so and go on with the rest. A
 CLI whose `cli.source` is `local` (an editable or local install) is left alone.
@@ -53,7 +57,7 @@ The prompt carries only:
 ```
 skill_dir: <this skill's directory>
 harnesses: <harness directories whose CI pins to bump; default the one around the current directory>
-components: <all, or the subset the user asked for, e.g. "ci-pin">
+components: <all; local (this machine only, no CI pin); or a subset of cli, plugins, plugin-runtime, worker, skills, ci-pin>
 check: <the JSON from step 1>
 ```
 
@@ -66,7 +70,9 @@ their task.
 The subagent returns a table of component, before, after, action and evidence, then what needs the user.
 Relay it as is, plus:
 
-- a plugin was updated: Claude Code loads it in the next session;
+- a plugin was updated: open sessions pick up its hooks, its MCP servers and skills come with the next session;
+- skills left unmanaged: name them; `evo-agents hub skills sync --adopt` replaces them after a backup, on the user's word;
+- the hub is older than the release, or newer than the CLI: say so; the hub is deployed by whoever runs it;
 - the daemon was left alone because it holds runs: name them and give the command for later;
 - a pull request was opened: give its link; merging it is the user's call.
 
@@ -104,4 +110,4 @@ The line it prints starts with `evo-agents update:`, which is what triggers this
 - No plan file, no main checkout's working tree: the pin is bumped in a worktree of its own.
 - No daemon restart while it holds a run: stopping waits 60 seconds and then kills, and a plan run can
   wait a day for its owner.
-- No hub deploy, `hub migrate` or `hub skills publish`.
+- No hub deploy, `hub migrate` or `hub skills publish`, and no `hub skills sync --adopt` unasked.

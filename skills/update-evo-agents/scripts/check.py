@@ -2,7 +2,10 @@
 """How far this machine, and the harness around the current directory, are behind evo-agents.
 
 The CLI and the worker daemon follow the nightly tag of main, the plugins follow main, the CI pins
-follow the latest PyPI release. Stdlib only, Python 3.9+.
+follow the latest PyPI release. The plugins' hooks and MCP servers run `uvx --offline --from
+evo-ak==X`, so each such X must be in uv's cache or they do nothing; the skills follow the hub
+(`evo-agents hub skills sync`); the hub's own version is reported, never updated. Stdlib only,
+Python 3.9+.
 
   check.py                  a readable report
   check.py --json           the same as JSON, read by the evo-agents-updater agent
@@ -12,6 +15,7 @@ follow the latest PyPI release. Stdlib only, Python 3.9+.
   check.py --harness DIR    a harness whose CI pins to read; repeat it for several
                             (default: walk up from the current directory)
   check.py --all-harnesses  also every harness in this machine's harness registry
+  check.py --local          this machine only: no harness and no CI pin
 
 The notice stays silent inside an evo-agents worker run (EVO_RUN_ID is set) and when
 EVO_AGENTS_UPDATE_NOTICE=0.
@@ -44,6 +48,9 @@ CACHE_SECONDS = 12 * 3600
 HTTP_TIMEOUT = 4
 PIN_RE = re.compile(r"evo-ak(?:\[[^\]]*\])?\s*==\s*([0-9][0-9A-Za-z.+-]*)")
 REGISTRIES = (Path.home() / ".evo" / "harness" / "registry.json", Path.home() / ".claude" / "harness" / "registry.json")
+HUB_CONFIG = Path.home() / ".evo" / "hub" / "config.json"  # the hub URL and login; the token is in another file
+PLUGIN_FILES = ("hooks/hooks.json", ".mcp.json", ".claude-plugin/plugin.json")  # where a plugin runs evo-ak
+SKILL_STATES = ("current", "unmanaged")  # a skill sync leaves these alone without --adopt
 
 
 def vkey(version: str | None) -> tuple:
@@ -197,13 +204,19 @@ def cli_state(nightly: str | None) -> dict:
     return state
 
 
-def installed_plugins() -> dict[str, str]:
+def installed_plugin_entries() -> dict[str, dict]:
     path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
     try:
         data = json.loads(path.read_text()).get("plugins", {})
-        return {pid: entries[0].get("version") for pid, entries in data.items() if entries}
+        return {pid: entries[0] for pid, entries in data.items() if entries and isinstance(entries[0], dict)}
     except (OSError, ValueError, AttributeError, IndexError):
-        pass
+        return {}
+
+
+def installed_plugins() -> dict[str, str]:
+    entries = installed_plugin_entries()
+    if entries:
+        return {pid: entry.get("version") for pid, entry in entries.items()}
     out = run(["claude", "plugin", "list", "--json"], timeout=30)
     try:
         return {p["id"]: p.get("version") for p in json.loads(out or "[]")}
@@ -221,6 +234,79 @@ def plugin_state(latest: dict) -> list[dict]:
         version, newest = installed[pid], latest.get(name)
         rows.append({"id": pid, "version": version, "latest": newest, "behind": older(version, newest)})
     return rows
+
+
+def uv_cached(version: str) -> bool:
+    """Whether `uvx --offline --from evo-ak==version` starts, as a plugin's hook runs it."""
+    if not shutil.which("uvx"):
+        return False
+    return run(["uvx", "--offline", "--from", f"{PACKAGE}=={version}", "evo-agents", "--version"],
+               timeout=30) is not None
+
+
+def plugin_runtime_state() -> list[dict]:
+    """Each evo-ak version an installed evo plugin pins in its hooks or MCP servers, and whether uv has it.
+
+    The commands run `uvx --offline ... || true`: a version uv never downloaded makes every hook a silent
+    no-op, and a plugin update moves the pin."""
+    rows = []
+    for pid, entry in installed_plugin_entries().items():
+        if pid.split("@")[0] not in PLUGINS or not entry.get("installPath"):
+            continue
+        root, pins = Path(entry["installPath"]), set()
+        for rel in PLUGIN_FILES:
+            try:
+                pins.update(PIN_RE.findall((root / rel).read_text()))
+            except OSError:
+                continue
+        for version in sorted(pins, key=vkey):
+            cached = uv_cached(version)
+            rows.append({"plugin": pid, "pin": version, "cached": cached, "behind": not cached})
+    return rows
+
+
+def hub_state(latest: str | None, cli_version: str | None) -> dict:
+    """The hub this machine signed in to, by its URL and login (never the token), and the version it runs."""
+    try:
+        config = json.loads(HUB_CONFIG.read_text())
+        url, login = config["url"].rstrip("/"), config.get("login")
+    except (OSError, ValueError, KeyError, AttributeError, TypeError):
+        return {"signed_in": False}
+    state = {"signed_in": True, "url": url, "login": login, "version": None, "schema": None}
+    try:
+        health = fetch_json(f"{url}/v1/health")
+        state.update(version=health.get("version"), schema=health.get("schema"), status=health.get("status"))
+    except Exception as exc:  # the hub down or unreachable: reported, never fatal
+        state["error"] = f"health check failed: {exc}"
+    # Never updated here: a deploy is for whoever runs the hub. A CLI older than its hub misses what the hub added.
+    state["behind_release"] = older(state["version"], latest)
+    state["cli_older"] = older(cli_version, state["version"])
+    return state
+
+
+def skills_state(hub: dict) -> dict:
+    """What `evo-agents hub skills sync` would change: the skills to add or update, and the directories of the
+    same name it leaves alone (unmanaged: --adopt replaces them, after a backup)."""
+    exe = shutil.which("evo-agents")
+    if not exe or not hub.get("signed_in"):
+        return {"checked": False, "behind": False, "reason": "no evo-agents" if not exe else "not signed in"}
+    out = run([exe, "hub", "skills", "sync", "--check", "--json"], timeout=60)
+    try:
+        data = json.loads(out or "")
+    except ValueError:
+        return {"checked": False, "behind": False, "reason": "skills sync --check printed no JSON"}
+    changes, unmanaged = [], []
+    for target in data.get("targets", []):
+        where = target.get("project") or target.get("scope")
+        for item in target.get("actions", []):
+            row = {"name": item.get("name"), "runtime": target.get("runtime"), "where": where,
+                   "action": item.get("action"), "detail": item.get("detail")}
+            if item.get("action") == "unmanaged":
+                unmanaged.append(row)
+            elif item.get("action") not in SKILL_STATES:
+                changes.append(row)
+    return {"checked": True, "counts": data.get("counts", {}), "changes": changes, "unmanaged": unmanaged,
+            "behind": bool(changes)}
 
 
 def worker_state(cli: dict) -> dict:
@@ -309,6 +395,12 @@ def behind_list(report: dict) -> list[str]:
             items.append(f"plugin {row['id'].split('@')[0]} {row['version']} -> {row['latest']}")
     if report.get("worker", {}).get("behind"):
         items.append(f"worker daemon {report['worker']['daemon_version']}")
+    missing = sorted({row["pin"] for row in report.get("plugin_runtime", []) if row["behind"]}, key=vkey)
+    if missing:
+        items.append(f"uv cache lacks {', '.join(f'{PACKAGE}=={v}' for v in missing)}, which the plugins' hooks run")
+    skills = report.get("skills", {})
+    if skills.get("behind"):
+        items.append(f"{len(skills['changes'])} skill change(s) from the hub")
     for h in report["harnesses"]:
         if h["behind"]:
             versions = sorted({p["version"] for p in h["pins"] if older(p["version"], latest)})
@@ -323,6 +415,8 @@ def harness_roots(args) -> list[Path]:
         roots = [here] if here else []
     if args.all_harnesses:
         roots += [r.resolve() for r in registry_roots()]
+    if args.local:
+        return []
     return list(dict.fromkeys(roots))
 
 
@@ -331,9 +425,12 @@ def build(args) -> dict:
     nightly = nightly_state(use_cache=args.notice)
     newest = latest.get(PACKAGE)
     cli = cli_state(nightly.get("commit"))
-    report = {"latest": latest, "nightly": nightly, "cli": cli, "plugins": plugin_state(latest.get("plugins", {}))}
+    report = {"latest": latest, "nightly": nightly, "cli": cli, "plugins": plugin_state(latest.get("plugins", {})),
+              "plugin_runtime": plugin_runtime_state()}
     if not args.notice:
         report["worker"] = worker_state(cli)
+        report["hub"] = hub_state(newest, cli.get("version"))
+        report["skills"] = skills_state(report["hub"])
     report["harnesses"] = [harness_state(r, newest) for r in harness_roots(args)]
     report["behind"] = behind_list(report)
     return report
@@ -360,6 +457,23 @@ def print_report(report: dict) -> None:
     if w.get("installed"):
         print(f"worker {w['name']}: daemon {w['daemon_version']} pid {w['daemon_pid']}, {w['status']}, "
               f"{w['held_runs']} run(s) held" + ("  BEHIND" if w["behind"] else ""))
+    for row in report.get("plugin_runtime", []):
+        print(f"plugin {row['plugin']} runs {PACKAGE}=={row['pin']}: "
+              + ("in the uv cache" if row["cached"] else "NOT in the uv cache, its hooks do nothing"))
+    hub = report.get("hub", {})
+    if hub.get("signed_in"):
+        print(f"hub {hub['url']} as {hub['login']}: {hub.get('version') or 'unknown'}"
+              + (f" ({hub['error']})" if hub.get("error") else "")
+              + ("  older than the release (a deploy)" if hub.get("behind_release") else "")
+              + ("  newer than the CLI" if hub.get("cli_older") else ""))
+    elif "hub" in report:
+        print("hub: not signed in (evo-agents hub login --url <hub>)")
+    skills = report.get("skills", {})
+    if skills.get("checked"):
+        print(f"skills: {len(skills['changes'])} to sync, {len(skills['unmanaged'])} not the hub's (left alone)"
+              + ("  BEHIND" if skills["behind"] else ""))
+    elif skills:
+        print(f"skills: not checked, {skills.get('reason')}")
     for h in report["harnesses"]:
         pins = ", ".join(f"{p['file']}:{p['line']} {p['version']}" for p in h["pins"]) or "no evo-ak pin"
         print(f"harness {h['name']} ({h['ref']}): {pins}" + ("  BEHIND" if h["behind"] else ""))
@@ -373,6 +487,7 @@ def main() -> int:
     mode.add_argument("--notice", action="store_true")
     parser.add_argument("--harness", action="append", default=[], metavar="DIR")
     parser.add_argument("--all-harnesses", action="store_true")
+    parser.add_argument("--local", action="store_true", help="this machine only: no harness, no CI pin")
     args = parser.parse_args()
 
     if args.notice:
