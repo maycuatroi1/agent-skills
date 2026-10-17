@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: This skill should be used when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active and wants it built rather than written. It reads the plan as the only state, computes the ready frontier from depends_on, groups steps into parallel-safe clusters, runs each step in a fresh plan-step subagent (never a fork of the session) that reads the plan's handoff and implements, verifies and commits the step, writes status back from the main session, waits in the background for the required CI checks of a pull request it opened, and keeps going until the plan is done or needs the user. It works in Claude Code and Codex. It also drives the agent of an evo-agents worker plan run (EVO_RUN_KIND=plan), reporting through evo-agents worker instead of evo harness, and in a plan run with a session per step it does only that session's step.
-version: 0.10.0
+version: 0.10.1
 ---
 
 # Execute exec-plan
@@ -521,8 +521,15 @@ After 90 minutes without a result, ask the owner and end the turn:
 evo-agents worker ask --category scope --question "CI of <PR or commit> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --step <id>
 ```
 
-**Stop.** When the frontier is empty and no decision is open, write `.evo-run/result.json` in the run directory, not
-in a repo, and end the turn:
+**Blocked is not done.** A frontier emptied by a block is not a stop. When what blocks the steps left is something
+only the owner can change (a permission of the GitHub App, a credential, an account, access to a service, a push the
+remote refuses), ask a `scope` decision that names what the owner must do, with a way around the block among the
+options when there is one, and end the turn. When the answer did not lift the block (the push is still refused, the
+access still missing), ask again with what you found and the options left; never end the run on it. A turn that ends
+with no decision open ends the run: the worker pushes what is committed and lets the session go.
+
+**Stop.** When every step is done, or the owner's answer says to stop, and no decision is open, write
+`.evo-run/result.json` in the run directory, not in a repo, and end the turn:
 
 ```json
 {"summary": "Done: 1, 2, 4. Decided: ... Left: 3 pending (why), 5 waits on 3."}
