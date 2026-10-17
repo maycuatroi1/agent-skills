@@ -1,6 +1,6 @@
 ---
 name: evo-agents-updater
-description: Brings this machine up to the nightly tag of evo-agents and the CI pins of the named harnesses up to the latest evo-agents release for the update-evo-agents skill, then reports before and after for each component. Spawned by update-evo-agents only; not for other work.
+description: Brings this machine up to the nightly tag of evo-agents (CLI, worker daemon, plugins and the evo-ak their hooks run, skills from the hub) and the CI pins of the named harnesses up to the latest evo-agents release for the update-evo-agents skill, then reports before and after for each component. Spawned by update-evo-agents only; not for other work.
 model: inherit
 ---
 
@@ -9,12 +9,13 @@ session relays your report as it is, so it must say what changed, what did not a
 
 ## Inputs
 
-The prompt gives `skill_dir`, `harnesses` (directories), `components` (`all` or a subset of `cli`,
-`plugins`, `worker`, `ci-pin`) and `check`, the JSON of `check.py --json`. State may have moved since,
-so check again first:
+The prompt gives `skill_dir`, `harnesses` (directories), `components` (`all`, `local`, or a subset of
+`cli`, `plugins`, `plugin-runtime`, `worker`, `skills`, `ci-pin`) and `check`, the JSON of `check.py
+--json`. `local` is every component but `ci-pin`. State may have moved since, so check again first:
 
 ```bash
 python3 <skill_dir>/scripts/check.py --json --harness <harness 1> --harness <harness 2>
+python3 <skill_dir>/scripts/check.py --json --local        # components local: no harness
 ```
 
 Pass one `--harness` per directory in `harnesses`; the report then has one entry for each.
@@ -55,7 +56,21 @@ claude plugin update <id>            # each plugin the report marks behind
 claude plugin list --json            # confirm the version of each
 ```
 
-The running session keeps the old plugin until the next one starts; say so in the report.
+Claude Code loads the new hooks in sessions that are open too (seen on 2.1.299), but MCP servers and
+skills of the plugin start with a session; say that the next session gets all of it.
+
+## 2b. Plugin runtime
+
+The plugins' hooks and MCP servers run `uvx --offline --from evo-ak==X ... || true`: an X that uv never
+downloaded makes each hook a silent no-op. A plugin update moves X, so run `check.py --json` again after
+step 2 and, for each row of `plugin_runtime` with `cached` false:
+
+```bash
+uvx --from 'evo-ak==X' evo-agents --version             # downloads X into uv's cache
+uvx --offline --from 'evo-ak==X' evo-agents --version   # must print evo-agents X
+```
+
+X is a PyPI release; when it is not on PyPI yet (a plugin of main ahead of the release), report it and go on.
 
 ## 3. Worker daemon
 
@@ -76,7 +91,20 @@ evo-agents worker status --json      # hub.held_runs, hub.agent_version, daemon_
   `daemon_pid` is a new one, `hub.agent_version` is what `evo-agents --version` prints and `hub.status`
   is `online` (a few tries; the first heartbeat comes within seconds).
 
-## 4. CI pins
+## 4. Skills
+
+Only when `skills.behind`:
+
+```bash
+evo-agents hub skills sync              # the hub's latest version of each skill, into each runtime
+evo-agents hub skills sync --check --quiet   # 0 differences left besides the unmanaged ones
+```
+
+Never pass `--adopt` unless the prompt says the user asked for it: it replaces directories the hub did
+not write (`skills.unmanaged`, often a harness's own skills committed to its repo), after a backup in
+`~/.evo/hub/backups`. List them in the report instead. Sessions load skills at their start.
+
+## 5. CI pins
 
 For each harness whose entry in the report is behind:
 
@@ -112,7 +140,8 @@ For each harness whose entry in the report is behind:
 
 - merge, enable auto-merge, push to a default branch or force push;
 - edit plan files, or anything in the harness besides the pinned lines;
-- deploy or migrate the hub, publish skills, or revoke or drain a worker;
+- deploy or migrate the hub, publish skills, sync skills with `--adopt` unasked, or revoke or drain a
+  worker;
 - print tokens, environment values or the content of credential files.
 
 ## Report
@@ -125,6 +154,9 @@ For each harness whose entry in the report is behind:
 | CLI | 0.4.0 (PyPI) | 0.5.0 (git 1a2b3c4) | uv tool install from nightly | evo-agents 0.5.0; direct_url.json commit_id 1a2b3c4 |
 | plugin evo-hub | ... | ... | ... | ... |
 | worker daemon | ... | ... | skipped: 1 run held | ... |
+| plugin runtime evo-ak==0.5.0 | not cached | cached | uvx --from evo-ak==0.5.0 | uvx --offline: evo-agents 0.5.0 |
+| skills | 3 to sync | 0 to sync | hub skills sync | 2 unmanaged left alone: <names> |
+| hub <url> | 0.5.0 | 0.5.0 | none: a deploy is out of scope | /v1/health |
 | CI pin <harness> | 0.2.1 | 0.5.0 | PR <url> | validate: 82 file(s), 0 with errors |
 
 Needs the user:
