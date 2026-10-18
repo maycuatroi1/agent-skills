@@ -105,6 +105,9 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    branch already fails it, and do not run it again when no file changed since it passed. While you
    work, run the tests of the code you touch. Widen that when your change is risky or touches code many
    others depend on, and write why as a decision.
+   A verify or test run that takes more than about two minutes goes in a Bash call with
+   `run_in_background: true`; wait for its completion notice. Claude Code blocks `sleep N` followed by
+   `tail` of its log.
    In a worker plan run, a verify that starts with `cd` into a developer's checkout, such as
    `cd ~/github/<repo> && ...`, runs from `repo` without that `cd`. Write `effective` as one shell line
    that runs from the worktree root: the main session passes it to `--verify` of `evo-agents worker step`,
@@ -121,8 +124,10 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    ```
 
    A hit stops the commit. Report it without repeating the value.
-3. When the repo has a GitNexus index, run `gitnexus detect-changes --scope staged` once and put any
-   unexpected affected flow in `notes`.
+3. When `gitnexus status`, run in this checkout, says this checkout is indexed and current, run
+   `gitnexus detect-changes --scope staged` once and put any unexpected affected flow in `notes`.
+   Otherwise skip it without reading its help: a worktree is not indexed, and an index of another
+   checkout maps the diff onto stale code. The impact check of Work item 1 stands in for it.
 4. Run any other pre-commit check the repo's `AGENTS.md` requires.
 5. Commit in the style of `git log -5 --format=%B` in that repo: a subject naming the area changed, a
    body saying what and why. No `Co-Authored-By` or other attribution trailer, and no assistant or
