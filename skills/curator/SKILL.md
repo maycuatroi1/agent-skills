@@ -1,7 +1,7 @@
 ---
 name: curator
-description: Review a harness from its own recent sessions and propose changes with evidence. Use for "/curator", "curate the harness", "review recent sessions", "tối ưu harness", "tối ưu context", "context quá lớn", or to turn repeated commands into a CLI and repeated workflows into a skill. Reads the Claude Code and Codex transcripts on this machine, measures what every session loads, and proposes context, CLI, skill, rule, hook or permission changes; nothing changes until the person accepts.
-version: 0.1.0
+description: Review a harness from its own recent sessions and propose context, CLI, skill, rule, hook or permission changes with evidence; nothing changes until the person accepts. Use for "/curator", "curate the harness", "review recent sessions", "tối ưu harness", "tối ưu context", "context quá lớn", or to turn repeated commands into a CLI and repeated workflows into a skill.
+version: 0.1.1
 ---
 
 # Curator
