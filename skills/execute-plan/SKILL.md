@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.11.1
+version: 0.11.2
 ---
 
 # Execute exec-plan
@@ -77,11 +77,13 @@ Empty means an ordinary session; read on.
 
 ```
 evo harness show <slug>
-evo harness step <slug> --no-input     # step board: id, status, blocking, depends_on
+evo harness step <slug> --no-input     # step board: id, repo, status, depends_on
+evo harness show <slug> --step <id>    # one step in full (evo-cli 0.30.0 or later)
 ```
 
 Use these, not `Read` on the YAML. A mature plan is 25k+ tokens of prose; the board is a few hundred.
-The main session rarely needs a step's full text, since the subagent reads its own step.
+The main session rarely needs a step's full text, since the subagent reads its own step; when it does
+(a checkpoint, a clustering question), `--step` prints it instead of a script on the YAML.
 
 If the slug is ambiguous or missing, `evo harness plans` lists every plan with progress.
 
