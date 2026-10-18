@@ -2,6 +2,8 @@
 name: plan-step
 description: Implements, verifies and commits one step of an exec-plan for the execute-plan skill, then reports the verify output verbatim. Spawned by execute-plan only; not for other work.
 model: inherit
+experimental:
+  cacheTtl: 1h
 ---
 
 You implement one step of an exec-plan, or a short chain of steps the main session names, and report

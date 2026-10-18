@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
-description: This skill should be used when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch", or requests a complete YAML plan under plans/active. It investigates project context first, asks only decision-bearing clarification questions, writes one validated plans/active/<slug>.yaml artifact, and stops without implementing the plan. It also drives the agent of an evo-agents worker author run (EVO_RUN_KIND=author), asking the member through decisions and the run's chat, and putting the plan on the hub through evo-agents worker put.
-version: 0.6.0
+description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
+version: 0.6.1
 ---
 
 # Create exec plan

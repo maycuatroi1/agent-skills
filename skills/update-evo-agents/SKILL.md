@@ -1,7 +1,7 @@
 ---
 name: update-evo-agents
-description: This skill should be used when the user asks to "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "cập nhật harness agent", "auto update evo-agents", "nâng pin CI evo-ak", "update CLI, skill, plugin", "cập nhật máy", "cập nhật local", "sync skills", "update local", or when a SessionStart line starts with "evo-agents update:". It checks the evo-agents CLI and the worker daemon against the nightly tag of main, the evo-hub and evo-kg Claude Code plugins against main, the evo-ak those plugins' hooks run against uv's cache, the skills against the hub, the hub's own version, and the evo-ak pins in a harness's CI against the latest release, then hands the update to the evo-agents-updater subagent, which reinstalls the CLI from the nightly tag, restarts an idle worker daemon, updates the plugins and warms their evo-ak, syncs the skills and opens a pull request for each CI pin. "local" does this machine only, without CI pins.
-version: 0.3.0
+description: Bring evo-agents up to date on this machine and in a harness's CI, namely the CLI and worker daemon, the evo-hub and evo-kg plugins and their evo-ak, the skills, and the evo-ak pins in CI. Use for "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "nâng pin CI evo-ak", "update CLI, skill, plugin", "cập nhật máy", "sync skills", "update local" (this machine only), or a SessionStart line starting "evo-agents update:".
+version: 0.3.1
 ---
 
 # Update evo-agents
