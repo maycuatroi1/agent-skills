@@ -169,6 +169,9 @@ check section for the full list):
 
 - Any "không A, mà B" / "không nằm ở A, nó nằm ở B" binary contrast? State Y directly.
 - Any signpost "Nói cách khác:" / "Điểm chốt:" / "Tức là:"? Cut.
+- Any template "Từ X tới/đến Y" (including "từ X sang Y") in a title, heading, caption, or
+  summary? Name the subject or state the claim instead. Keep literal ranges, routes, and actual
+  conversions; see section 19 of [vietnamese-patterns.md](references/vietnamese-patterns.md).
 - Any calque that sounds translated ("đóng đinh dữ kiện", "tự sai", "hỏng đúng chỗ")? Replace with
   natural Vietnamese.
 - Any standalone closing sentence that sounds like a pull-quote or motivational tagline? Rewrite.

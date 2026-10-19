@@ -472,3 +472,31 @@ trả về huấn luyện quân nhân dự bị và nghệ thuật sinh tồn. H
 **Đọc để lấy cách dùng, không phải lấy câu trả lời.** Đoạn tóm tắt mà máy tìm tự viết ra cũng là văn
 máy, cũng mắc đúng các bệnh trong tài liệu này. Thứ đáng tin là các trang thật có dùng cụm đó như một
 đơn vị hay không.
+
+## 19. Khuôn "Từ X tới/đến Y"
+
+Không dùng "Từ X tới Y", "Từ X đến Y" hoặc biến thể "Từ X sang Y" để gói hai
+khái niệm thành một tiêu đề, heading, caption hay câu hứa hẹn phạm vi. Khuôn này
+khiến bài nào cũng giống một chuyến đi qua các chủ đề. Gọi tên nội dung hoặc nói
+điều phần đó chứng minh.
+
+| Cần sửa | Viết trực tiếp |
+|---|---|
+| Từ response HTTP tới claim về quyền truy cập | HTTP 200 chưa chứng minh quyền truy cập |
+| PentestGPT: từ task tree đến vòng lặp thực thi | Cách PentestGPT chọn và thực hiện task |
+| Từ ý tưởng đến thực tiễn | Nêu đúng việc đã làm; nếu chưa làm thì bỏ lời hứa |
+
+Đọc nội dung trước khi đặt lại tiêu đề. Không đổi một heading mơ hồ thành kết luận
+mạnh hơn bằng chứng. Đổi "tới" thành "đến", "sang", mũi tên hoặc thêm "hành trình"
+không chữa được khuôn câu.
+
+**Giữ nghĩa thật:** "latency giảm từ 120 xuống 80 ms", "khoảng từ 10 đến 20 ms",
+"gói tin đi từ client tới server", "chuyển dữ liệu từ CSV sang Parquet" mô tả số
+đo, khoảng, đường truyền hoặc phép chuyển đổi cụ thể. Không cấm giới từ "từ".
+Không sửa trích dẫn nguyên văn, tên nguồn, code hoặc công thức để né blacklist.
+
+Khi rà bài cũ, đọc cả title, excerpt, heading, caption, alt text và chữ trong
+hình. Quét bản Ghost đang phục vụ, không chỉ file local; chuẩn hoá Unicode và nối
+text bị tách bởi thẻ HTML trước khi tìm. Regex chỉ chọn ứng viên: xác nhận ngữ
+cảnh rồi ghi câu thay thế. Báo riêng bài đã publish và draft; rà soát không phải
+là quyền sửa nội dung đang công khai.
