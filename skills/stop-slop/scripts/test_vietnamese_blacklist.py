@@ -38,7 +38,7 @@ class VietnameseBlacklist(unittest.TestCase):
                 self.assertTrue(matches(PATTERN, text))
 
     def test_no_cross_sentence_or_substring_matches(self):
-        for text in ["HTTP 200 chưa chứng minh quyền truy cập",
+        for text in ["HTTP 200 nhưng chắc gì đã vào được",
                      "Đọc output từ tool. Đến bước sau, kiểm tra quyền.",
                      "Đọc output từ tool; tới bước sau mới kiểm tra.",
                      "prefix_từ A đến B"]:

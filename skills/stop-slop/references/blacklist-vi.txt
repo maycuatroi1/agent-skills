@@ -284,7 +284,7 @@ chỉ số dẫn đầu
 # --- Khuôn bao quát "Từ X tới/đến Y" ---
 # Cấm dùng như công thức đặt tiêu đề, heading, caption hoặc câu giới thiệu phạm vi:
 # "Từ response HTTP tới claim về quyền truy cập" không nói điều cần kiểm chứng.
-# Chữa: "HTTP 200 chưa chứng minh quyền truy cập". Đọc phần nội dung trước khi sửa;
+# Chữa: "HTTP 200 nhưng chắc gì đã vào được". Đọc phần nội dung trước khi sửa;
 # không chỉ đổi "tới" thành "đến", "sang", mũi tên hay thêm chữ "hành trình".
 # Pattern bắt ứng viên để đọc, không tự xoá khoảng số, đường truyền, chuyển đổi thật
 # hoặc trích dẫn nguyên văn. "từ 10 đến 20 ms", "từ client tới server" có nghĩa cụ thể.

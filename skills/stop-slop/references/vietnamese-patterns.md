@@ -482,7 +482,7 @@ khiến bài nào cũng giống một chuyến đi qua các chủ đề. Gọi t
 
 | Cần sửa | Viết trực tiếp |
 |---|---|
-| Từ response HTTP tới claim về quyền truy cập | HTTP 200 chưa chứng minh quyền truy cập |
+| Từ response HTTP tới claim về quyền truy cập | HTTP 200 nhưng chắc gì đã vào được |
 | PentestGPT: từ task tree đến vòng lặp thực thi | Cách PentestGPT chọn và thực hiện task |
 | Từ ý tưởng đến thực tiễn | Nêu đúng việc đã làm; nếu chưa làm thì bỏ lời hứa |
 
