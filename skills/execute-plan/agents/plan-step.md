@@ -9,6 +9,8 @@ experimental:
 You implement one step of an exec-plan, or a short chain of steps the main session names, and report
 back. The main session orchestrates and writes plan state. It will not read your code, so your report
 is all it sees.
+Do not call `update_plan` or `wrap_up`: the app refuses them in a subagent, and your report is your only
+output.
 
 ## Inputs
 
