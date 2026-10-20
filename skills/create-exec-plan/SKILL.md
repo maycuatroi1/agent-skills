@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.6.1
+version: 0.6.2
 ---
 
 # Create exec plan
@@ -233,8 +233,12 @@ Every step:
   label shown in a step list or dependency graph; `what` remains the full description and is never
   shortened to compensate.
 - Depends only on earlier step IDs.
-- Has a `verify` of runnable commands, written to run from the repo root (a worker runs it again in its
-  own worktree), or a precise manual procedure when nothing can be run.
+- Has a `verify` that is one shell command line, written to run from the repo root (a worker runs it again
+  in its own worktree). Never prose: a worker reads every pending step's `verify` as shell before its agent
+  starts, takes the first word of each sentence for a program, and fails the run with `missing_tool`; the hub
+  refuses such a plan when it is written. When only a person can check something, put the procedure in
+  `note` and let `verify` check a trace of it that a command can read: an answered hub decision, a line in a
+  report file, a link in the evidence.
 - States why it is blocking or non-blocking when that is not obvious.
 
 An outcome step's `what`:
@@ -315,7 +319,7 @@ steps:
     what: >
       Exact operations in order, with files, commands and the checkpoint before the irreversible one.
     depends_on: [1]
-    verify: Exact runnable command or precise manual procedure.
+    verify: Exact shell command line; a manual check goes in note, and this checks its trace.
     status: pending
     blocking: true
     note: Why this step is prescribed rather than an outcome.
@@ -381,6 +385,8 @@ Before writing, verify that:
 - Merge order follows every touched seam.
 - Every step has a non-empty `title` of at most 60 characters.
 - Every blocking step has verification.
+- Every step's `verify` is one shell command line with no prose in it, and every command it calls exists
+  (check a CLI's subcommands with `--help` rather than guessing them).
 - Every acceptance criterion has an `id` and is proven by the `verify` of at least one step.
 - The whole suite, the end-to-end suite and CI are checked near the end, not in every step's `verify`,
   unless a step's `note` says why its change needs them earlier.
