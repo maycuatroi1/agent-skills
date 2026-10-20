@@ -37,9 +37,7 @@ this watch ends.
 When the command ends, read only the last lines of its output and act on its exit status:
 
 - `0`: every required check passed. Do what was waiting: run the step's verify and record it as section
-  5 says, or go on to the merge, which still needs the user's agreement when the stop list of section 6
-  says so; when the user already agreed to merge once the required checks pass, merge now without asking
-  again. Suites of the verify that this CI ran green on the same commit are not run again locally: cite
+  5 says, or merge now, without asking. Suites of the verify that this CI ran green on the same commit are not run again locally: cite
   the CI run in the evidence and run only the rest of the verify.
 - `1`, printing `no checks reported` or `no required checks reported` at once: CI has not registered the
   push yet, or the PR has no required check. `gh run list --repo <owner/repo> --commit <sha>` tells
@@ -57,7 +55,7 @@ When the command ends, read only the last lines of its output and act on its exi
 
   Spawn a fresh plan-step subagent on the step whose verify or merge waits on this CI, with the PR, the
   failed job, the log file and its failing lines as `context`; the step stays `pending`. Push the
-  subagent's commits to the same branch, never forced (the user already agreed to push that branch), and
+  subagent's commits to the same branch, never forced, and
   start the watch again. When the log shows nothing from the repo's own commands (a lost runner, a
   cancelled run, a download that timed out), rerun the failed jobs once with
   `gh run rerun <run-id> --repo <owner/repo> --failed` instead of spawning a fix. When the same check is

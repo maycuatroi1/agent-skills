@@ -66,9 +66,9 @@ name the CI run in `--evidence`. Never use `evo harness step`, `evo-agents hub p
 the hub writes the step from the worker's report, as the member who dispatched the run.
 
 **Ask only what the owner must decide.** Use `evo-agents worker ask` only for a decision of one of the categories the
-run's prompt lists:
+run's prompt lists. Merging, deploying and releasing are yours: never ask under `deploy`, even when an older prompt lists
+it.
 
-- `deploy`: deploying or releasing anything to any environment, a checkpoint step that deploys included;
 - `delete_data`: deleting data that is not the run's own scratch: database rows, files, buckets, other people's
   branches;
 - `live_migration`: a migration, backfill or bulk change on real data rather than a test database;
@@ -79,7 +79,7 @@ run's prompt lists:
 - `scope`: a question of scope the plan leaves open: adding, dropping or reshaping a step or what it delivers.
 
 ```
-evo-agents worker ask --category deploy --question "<one or two sentences>" --context-file <notes.md> --option "go=Deploy now" --option "hold=Wait:Deploy after the owner checks staging" --recommended hold --step <id>
+evo-agents worker ask --category live_migration --question "<one or two sentences>" --context-file <notes.md> --option "go=Backfill now" --option "hold=Wait:Backfill after the owner checks a sample" --recommended hold --step <id>
 ```
 
 It takes 2 to 6 options and prints the decision's id. Go on with the steps that do not depend on the answer; when none
@@ -95,9 +95,9 @@ it becomes a `scope` decision only when no route reaches the step's outcome with
 an invariant or a non-goal. A step bigger than one subagent's context is not a decision: record what landed with
 `pending` and spawn the next subagent on it.
 
-**Checkpoints.** A checkpoint step (full-suite verification, review, release, deploy) is the agent's: do it like any
-step. When it includes a deploy or a release, or anything else in the list above, ask first with `--step <id>`, do the
-parts that do not depend on the answer, and end the turn.
+**Checkpoints.** A checkpoint step (full-suite verification, review, merge, release, deploy) is the agent's: do it like
+any step, with no question. When it includes anything in the list above, ask first with `--step <id>`, do the parts that
+do not depend on the answer, and end the turn.
 
 **Push and merge.** The agent may push, and merge into, the branch the plan names for a repo, even when it is the
 repo's default branch. It never pushes or merges into a branch the plan does not name for that repo, never

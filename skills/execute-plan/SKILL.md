@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.11.3
+version: 0.12.0
 ---
 
 # Execute exec-plan
@@ -272,21 +272,25 @@ offer `/clear` as a question. After each cluster, write one status line: the ste
 shas, and the next cluster. Before writing it, check each claim in it against a report or command output
 of this session; say "not verified" for anything you cannot point to.
 
+Pushing a branch, opening a pull request, merging it into the default branch, deploying and tagging a
+release are yours to do without asking. Before the merge, test locally the cases the change puts at
+risk; the broad run is the full CI of a release tag, not a wait on pull-request CI.
+
 Stop and ask only when:
 
-- the next step is outward-facing or hard to reverse: a push to a shared branch, a merge to the default
-  branch, a release or publish, a deploy, creating or rotating credentials, changing a production
-  database, or sending a message on someone's behalf;
+- the next step destroys what cannot be rebuilt: a force-push to the default branch, deleting a branch,
+  a repository or data someone else uses, or changing a production database outside a migration the
+  deploy backs up;
+- the next step creates or rotates credentials, spends money, or sends a message on someone's behalf;
 - the plan text says the user decides or confirms;
 - going on would change the contract: an acceptance criterion, an invariant, a non-goal, the seam order
   or the rollback;
 - a step failed (section 8) and no other step is ready;
 - the CI a step waits on gave no result in 90 minutes (`references/ci-wait.md`).
 
-A merge that needs the user's agreement and also waits on CI is asked for as soon as the PR is open, not
-once CI ends: "merge PR <n> once its required checks pass?". Start the background watch below in the
-same turn, and when it ends with `0`, merge without asking again. A "no" or a red check leaves the PR
-open as it is.
+When the repository runs required checks on the pull request, start the background watch below as soon
+as the PR is open and merge when it ends with `0`. A red check leaves the PR open and is handled as
+`references/ci-wait.md` says.
 
 Everything else, a wrong file name in a step, an API shaped differently than the plan assumed, a better
 order, an extra file to touch, is decided by the subagent or by you and recorded as a `Decision:` line.
@@ -368,7 +372,7 @@ where it differs from sections 1 to 8, it wins.
       `Decision:` line of the report, with evo-cli 0.29.0 or later. In a hub harness no YAML was edited
       by hand.
 - [ ] `evo harness check <slug>` clean after each cluster.
-- [ ] No question between clusters; stopped only at outward-facing steps, user decisions, changes to
+- [ ] No question between clusters; stopped only at the stop list of section 6, user decisions, changes to
       the contract, or when a failure left nothing else ready. A wrong premise became a `Decision:`
       line, not a question.
 - [ ] Every claim in a status line checked against a report or command output of this session.
