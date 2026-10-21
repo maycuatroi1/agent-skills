@@ -1,6 +1,6 @@
 ---
 name: continuous-learning
-description: Auto-extract reusable patterns AND repeated command patterns from Claude Code sessions, plus a Curator that maintains the learned-skill library (usage telemetry, stale/archive lifecycle, dedup, backups). Approved skills land at {cwd}/.claude/skills/<name>/ so Claude Code actually discovers them; CLI suggestions go to {cwd}/.claude/cli-suggestions/_pending/. Use when setting up the Stop hook, reviewing or promoting learned skills, running/tuning the curator, tuning thresholds, wiring a project CLI config, or explaining how session-end learning works.
+description: Extract reusable patterns and repeated commands from Claude Code sessions at session end, and curate the learned-skill library (usage, stale/archive, dedup, backups). Use for setting up the Stop hook, reviewing or promoting learned skills, tuning the curator or thresholds, or wiring a project CLI config.
 allowed-tools: Bash, Read, Edit, Write
 ---
 

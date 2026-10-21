@@ -1,7 +1,7 @@
 ---
 name: dokploy-cli
-description: Manage Dokploy services (apps, compose, databases, domains, env vars, deploys) via the official `@dokploy/cli`. Trigger on any of "dokploy cli", "install dokploy cli", "set up dokploy on this machine", "list dokploy services", "deploy dokploy app", "set dokploy env", "create dokploy domain", "dokploy postgres/mysql/mongo/redis", or mentions of managing services on a Dokploy panel that are NOT LMS-specific (LMS-specific workflows live in `./lms dokploy` — see "Boundary" below). Provides a one-shot idempotent installer (`scripts/install.sh`) that handles npm install + ~/.omelet.json verification + shell rc wiring + smoke test, so the same skill works on a fresh machine. Covers auth via `~/.omelet.json` + shell rc, the 32 command groups, common patterns (get JSON output, pipe with jq, find composeId/applicationId), and how it coexists with the LMS CLI.
-version: 0.1.0
+description: Manage Dokploy apps, compose, databases, domains, env vars and deploys with the official `@dokploy/cli`, installer included. Use for "dokploy cli", "install dokploy cli", "list dokploy services", "deploy dokploy app", "set dokploy env", "create dokploy domain". LMS workflows stay in `./lms dokploy`.
+version: 0.1.1
 ---
 
 # dokploy-cli

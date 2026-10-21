@@ -1,7 +1,7 @@
 ---
 name: manim-explainer-video
-description: This skill should be used when the user asks to "làm video giải thích", "tạo video Manim", "make an explainer video", "animate this concept", "video giải thích thuật toán/khái niệm", "dựng video toán/ML bằng Manim", or wants an animated technical explainer with Vietnamese narration, subtitles, and a timecoded dubbing script. Provides a working Manim scaffold (light theme, real-number pipeline, cue-based SRT generation) plus the macOS workarounds required to make Manim render at all.
-version: 1.0.0
+description: Build an animated Manim explainer video with Vietnamese narration, subtitles and a timecoded dubbing script. Use for "làm video giải thích", "tạo video Manim", "make an explainer video", "animate this concept", "video giải thích thuật toán/khái niệm", "dựng video toán/ML bằng Manim".
+version: 1.0.1
 ---
 
 # Video giải thích bằng Manim

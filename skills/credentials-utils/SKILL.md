@@ -1,7 +1,7 @@
 ---
 name: credentials-utils
-description: This skill should be used when the user asks to "get credential", "load token", "đọc api key", "lấy token từ omelet.json", "refresh google/rclone token", "check outdated credentials", "sync omelet config", or mentions reading/listing/refreshing/syncing values from the omelet credential store. The store is owned by the `evo` CLI: a per-service folder (`~/.omelet.d/credentials/`) that compiles to a flat `~/.omelet.json` for backward compatibility. Every operation is a subcommand of `evo cred`.
-version: 0.3.0
+description: Read, list, refresh and sync values in the omelet credential store (`~/.omelet.d/credentials/`, compiled to `~/.omelet.json`) via `evo cred`. Use for "get credential", "load token", "đọc api key", "lấy token từ omelet.json", "refresh google/rclone token", "check outdated credentials", "sync omelet config".
+version: 0.3.1
 ---
 
 # credentials-utils
