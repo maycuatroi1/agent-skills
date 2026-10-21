@@ -33,7 +33,7 @@ mỏ neo phủ định.
 | "A→B, A→B, A→B" (ba vế nhân quả) | Cấu trúc bảng |
 | "X, Y, và Z" làm tiêu đề section | Thesis statement gọt |
 
-**Thay vào:** dùng 2 vế, hoặc phá nhịp một vế. "Big Fund III cho tiền bán dẫn, quỹ AI cho tiền lab -
+**Thay vào:** dùng 2 vế, hoặc phá nhịp một vế. "Big Fund III cho tiền bán dẫn, quỹ AI cho tiền lab,
 rồi lab mới mở trọng số." tốt hơn "A cấp cho B, C cấp cho D, E làm F."
 
 ## 3. Signpost AI (Vietnamese)
@@ -95,8 +95,8 @@ Câu đứng một mình cuối đoạn, gọn kiểu quote, nghe như châm ng�
 | "DeepSeek 2026 không còn DeepSeek 2024." | parallel đối xứng, tagline | "DeepSeek năm 2026 đã khác hẳn DeepSeek năm 2024." |
 | "Con dao đó hai lưỡi, và lưỡi kia cắt vào chính họ." | metaphor sáo "dao hai lưỡi" | "Cái mà họ dùng để phá giá đối thủ, giờ cũng phá luôn dòng tiền của họ." |
 | "Điều phối kiểu đó khó bác hơn một kế hoạch tổng thể, vì nó không cần ai ra lệnh cho ai cả." | đối xứng "không cần ai... ai..." | "...vì không cần ai ngồi ra chỉ đạo." |
-| "Bọt vỡ không huỷ A, nó đẩy nhanh B." | parallel "không A, nó B" | "Nghĩa là bọt vỡ không giết được A, ngược lại - nó đẩy nhanh đúng điều kiện B." |
-| "Nó chỉ đổi gần hết mọi thứ còn lại." | slogan mơ hồ | "Phần còn lại - ai là khách, bán cái gì - thì đổi." |
+| "Bọt vỡ không huỷ A, nó đẩy nhanh B." | parallel "không A, nó B" | "Bọt vỡ đẩy nhanh đúng điều kiện B." |
+| "Nó chỉ đổi gần hết mọi thứ còn lại." | slogan mơ hồ | "Phần còn lại (ai là khách, bán cái gì) thì đổi." |
 
 **Thử nghe:** nếu câu cuối đoạn nghe như quote motivational bạn có thể dán lên tường, viết lại.
 
@@ -334,6 +334,13 @@ Trước khi ship prose tiếng Việt, chạy qua checklist:
 - [ ] Thuật ngữ có bị dịch sang Việt quá tay không (chú ý, phép tính dấu phẩy động)? -> trả về chữ người đọc thật dùng
 - [ ] Đếm số mục kết bằng câu chốt có nhịp: trên một nửa? -> để vài mục kết phẳng
 - [ ] Có đếm câu/dòng/chữ trong nguồn ("bằng đúng một câu", "gói lại vừa đúng một dòng")? -> bỏ con số đi, kết luận có đổi không; không đổi thì cắt
+- [ ] Có danh từ hoá hay động từ hành chính ("chưa chứng minh", "đảm bảo", "việc...", "sự...") ở chỗ người ta nói bằng động từ thường? -> đổi sang động từ thường (mục 20)
+- [ ] Có vế đuôi ", cho thấy...", ", góp phần...", ", phản ánh..."? -> cắt, hoặc tách thành câu có chủ ngữ (mục 20)
+- [ ] Đã liệt kê riêng mọi title, heading, tiêu đề hình, chữ trong hình rồi đọc từng dòng chưa? (mục 21)
+- [ ] Heading có dấu hai chấm, nhịp đếm, phủ định, câu hỏi treo, tính từ tự khen? Title có dạng câu hỏi? -> gọi trơn nội dung (mục 21)
+- [ ] Đoạn cạnh hình có kể lại thứ hình đã cho thấy? -> nói điều hình không tự nói (mục 22)
+- [ ] Câu kết có vật, số, người cụ thể không? Không thì đó là châm ngôn (mục 23)
+- [ ] Có cảnh đùa bịa? -> bỏ. Có chỗ đùa của tác giả? -> giữ (mục 24)
 
 ## Relation voi English patterns
 
@@ -500,3 +507,77 @@ hình. Quét bản Ghost đang phục vụ, không chỉ file local; chuẩn ho�
 text bị tách bởi thẻ HTML trước khi tìm. Regex chỉ chọn ứng viên: xác nhận ngữ
 cảnh rồi ghi câu thay thế. Báo riêng bài đã publish và draft; rà soát không phải
 là quyền sửa nội dung đang công khai.
+
+## 20. Giọng biên bản thay cho giọng nói
+
+Văn máy tiếng Việt hay gói ý vào danh từ hoá ("việc", "sự", "quá trình", "khả năng") và động từ hành chính
+("chứng minh", "phản ánh", "đảm bảo", "thực hiện"). Người nói thì dùng động từ thường và tiểu từ mang thái độ ("chắc
+gì", "mới", "đâu", "thì", "mà"). Đo trên tiếng Anh: model instruction-tuned dùng danh từ hoá gấp 1,5-2 lần người
+(Reinhart et al. 2025, PNAS); tiếng Việt chưa có số đo, nên chỉ dùng để nghi, đừng đếm.
+
+| Biên bản | Tác giả viết |
+|---|---|
+| HTTP 200 chưa chứng minh quyền truy cập | HTTP 200 nhưng chắc gì đã vào được |
+| "hệ thống AI hỗ trợ triage" ở mục tiêu, không RQ nào, phép đo nào nói tới AI. Bỏ hoặc đo | "hệ thống AI hỗ trợ triage" ở mục tiêu, không RQ nào, phép đo nào nói tới AI. Tự nhiên nó mọc ra ở đây |
+
+Họ hàng gần là **vế đuôi giải thích**: câu xong rồi gắn thêm ", cho thấy...", ", góp phần...", ", phản ánh...",
+", qua đó...". Bản tiếng Anh là ", highlighting...", ", underscoring..." mà model instruction-tuned dùng gấp 2-5 lần
+người (Reinhart et al. 2025). Vế đuôi thường là câu đánh giá hộ người đọc (mục 16) đội lốt mệnh đề phụ. Cắt vế đuôi;
+nếu nó mang một dữ kiện thật thì tách thành câu riêng có chủ ngữ.
+
+**Giữ** văn hành chính khi thể loại đòi (biên bản, hợp đồng, quy chế) hoặc khi trích nguyên văn.
+
+## 21. Tiêu đề, heading, nhãn hình
+
+Blacklist viết cho câu thân bài, không có khuôn cho heading và không đọc được chữ trong hình, nên khuôn tiêu đề dễ
+lọt. Rà riêng mọi title, heading, tiêu đề và phụ đề hình, chữ trong hình, meta description, tên slide, tên widget.
+
+| Khuôn | Ví dụ | Viết lại |
+|---|---|---|
+| Nhãn + dấu hai chấm + ẩn dụ | Tầng 0, hiện trạng: một hoá đơn bằng giờ người | Chi phí vận hành hiện tại |
+| Dấu hai chấm nối hai vế, mục lục sách giáo khoa | Giải bằng số: Newton và phép lặp | Không có W thì tính thế nào |
+| Nhịp đếm | Sáu bước, vẽ thành ba hình; một thặng dư, ba cách chia | Chia thặng dư theo ba loại hợp đồng |
+| Số độ nổi tiếng của bài người khác | x^x = 49: câu sai trong bài Medium 1.4K clap... | Nói về chính đối tượng |
+| Heading phủ định | Hai tỷ lệ 60% chưa đủ để xếp hạng | Nói điều phần đó chứng minh |
+| Câu hỏi chung chung | Tốt tới đâu | Gọi tên phép đo, hoặc câu hỏi người đọc thật sự hỏi |
+| Tính từ tự chứng nhận | So sánh công bằng; Phân tích khách quan | So sánh; Phân tích |
+| Câu thesis làm heading | Mảng và cây là cùng một thứ | Lưu cây nhị phân trong mảng |
+| Khung đánh số dẫn chiếu khắp bài | Tầng 0 tới 4, rồi "ở tầng 3" | Gọi phần bằng nội dung: "phần chia thặng dư" |
+| Khuôn "Từ X tới Y" | 7.8 One request, from the process to the answer | Xem mục 19 |
+
+Title của bài hay tài liệu không dùng câu hỏi; tác giả dặn "đừng dùng câu hỏi làm title". Heading bên trong thì
+được dùng câu người đọc thật sự hỏi, cụ thể tới mức trả lời được ("Không có W thì tính thế nào"). Câu hỏi treo kiểu
+teaser ("Tốt tới đâu", "Vì sao điều này quan trọng") thì không.
+
+Tính từ tự chứng nhận ("công bằng", "khách quan", "toàn diện", "đầy đủ", "chính xác", "thật") khẳng định chất lượng
+mà phần nội dung phải tự chứng minh. Người đọc thấy chữ đó là biết ai viết. Bỏ tính từ; nếu cách so sánh có điểm
+đáng nói (cùng phần cứng, cùng bộ đề) thì nói điểm đó.
+
+## 22. Tả lại hình bằng lời và chỉ tay vào hình
+
+Hình đã cho thấy thì văn không kể lại. Bị bắt ngày 2026-09-20: "Ba tầng và sáu cạnh vẫn nguyên sau khi xếp lại, chỉ
+vị trí ngang của mỗi nút là đổi.", "Cây vẫn giữ nguyên ba tầng, chỉ khác chỗ đứng của từng nút". Văn bên cạnh hình
+nói điều hình không tự nói được: vì sao xếp như vậy, dùng để làm gì, người đọc nên để ý chỗ nào mà mắt dễ bỏ qua.
+
+Cùng gốc là chỉ tay quá kỹ: "Đọc đường dữ liệu trên Figure 2", "nhìn cột thứ ba của bảng 1". Người đọc đang nhìn
+hình rồi. Nói thẳng điều cần thấy: "đường latency gãy ở 64 KB".
+
+## 23. Kết bài theo khuôn
+
+Ba kiểu kết nên bỏ: mời phản biện theo khuôn ("Nếu bạn thấy mình tính sai ở đâu... mình muốn được cãi lại", tác giả
+gạch ngày 2026-09-21), cảm ơn người đọc ("Nếu bạn đọc tới đây, cảm ơn bạn. Thật."), cảnh kết dựng sẵn ("Rồi mình tắt
+máy, đi pha trà").
+
+Luật 8 (cut quotables) không cấm mọi câu kết có nhịp. Tác giả vẫn kết bằng cú twist, nhưng twist của người là một chi
+tiết cụ thể lật ngược câu trước: "Sau 10 năm thì tôi chắc chắn mình chọn sai ngành. Có lẽ đi sale bất động sản sẽ
+không phải tracelogs để khôi phục 7 records dữ liệu khổ như này." Twist của máy là một câu khái quát tròn trịa: "Đó
+là bài học về sự kiên nhẫn." Phép thử: câu kết có vật, số hay người cụ thể không? Không có thì đó là châm ngôn.
+
+## 24. Đùa
+
+Chỗ đùa của tác giả đến từ hiện vật có thật (response HTTP, dòng log, công thức), từ chính tác giả tự giễu chuyện đã
+xảy ra, hoặc từ việc nhại đúng giọng của người đang bị phê bình ("tự claim là cách làm của tôi VIP pro hơn"). Cảnh
+bịa để minh hoạ ("model gọi mọi thứ là mèo, nhìn confusion matrix, đóng laptop") thì tác giả gọi là giả trân.
+
+Khi tác giả vốn hay đùa (xem `author-corrections.md`), cắt hết chỗ đùa cũng làm bài lệch giọng. Đừng thêm câu đùa mới
+khi sửa; giữ chỗ đùa của tác giả đã có.

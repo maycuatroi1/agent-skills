@@ -128,7 +128,7 @@ name the specific constraint.
 | Pattern | Fix |
 |---------|-----|
 | Decorative three-item lists | Break repeated cadence; keep functional lists intact |
-| Questions answered immediately | Let questions breathe or cut them |
+| Rhetorical question answered for drama ("The result? Chaos.") | Cut it. Keep a question the reader would actually ask next when the answer is a fact or a number ("Vậy thì hai hàm băm này nhanh chậm khác nhau thế nào? PBKDF2 mất khoảng 113 mili giây...") |
 | Every paragraph ends punchily | Vary endings |
 | Em dashes | Remove. Use commas, colons, or periods. No em dashes at all. |
 | Staccato fragmentation | Don't stack short punchy sentences |
