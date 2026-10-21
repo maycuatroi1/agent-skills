@@ -1,7 +1,7 @@
 ---
 name: life-cli
-description: Personal life management via the `life` CLI (pnpm workspace `red-life` from maycuatroi1/red-life). Trigger on "life cli", "install life", "todo/công việc", "lịch/calendar", "kế hoạch/plan", "nhật ký/journal", "people/mối quan hệ", "places/địa điểm", "notes", "health/cân nặng/calories", "daily overview", "drive/upload", "facebook messages", "tiktok", "teach/lịch dạy", "gmail/mail" when the user wants to manage personal data through the CLI. Compact by design: discover commands at runtime with `life --help` and `life <group> --help` instead of a hardcoded reference. Covers install via pnpm, credential locations (firebase-credentials.json, ~/.omelet.json), RED_LIFE_HOME, and the Playwright requirement for fb/tiktok.
-version: 0.2.0
+description: Manage personal data with the red-life `life` CLI. Use for "life cli", "install life", "todo/công việc", "lịch/calendar", "kế hoạch/plan", "nhật ký/journal", "people/mối quan hệ", "places/địa điểm", "notes", "health/cân nặng", "daily overview", "gmail/mail", "facebook messages", "tiktok", "teach/lịch dạy".
+version: 0.2.1
 ---
 
 # life-cli
