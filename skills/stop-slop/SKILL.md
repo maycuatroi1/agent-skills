@@ -1,7 +1,7 @@
 ---
 name: stop-slop
 description: Draft, edit, or review English and Vietnamese prose to remove AI tells while preserving facts, uncertainty, and the author's voice. Use for "bỏ giọng AI", "viết cho tự nhiên", "stop-slop", prose rewrites, or editorial reviews. Includes phrase and structural checks, Vietnamese usage guidance, authorship and evidence boundaries, and a six-dimension review rubric. Not a style filter for code, formulas, or structured data.
-version: 0.5.0
+version: 0.6.0
 ---
 
 # stop-slop
@@ -33,6 +33,10 @@ For ghostwriting, technical explanations, or illustrated articles, read
 [references/authorship-and-evidence.md](references/authorship-and-evidence.md). It covers narrator
 identity, repeated plan narration, evidence caveats, bilingual terminology, and captions.
 
+When editing a specific author's prose, read
+[references/author-corrections.md](references/author-corrections.md) first. The author's own rewrites
+outrank every rule below: a sentence can pass all of them and still be one the author would never say.
+
 ## Core rules
 
 1. **Cut filler phrases.** Remove throat-clearing openers, emphasis crutches, business jargon, and empty
@@ -42,14 +46,20 @@ identity, repeated plan narration, evidence caveats, bilingual terminology, and 
 2. **Break formulaic structures.** Avoid binary contrasts, negative listings, dramatic fragmentation,
    rhetorical setups, false agency. See [references/structures.md](references/structures.md).
 
-3. **Use active voice.** Every sentence needs a human subject doing something. No passive
-   constructions. No inanimate objects performing human actions ("the complaint becomes a fix").
+3. **Name the actor when it matters.** Rewrite a passive when it hides who decided, caused, or is
+   responsible. No inanimate objects performing human actions ("the complaint becomes a fix"). Do not
+   purge every passive: instruction-tuned models already use agentless passives at about half the human
+   rate (Reinhart et al. 2025, PNAS), so a blanket ban pushes prose further from human writing.
 
-4. **Be specific.** No vague declaratives ("The reasons are structural"). Name the specific thing. No
-   lazy extremes ("every", "always", "never") doing vague work.
+4. **Be specific, from a source.** No vague declaratives ("The reasons are structural"). Name the
+   specific thing. No lazy extremes ("every", "always", "never") doing vague work. Every specific must
+   come from a source, a measurement, or the author. An invented time, scene, count, or feeling is
+   fabrication, and fabrication is worse than abstraction; see section 7 of
+   [references/workshop-leaks.md](references/workshop-leaks.md).
 
-5. **Put the reader in the room.** No narrator-from-a-distance voice. "You" beats "People". Specifics
-   beat abstractions.
+5. **Put the reader in the room with the material.** No narrator-from-a-distance voice. "You" beats
+   "People". Put the reader in front of the code, the number, or the screenshot, not in a staged scene
+   ("It is 2 a.m. and the shop is slow").
 
 6. **Vary rhythm.** Mix sentence lengths. Avoid repeating a decorative three-part cadence; keep lists
    whose items serve the content. End paragraphs differently. No em dashes.
@@ -140,12 +150,43 @@ identity, repeated plan narration, evidence caveats, bilingual terminology, and 
     Read the results for usage, not for answers. The summary paragraph a search engine writes is
     itself machine prose. What counts is whether real pages use the phrase as a unit. See section 18.
 
+19. **Nothing from the workshop reaches the reader.** File and script names, the date you checked
+    something, how many pages you read, constraints copied from the prompt, usernames, and the history of
+    how the piece changed belong in a handoff note for whoever assigned the work. Test: delete it; does
+    the reader lose anything they can use? If it only proves diligence or records production, it goes.
+    Most examples in [references/workshop-leaks.md](references/workshop-leaks.md) passed an earlier
+    stop-slop review because no rule named them.
+
+20. **Write the way people talk.** Prefer the verb and the particle a person would say over the nominal
+    phrase a report would use. "HTTP 200 chưa chứng minh quyền truy cập" is a
+    memo; the author rewrote it as "HTTP 200 nhưng chắc gì đã vào được". Cut trailing explanatory clauses
+    (", highlighting...", ", cho thấy...", ", góp phần..."); they are rule 16 disguised as grammar.
+    Vietnamese section 20.
+
+21. **Titles, headings, labels, and figure text get their own pass.** List every one separately and read
+    it as prose. No colon in a title or heading, no counting cadence ("Six steps, three figures"), no
+    negative headings, no teaser questions, no question as a title, no self-certifying adjectives ("So
+    sánh công bằng" became "So sánh"), no popularity numbers of someone else's post in a title. The
+    blacklist targets body sentences and cannot read text inside images, so title patterns slip through.
+    Vietnamese section 21.
+
+22. **Say each fact once, and do not narrate the figure.** The same fact in title, lede, body, caption,
+    and alt text reads as padding. Text beside a figure says what the figure cannot: why, so what, what
+    to notice. It does not retell what the figure already shows, and it does not point at it ("Read the
+    data line in Figure 2"). Vietnamese section 22.
+
+23. **Keep the reason and the joke when cutting.** When asked to be brief, keep the reason and the
+    author's edge; the author's own short messages are often longer than the agent's clipped
+    commands (see `author-corrections.md`). A concrete twist at the end of a paragraph is fine when it
+    carries a real object, number, or person; an abstract moral is not. Keep the author's real jokes;
+    never add staged ones. Vietnamese sections 23 and 24.
+
 ## Quick checks
 
 Run this pass before delivering prose:
 
 - Any empty intensifiers? Cut them; preserve modifiers carrying evidence, precision, or conditions.
-- Any passive voice? Find the actor, make them the subject.
+- A passive that hides who decided or caused something? Name the actor. Leave harmless passives alone.
 - Inanimate thing doing a human verb ("the decision emerges")? Name the person.
 - A Wh- opener used only as a rhetorical setup? Restructure it; keep actual research or diagnostic questions.
 - Any "here's what/this/that" throat-clearing? Cut to the point.
@@ -163,6 +204,11 @@ Run this pass before delivering prose:
 - Counting sentences or lines in a source ("in exactly one sentence")? Delete the number; if nothing changes, leave it deleted.
 - Any sentence rating a fact instead of stating one ("surprisingly simple", "easy to miss")? Cut the rating, show the fact.
 - For each sentence you would fight to keep: did the content need it, or did the paragraph feel unfinished? Cut the second kind.
+- Any file name, tool name, check date, "đã đọc N trang", prompt constraint, username, or revision history? Delete (rule 19).
+- Any time, weekday, scene, or feeling with no source behind it? Delete or ask the author (rule 4).
+- Listed every title, heading, caption, alt text, slide title, and text inside images, and read each one? (rule 21)
+- Same fact in two places? Keep the one where the reader needs it (rule 22).
+- Trailing ", highlighting..." or ", cho thấy..." clause? Cut it or give its fact its own sentence.
 
 Vietnamese-specific (see [references/vietnamese-patterns.md](references/vietnamese-patterns.md) quick
 check section for the full list):
@@ -220,8 +266,15 @@ grep -vE '^[[:space:]]*(#|$)' references/blacklist-vi.txt | grep -n -i -E -f - b
 Kết quả là chỗ cần nhìn, không phải chỗ phải sửa. Đọc từng câu rồi mới quyết, vì có
 dương tính giả (ví dụ "phải trả" khi bài đang nói về tiền thật).
 
-Bắt được cụm mới thì thêm vào file đó, kèm chú thích lý do trong nhóm của nó. Không
-ghi lý do thì lần sau lại tưởng là câu hay.
+Chạy blacklist trước và sau mỗi lượt sửa rồi diff hai danh sách hit. Hit mới xuất hiện sau
+lượt sửa là slop do chính lượt sửa đẻ ra: Antislop thấy cấm một bộ pattern làm mọc pattern
+khác (Paech et al. 2025), và thí nghiệm E6 ngày 18/10/2026 đo được 10 lượt dọn bài chèn thêm
+10 hit mới.
+
+Bắt được cụm mới thì thêm vào file đó, kèm chú thích lý do và ngày trong nhóm của nó, rồi
+thêm một câu bị bắt và một câu hàng xóm đọc ổn vào `scripts/test_vietnamese_blacklist.py`.
+Không ghi lý do thì lần sau lại tưởng là câu hay. Chạy test:
+`python3 scripts/test_vietnamese_blacklist.py`.
 
 ## Scoring
 
@@ -236,29 +289,43 @@ Rate 1-10 on each dimension:
 | Density | Anything cuttable? Are dense passages readable without padding? |
 | Evenness | Do all sections land the same shape? Uniform is worse than lumpy. |
 
-Below 42/60: revise and re-score. Report the score only when the user asked for a review; when they
-asked for a draft, apply the rules silently and hand over the clean text. Scores are subjective,
-not evidence that a draft is free of slop. A user-identified issue overrides a previous passing score;
-inspect the whole draft for the same cause before scoring again.
+Use the rubric to organize a review, not as a gate. Strong LLMs judge writing quality barely above
+chance (Chakrabarty et al. 2025b), and drafts that scored above 42/60 here were still rejected by the
+author. The gate is countable: blacklist hits before and after, every heading and caption read,
+workshop-leak grep clean, word count not grown by the edit pass. When two versions are close, show
+both to the author and let them pick. Report the score only when the user asked for a review; when
+they asked for a draft, apply the rules silently and hand over the clean text. A user-identified issue
+overrides any score; inspect the whole draft for the same cause.
 
 ## Workflow
 
-**Drafting.** Apply the core rules while writing. Do not write slop and then strip it. When a phrase
-is uncertain, search it (rule 18) at the moment of doubt rather than shipping it and hoping the review
-pass catches it. The review pass only catches patterns already on a list.
+**Drafting.** Read `author-corrections.md` first when writing for a specific author. Apply the core
+rules while writing. Do not write slop and then strip it. When a phrase is uncertain, search it (rule
+18) at the moment of doubt rather than shipping it and hoping the review pass catches it. The review
+pass only catches patterns already on a list. Write Vietnamese from notes, not from an English draft
+translated afterwards. For an opening, title, or example, write five options, drop the most typical
+one, and offer the author the rest; models default to the most familiar phrasing (typicality bias,
+Zhang et al. 2025, Verbalized Sampling).
 
-**Sửa bằng cách xoá (thêm 20/09/2026, tiếng Việt).** Mọi lần sửa phải là xoá hoặc thay tại chỗ. Chữa một lỗi bằng cách chèn thêm câu giải thích hay thú nhận là cách slop sinh ra nhanh nhất: ngày 20/09/2026, một bài đã qua lượt stop-slop vẫn đầy slop, và 5/9 câu bị bắt là do chính lượt review chèn vào. Đo bằng số chữ trước và sau: lượt sửa slop mà làm bài dài ra thì phải giải trình từng câu đã thêm. Hit blacklist thì xoá ý đó, đừng đảo câu cho lọt regex.
+**Sửa bằng cách xoá (thêm 20/09/2026, tiếng Việt).** Mọi lần sửa phải là xoá hoặc thay tại chỗ. Chữa một lỗi bằng cách chèn thêm câu giải thích hay thú nhận là cách slop sinh ra nhanh nhất: ngày 20/09/2026, một bài đã qua lượt stop-slop vẫn đầy slop, và 5/9 câu bị bắt là do chính lượt review chèn vào. Đo bằng số chữ trước và sau: lượt sửa slop mà làm bài dài ra thì phải giải trình từng câu đã thêm. Hit blacklist thì xoá ý đó, đừng đảo câu cho lọt regex. Ngoại lệ duy nhất là lỗi thiếu chi tiết: chỉ được chèn chi tiết lấy từ tác giả hoặc từ nguồn có ghi, không chèn câu giải thích. Người viết chuyên nghiệp sửa văn LLM bằng 74% thay thế, 18% xoá, 8% chèn (Chakrabarty et al. 2025, LAMP).
 
-**Editing a draft.** Read [references/phrases.md](references/phrases.md) and
-[references/structures.md](references/structures.md) first, then rewrite. For Vietnamese prose, also
+**Editing a draft.** Read [references/phrases.md](references/phrases.md),
+[references/structures.md](references/structures.md), and
+[references/workshop-leaks.md](references/workshop-leaks.md) first, then rewrite. For Vietnamese prose, also
 read [references/vietnamese-patterns.md](references/vietnamese-patterns.md). Include headings,
 captions, and closing notes in a full-piece review. Do not edit source quotations or code as prose.
 Read the revised piece again for flow and check that scope, evidence limits, numbers, and attribution
 survived. Return the revised text.
 List the cuts only if the user asked what changed.
 
-**Reviewing.** Quote the offending span, name the pattern, give the replacement. Explain any
-apparently similar construction kept for meaning or genre. Then score. When asked for skill
+**Reviewing.** Use a fresh reviewer that reads every file in `references/` before reading the draft;
+a self-review that only greps the blacklist misses most of what the author later catches. Quote the
+offending span, name the pattern, give the replacement. Explain any apparently similar construction
+kept for meaning or genre. Then score.
+
+**When the author corrects you.** Add the pair to `author-corrections.md` the same day. If the
+correction is a new pattern, add it to the right reference file and, for Vietnamese, to the blacklist
+with a test case. When asked for skill
 improvements, distinguish existing rules from genuinely missing guidance and propose changes; do
 not modify the skill unless the user requests it.
 

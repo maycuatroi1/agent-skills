@@ -86,7 +86,12 @@ không phải chuyện
 đừng hiểu nhầm (là|rằng)
 
 # --- Binary contrast dịch sát (section 1) ---
-không phải A, mà (là )?B
+# Sửa 21/10/2026: dòng cũ "không phải A, mà (là )?B" chỉ khớp đúng chữ A và B,
+# nên cả 48 câu có khuôn trong thí nghiệm E5 (blog-slop-trong-trong-so) lọt hết.
+# Ba dòng dưới bắt 48/48 câu có khuôn, 0/48 câu trơn, 0/24 câu phủ định thường.
+không [^.;:]{1,60}, mà( là| chỉ| còn)?
+không phải (là )?[^.]{1,60}\. (Nó|Đó|Đây) là
+không chỉ [^.;:]{1,60} mà còn
 không nằm ở .{1,30}, (nó )?nằm ở
 
 # --- Dịch thuật ngữ quá tay (section 13) ---
@@ -289,3 +294,72 @@ chỉ số dẫn đầu
 # Pattern bắt ứng viên để đọc, không tự xoá khoảng số, đường truyền, chuyển đổi thật
 # hoặc trích dẫn nguyên văn. "từ 10 đến 20 ms", "từ client tới server" có nghĩa cụ thể.
 (^|[^[:alnum:]_])[Tt]ừ[[:space:]]+[^.!?;]{1,180}[[:space:]]+(tới|đến|sang)[[:space:]]+[^[:space:].!?;]
+
+# --- Tem kiểm định (workshop-leaks.md mục 2, bắt 27/09 và 18/10/2026) ---
+# Agent đóng dấu ngày nó kiểm. Ngày đăng bài đã là mốc. Số thay đổi nhanh thì
+# ghi tháng trong câu thường ("giá tháng 10/2026 là..."), không đóng tem.
+(ghi nhận|kiểm|đối chiếu|xác minh) (vào |lần cuối )?ngày [0-9]
+trạng thái (ghi nhận|đối chiếu|kiểm)
+đối chiếu (code |mã )?(trên|với) (origin|main|nhánh)
+
+# --- Tự khẳng định đã làm (workshop-leaks.md mục 3, bắt 14/10/2026) ---
+# "SPEAR full paper đã đọc 9 trang": "đương nhiên cho vào thì phải đọc rồi".
+đã đọc (hết |đủ |toàn bộ |kỹ )?[0-9]+ trang
+đã (kiểm|xác minh|đối chiếu|soát) (lại )?(hai|ba|2|3) lần
+full paper đã đọc
+
+# --- Lộ prompt (workshop-leaks.md mục 4, bắt 24/09/2026) ---
+# Ràng buộc người giao việc đặt ra không phải nội dung cho người đọc.
+nguồn sơ đồ
+phạm vi[^.]{0,40}được cấp phép
+theo yêu cầu (của )?(người dùng|bạn|anh|chị)
+bản draft
+
+# --- Tên file, công cụ làm bài (workshop-leaks.md mục 1, bắt 20/09 và 25/09/2026) ---
+# Quét cả code block nên có dương tính giả ở bài dạy chính công cụ đó.
+\.drawio
+(vẽ|render|dựng|sinh|xuất) (bằng|với|qua) (matplotlib|manim|graphviz|plantuml|drawio|sympy|scipy|pyplot)
+
+# --- Username, chi tiết hậu trường (workshop-leaks.md mục 5, bắt 19/10/2026) ---
+# Ý kiến cộng đồng thì gộp: "nhiều người dùng...", đúng số lượng.
+(^|[^[:alnum:]_/])u/[[:alnum:]_-]{3,}
+trong (thread|bài đăng|comment) (trên|ở) (r/|reddit|hacker news)
+(ban đầu|lúc đầu)[^.]{0,60}(cuối cùng|sau cùng|rốt cuộc)
+bản trước của bài
+
+# --- Giả cụ thể: giờ, ngày, cảnh không có nguồn (workshop-leaks.md mục 7) ---
+# Chỉ giữ khi brief hay tác giả kể đúng chi tiết đó.
+lúc [0-9]{1,2} giờ (sáng|đêm|tối|khuya)
+[0-9]{1,2} giờ (đêm|khuya)
+(tối|sáng|chiều|đêm) thứ (hai|ba|tư|năm|sáu|bảy) (tuần|năm) (trước|ngoái)
+hôm thứ (hai|ba|tư|năm|sáu|bảy) tuần trước
+
+# --- Tính từ tự chứng nhận (vietnamese-patterns mục 21, bắt 21/10/2026) ---
+# "So sánh công bằng" -> "So sánh". Nội dung tự chứng minh, tính từ thì không.
+so sánh (công bằng|khách quan|chuẩn xác|sòng phẳng)
+(phân tích|đánh giá|nhìn nhận) (khách quan|công tâm|toàn diện)
+
+# --- Giọng biên bản và vế đuôi giải thích (vietnamese-patterns mục 20) ---
+# "HTTP 200 chưa chứng minh quyền truy cập" -> "HTTP 200 nhưng chắc gì đã vào được".
+chưa (chứng minh|phản ánh|đảm bảo) 
+(không|chưa) đồng nghĩa (với|là)
+, (qua đó )?(cho thấy|góp phần|phản ánh|nhấn mạnh|khẳng định) 
+
+# --- Chỉ tay vào hình (vietnamese-patterns mục 22, bắt 18/10/2026) ---
+(đọc|nhìn|xem) (đường|cột|hàng|ô|vùng)[^.]{0,30}(trên|ở|trong) (figure|hình|bảng|fig)
+
+# --- Kết bài theo khuôn (vietnamese-patterns mục 23, bắt 21/09/2026) ---
+muốn (được )?cãi lại
+nếu bạn (đã )?đọc (tới|đến) đây
+cảm ơn bạn (đã|vì đã) đọc
+nếu bạn thấy (mình|tôi) (sai|nhầm|tính sai)
+pha (ấm )?(trà|cà phê)
+(gập|đóng) (laptop|máy) lại
+
+# --- Heading và title (vietnamese-patterns mục 21) ---
+# Dấu hai chấm trong heading: "## Đào sâu:" là ngoại lệ của theme, bỏ qua hit đó.
+# Đo 21/10/2026 trên 40 bài của repo blog: 73 hit, 59 hit không phải "Đào sâu:".
+# Heading dạng câu hỏi không có pattern: câu hỏi cụ thể ("Con số 98% đang đo cái
+# gì?") là heading tốt, chỉ câu hỏi treo ("Tốt tới đâu") mới hỏng, phải đọc mới biết.
+^#{1,6}[[:space:]].*:[[:space:]]
+[0-9]+([.,][0-9]+)?[Kk]? (clap|claps|lượt xem|lượt thích|stars)

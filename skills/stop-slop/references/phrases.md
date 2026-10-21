@@ -51,6 +51,23 @@ Replace with plain language.
 | Circle back | Return to, revisit |
 | On the same page | Aligned, agreed |
 
+## Measured AI vocabulary (dated)
+
+These words are over-represented in LLM output relative to human baselines. Lists like this go stale: after "delve"
+was widely called out in early 2024, its arXiv frequency fell while "significant" kept rising (Geng & Trotta 2025).
+Re-check this list each quarter and note the model generation when you add a word.
+
+| Word | Evidence | Added |
+|---|---|---|
+| delve, delves | 28x expected frequency in 2024 PubMed abstracts (Kobak et al. 2025, Science Advances) | 2026-10-21 |
+| underscore, showcase, intricate | Among the 2024 PubMed excess style words (Kobak et al. 2025) | 2026-10-21 |
+| meticulous, commendable, intricate | 34.7x in ICLR/NeurIPS peer reviews after ChatGPT (Liang et al. 2024) | 2026-10-21 |
+| tapestry, camaraderie, testament | Listed by Wikipedia "Signs of AI writing" and Antislop frequency tables (Paech et al. 2025) | 2026-10-21 |
+
+Trailing participial clauses (", highlighting...", ", underscoring...", ", reflecting...") appear at 2-5x the human
+rate in instruction-tuned models (Reinhart et al. 2025, PNAS). Cut the clause, or make its fact a sentence with a
+subject. The Vietnamese counterpart (", cho thấy...", ", góp phần...") is in `vietnamese-patterns.md` section 20.
+
 ## Adverbs
 
 Cut empty emphasis and habitual softeners. Keep modifiers that carry precision, frequency,
