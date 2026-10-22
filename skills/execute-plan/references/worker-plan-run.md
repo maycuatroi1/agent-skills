@@ -54,9 +54,19 @@ evo-agents worker step <id> done --repo <repo> --evidence "<text>" --verify "<co
 evo-agents worker step <id> pending --repo <repo> --evidence "<what landed, what failed, the stash>"
 ```
 
-`done` runs each `--verify` command again with `/bin/sh` in the repo's worktree (repeat `--verify` once per command)
-and refuses the step when one exits non-zero. Otherwise it commits what is left in the worktree, pushes the run's
-branch to the branch the plan names (never forced), and records the commit with the step. Take the commands from the
+`done` checks the step with its `--verify` commands, run with `/bin/sh` in the repo's worktree (repeat `--verify` once
+per command), and refuses the step when one exits non-zero. Otherwise it commits what is left in the worktree, pushes
+the run's branch to the branch the plan names (never forced), and records the commit with the step.
+
+The verify runs once per step, as a job of the worker: the subagent ran it with `evo-agents worker step <id> verify
+--repo <repo> --verify "<command>"` (`agents/plan-step.md`), and `done` with the same commands takes that pass while
+the worktree is unchanged, runs nothing again, and ends the evidence with a line naming the job it reused. When the
+tree or the commands differ, or the pass is missing, `done` runs the job itself, so pass the report's `effective`
+command verbatim: one that differs by a character is another verify. Both commands wait up to 540 seconds
+(`--wait`): give the call a timeout of 10 minutes, and when one exits 124 the job still runs, so run the same command
+again to wait on it. Never run the verify in your own shell first, never wait with `sleep` loops or `setsid nohup`, and
+leave the worktree alone between the subagent's report and `done`. A replay onto a default branch the remote moved on
+runs the verify again on the new tree, as it must. Take the commands from the
 report's `verify_command`, the effective one when it differs, as they run from the worktree root: a plan `verify` that
 starts with `cd ~/github/<repo>` points at a developer's checkout, not at this worktree. The hub writes the run,
 `repo@commit` and each verify command's exit code into the evidence itself, so `--evidence` says what was done, plus
@@ -165,7 +175,8 @@ session after this one ends.
 
 - [ ] In a worker plan run (`EVO_RUN_KIND=plan`): plan read with `evo-agents worker plan` before each
       cluster, same-repo steps serial in the run's worktree, steps recorded only with
-      `evo-agents worker step` and runnable `--verify` commands, the owner asked only in the listed
+      `evo-agents worker step` and runnable `--verify` commands, each step's whole verify run once through
+      `evo-agents worker step <id> verify` and reused by `done`, the owner asked only in the listed
       categories, a `Decision:` line for every other choice, a notice after each push or merge into a
       default branch, and `.evo-run/result.json` written once, at the end.
 - [ ] In a plan run with a session per step (the prompt says `in an agent session of its own`): only

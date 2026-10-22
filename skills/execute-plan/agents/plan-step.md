@@ -107,13 +107,27 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    branch already fails it, and do not run it again when no file changed since it passed. While you
    work, run the tests of the code you touch. Widen that when your change is risky or touches code many
    others depend on, and write why as a decision.
-   A verify or test run that takes more than about two minutes goes in a Bash call with
-   `run_in_background: true`; wait for its completion notice. Claude Code blocks `sleep N` followed by
-   `tail` of its log.
+   Outside a worker plan run, a verify or test run that takes more than about two minutes goes in a
+   Bash call with `run_in_background: true`; wait for its completion notice. Claude Code blocks `sleep N`
+   followed by `tail` of its log.
    In a worker plan run, a verify that starts with `cd` into a developer's checkout, such as
    `cd ~/github/<repo> && ...`, runs from `repo` without that `cd`. Write `effective` as one shell line
-   that runs from the worktree root: the main session passes it to `--verify` of `evo-agents worker step`,
-   which runs it there again.
+   that runs from the worktree root: the main session passes it to `--verify` of `evo-agents worker step`.
+   There, never run the whole verify in your own shell: run the tests of what you changed while you work,
+   then, once the tree is final, run the whole verify once through the worker, `<name>` being the last
+   part of `repo`'s path:
+
+   ```
+   evo-agents worker step <id> verify --repo <name> --verify "<effective>"
+   ```
+
+   Give the Bash call a timeout of 600000 ms; the command waits up to 540 seconds. The worker runs the
+   verify as a job of its own, which outlives the call, your turn and you. Exit 0 is a pass and 1 a
+   failure, with each failing command's tail; 124 means the job still runs: run the same command again to
+   wait on it, never `sleep`, a polling loop or `setsid nohup`. `done` with the same `--verify` reuses a
+   pass while the worktree stays as it is, so change no file after it, and commit without `git add -A`
+   as below; a change, even a fix after a failure, makes `done` run it again. Copy the `verify:` lines it
+   printed into `verify_output`.
 4. Inspect your own diff once: `git diff --stat`, then the hunks you are unsure of.
 
 ## Commit, when `commit: yes` and the verify passed
