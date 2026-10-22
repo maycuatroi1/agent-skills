@@ -255,8 +255,8 @@ def uv_cached(version: str) -> bool:
 def plugin_runtime_state() -> list[dict]:
     """Each evo-ak version an installed evo plugin pins in its hooks or MCP servers, and whether uv has it.
 
-    The commands run `uvx --offline ... || true`: a version uv never downloaded makes every hook a silent
-    no-op, and a plugin update moves the pin."""
+    The hooks run `uvx --offline`, and the MCP servers run the pin from uv's cache: while uvx cannot run it,
+    both run `evo-agents` from the PATH instead (one line on stderr says so), and a plugin update moves the pin."""
     rows = []
     for pid, entry in installed_plugin_entries().items():
         if pid.split("@")[0] not in PLUGINS or not entry.get("installPath"):

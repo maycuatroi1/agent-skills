@@ -1,7 +1,7 @@
 ---
 name: update-evo-agents
 description: Bring evo-agents up to date on this machine (CLI, worker daemon, evo-hub and evo-kg plugins and their evo-ak, skills) and report which harnesses lock their CI to a release. Use for "update evo-agents", "upgrade evo-ak", "nâng evo-agents", "cập nhật evo-agents", "pin CI evo-ak", "update CLI, skill, plugin", "cập nhật máy", "sync skills", "update local" (this machine only), or a SessionStart line starting "evo-agents update:".
-version: 0.4.0
+version: 0.4.1
 ---
 
 # Update evo-agents
@@ -15,7 +15,7 @@ harness's `harness validate` run that commit.
 |---|---|---|---|
 | CLI | tag `nightly`, unless this machine's worker is locked | `uv tool` (or pip) | reinstall from `git+https://github.com/maycuatroi1/evo-agents@nightly` with the same extras |
 | Plugins `evo-hub`, `evo-kg` | main | Claude Code, marketplace `evo-agents` | `claude plugin marketplace update`, then `claude plugin update` |
-| Plugin runtime | the plugin's pin | uv's cache, `evo-ak==X` in the plugin's `hooks/hooks.json` and `.mcp.json` | `uvx --from evo-ak==X evo-agents --version`: the hooks run `uvx --offline`, so an X not cached makes them silent no-ops |
+| Plugin runtime | the plugin's pin | uv's cache, `evo-ak==X` in the plugin's `hooks/hooks.json` and `.mcp.json` | `uvx --from evo-ak==X evo-agents --version`: while uvx cannot run X (not cached, or not on PyPI), the hooks and MCP servers run `evo-agents` from the PATH and say so in one line on stderr |
 | Worker daemon | tag `nightly`, unless locked | LaunchAgent or systemd user unit | itself, once idle (`worker.self_update`); a daemon that cannot: `evo-agents worker service install` again, only while it holds no run |
 | Skills | the hub | `~/.claude/skills` and the other runtimes, `.claude/skills` of each harness | `evo-agents hub skills sync`, never `--adopt` unasked |
 | Harness CI | tag `nightly`, unless locked | `.github/workflows/*` of a harness: `evo-ak @ git+https://github.com/maycuatroi1/evo-agents@nightly`, or a lock `evo-ak==X` | never from here: nightly is current, and a lock is reported as "locked at X" |
