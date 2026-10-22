@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.6.2
+version: 0.7.0
 ---
 
 # Create exec plan
@@ -178,16 +178,36 @@ needs a `verify` an agent can run, or a precise manual check when no command can
 
 ### How much each step tests
 
-Test less, and lean toward the broad check at the end. By default a step's `verify` runs the tests of what
-that step changes plus the repo's cheap whole-repo checks (lint, import rules, contract tests). The broad
-check, meaning the whole test suite, the end-to-end suite or the CI of the pull request, is a criterion
-that a late step proves, usually the step that brings the branch up to date with the base branch and
-waits for CI. There, prefer the CI's result over running the same suites locally. "The full suite stays
-green" is not an invariant by default: checked after every step, it repeats the slowest check of the
-repository many times for little gain.
+A step's `verify` tests what that step changes. It runs the tests of the code the step touches, picked by
+file or by name, plus the repo's cheap whole-repo checks (lint, import rules, contract tests). A selection
+that reaches past the step's own tests "to catch regressions", such as
+`-k "orgchart or dispatch or claim or credentials or grant"`, is the broad run under another name: in one
+evo-agents plan run a verify with that selection and the whole migration module took 35 minutes, and it
+ran three times.
 
-This is a default, not a rule. Give a step a wider `verify` when its change is risky or touches code many
-others depend on, such as a migration, a shared module or a seam, and say why in its `note`.
+No `verify` holds the broad run: the whole test suite, the end-to-end suite, a wide pass over neighbouring
+areas, or waiting for CI on a pull request. The broad run is the full CI of the release tag (`v*`), after
+the merge; when it fails, the next patch release fixes forward. The release step's `verify` checks its
+own outcome (the tag, the published package), never the suites again. "The full suite stays green" is
+not an invariant either: checked after every step, it repeats the slowest check of the repository many
+times for little gain.
+
+When a change touches code many others depend on (a shared module, a seam), add the tests of its direct
+dependents, named by file, and say why in the step's `note`. That is still not the whole suite.
+
+Keep every `verify` fast:
+
+- Run tests in parallel where the repository supports it. In evo-agents every pytest command takes
+  `-n auto` (pytest-xdist; each worker gets databases of its own).
+- Test a migration by its revision, not by the whole module: in evo-agents,
+  `python -m pytest -q -n auto tests/hub/test_migrate.py -k 0099` runs the test of revision 0099. Run the
+  whole of `test_migrate.py` only when the step changes how migrations run.
+- Never check that the branch contains the latest base branch (`git merge-base --is-ancestor origin/main
+  HEAD`, "the branch sits on origin/main"). The base branch moves while a verify runs, so the check fails
+  and forces every slow check to run again; an evo-agents worker already replays a run's commits onto
+  the moved branch before it pushes. Bringing the branch onto the base branch, and renumbering a
+  migration whose number the base branch took meanwhile, is work of the merge step, which then reruns
+  only the tests that the move touched.
 
 ### Two kinds of step
 
@@ -217,7 +237,7 @@ Cut a step where something has to happen between two pieces of work, not to keep
 - an outcome that can be verified on its own is one step, however many files it touches; a mechanical
   change across a whole package with one machine check is one step, not one step per directory;
 - a seam owner's change is a step its consumers' steps depend on;
-- a checkpoint (a prescribed step, a full-suite comparison, a review the user wants) gets its own step;
+- a checkpoint (a prescribed step, a review the user wants) gets its own step;
 - work that can run in parallel, in another repo or on files no other step touches, gets its own step.
 
 A repository usually needs a handful of outcome steps. If a plan reaches the old shape of one step per
@@ -388,8 +408,9 @@ Before writing, verify that:
 - Every step's `verify` is one shell command line with no prose in it, and every command it calls exists
   (check a CLI's subcommands with `--help` rather than guessing them).
 - Every acceptance criterion has an `id` and is proven by the `verify` of at least one step.
-- The whole suite, the end-to-end suite and CI are checked near the end, not in every step's `verify`,
-  unless a step's `note` says why its change needs them earlier.
+- No `verify` runs the whole suite, the end-to-end suite or a selection wider than its step's own tests,
+  waits for CI, or checks that the branch contains the base branch; every evo-agents pytest command
+  takes `-n auto`.
 - Every id in an outcome step's `acceptance` names an existing criterion, and its `what` restates those
   criteria in words.
 - No outcome step lays out a file-by-file route, and every prescribed step is one of the cases Phase 3
