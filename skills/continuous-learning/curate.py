@@ -387,8 +387,10 @@ def consolidate_pass(base, config, usage, report, dry_run):
     )
     model = config.get("curator", {}).get("model") or config.get("claude_model", "claude-haiku-4-5")
     timeout = int(config.get("claude_timeout_seconds", 600))
-    env = os.environ.copy()
-    env["CONTINUOUS_LEARNING_CHILD"] = "1"
+    # extract_patterns imports this module at load time, so import it here.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from extract_patterns import child_env
+    env = child_env()
     try:
         proc = subprocess.run(
             ["claude", "-p", prompt, "--model", model],
