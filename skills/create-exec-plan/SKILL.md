@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.7.0
+version: 0.8.0
 ---
 
 # Create exec plan
@@ -71,7 +71,8 @@ plans before continuing. If multi-repo work has no harness root, ask where the s
 When the root's `harness.yaml` has a `hub:` key with a `project`, it is a hub harness: its plans live on
 the evo-agents hub, and the files under `plans/` are read-only copies the hub wrote. The file this skill
 writes is then a draft that goes to the hub once validated (Phase 4), and from that moment the file in git
-is the hub's copy. Nobody writes it by hand again.
+is the hub's copy. Nobody writes it by hand again. The hub also keeps the project's problems, which the plan
+names (Phase 1).
 
 ## Phase 1: Investigate
 
@@ -83,6 +84,31 @@ Build enough context that another agent can execute the plan without repeating d
 - For a harness, read `CLUSTER.md`, `harness.yaml`, `contracts.yaml`, principles, and relevant checks.
 - Read active and recently completed plans to learn local schema, conventions, and overlapping work.
 - Inspect `git status`, the current branch, recent history, and relevant diffs without changing them.
+
+### Read the project's problems
+
+In a hub harness, the project keeps its problems on the hub: what hurts and whom, before any solution, each
+with a code `P-<number>`, an optional metric, a rank and a status. A plan names the problems it solves, so
+read them before tracing the change, from the harness root, `<project>` being `hub.project` of `harness.yaml`:
+
+```
+evo-agents hub problem list --project <project> --json
+evo-agents hub problem show P-3 --project <project>
+```
+
+`list` prints the problems by rank, and `--status open` keeps the open ones. `show` prints one problem with
+its metric and the goals, claims and plans that already point at it; an active plan listed there overlaps
+this one (Phase 3, collision handling).
+
+A plan solves a problem when its goal removes or shrinks that hurt for the people the problem names. A plan
+that only works in the same area does not. Usually one problem fits, sometimes a few. Keep their codes for
+the plan's `problems`, and for each one note the metric the plan means to move and in which direction; for a
+problem without a metric, note what the plan changes for the people it names. That note goes into
+`context`.
+
+If no problem fits, Phase 2 asks whether to add one. When the command fails (`evo-agents` missing, not
+signed in, the hub not answering), report the error and say in `context` that the problems were not read.
+Outside a hub harness there are no problems to read, and the plan has no `problems` key.
 
 ### Trace the change
 
@@ -133,6 +159,20 @@ Use the available question tool. Give concise options, put the recommended optio
 tradeoff. Group independent questions into one round. If an answer creates a new blocking ambiguity,
 investigate that ambiguity and ask one follow-up round.
 
+In a hub harness where no problem of the project fits the plan, ask in the same round whether to add one.
+Draft it for the user: the statement (what hurts, before any solution), who is hurt, when it happens, how
+they cope today, and a metric key when the project's signals have one that measures it. The two options are
+to add the problem, with the user's edits to the draft, or to write the plan for no problem. When the user
+picks add, create the problem before writing the plan:
+
+```
+evo-agents hub problem set --statement "<what hurts>" --who "<who is hurt>" --when "<when it happens>" --workaround "<how they cope today>" --project <project>
+```
+
+It needs the writer role on the project and prints the new code (`Made problem P-4 of project ...`); add
+`--metric KEY` to name the metric. Put that code in `problems`. When the user picks no problem, leave
+`problems` out and say in `context`, in one sentence, that the plan solves no problem of the project and why.
+
 Do not ask the user for repository paths, current branches, callers, test commands, or other discoverable
 facts. Do not write a draft plan as a substitute for unanswered blocking questions.
 
@@ -143,7 +183,8 @@ facts. Do not write a draft plan as a substitute for unanswered blocking questio
 - Use a short kebab-case slug that names the outcome, not the implementation mechanism.
 - Search active and completed plans for the same goal before choosing it. In a hub harness, also run
   `evo-agents hub plan list` from the harness root: the hub may hold plans whose copies this checkout
-  has not exported yet.
+  has not exported yet. The plans that `evo-agents hub problem show` lists for the plan's problems are
+  candidates too.
 - If the target file exists, the hub already holds the slug, or an overlapping plan is active, ask whether
   to update it or choose a new scope. Never silently overwrite or fork duplicate work.
 - Updating a hub plan, once the user confirms, starts from its current copy (`evo-agents hub plan export .`
@@ -291,10 +332,12 @@ the comment line above `id:` that hub copies carry; the hub writes both.
 id: outcome-slug
 goal: >
   One observable sentence describing what becomes true after the plan lands.
+problems: [P-3]
 created_at: '2026-07-20T12:00:00+07:00'
 
 context: >
-  Current behavior, root cause, constraints, and why the change is needed.
+  Current behavior, root cause, constraints, and why the change is needed. For each problem the plan
+  names, the metric the plan means to move and in which direction.
 
 acceptance:
   - id: a1
@@ -370,8 +413,11 @@ open_questions: []
 ```
 
 Omit a section only when it truly does not apply. Keep `repos`, `steps`, `acceptance`, `references`,
-`decisions`, and `open_questions` present. `open_questions` may contain only non-blocking or deliberately
-deferred questions because all blocking questions must be resolved before writing.
+`decisions`, and `open_questions` present. `problems` lists the codes of the project's problems the plan
+solves, each once, right after `goal`. Leave it out when the root is not a hub harness, or when the plan
+solves no problem of the project and `context` says so (Phase 2). `open_questions` may contain only
+non-blocking or deliberately deferred questions because all blocking questions must be resolved before
+writing.
 
 Use these statuses for compatibility with `evo harness`:
 
@@ -402,6 +448,10 @@ Before writing, verify that:
 - The goal and every acceptance criterion are observable.
 - Scope and non-goals prevent the main likely misunderstandings.
 - Every affected repo is included or explicitly checked as not needed.
+- In a hub harness, `problems` names each problem of the project the plan solves, each code one that
+  `evo-agents hub problem list` printed or that the user just created, and `context` says which metric of
+  each the plan means to move. A plan without `problems` says in `context` that it solves none, or that the
+  problems could not be read. Outside a hub harness, the plan has no `problems` key.
 - Merge order follows every touched seam.
 - Every step has a non-empty `title` of at most 60 characters.
 - Every blocking step has verification.
@@ -434,7 +484,9 @@ After writing:
 4. In a hub harness, send the validated draft to the hub from the harness root:
    `evo-agents hub plan put plans/active/<slug>.yaml` (add `--if-revision <N>` only when updating an
    existing plan as above). The hub stores it and rewrites the file as its copy, with a header line and a
-   `hub:` key holding the project, revision and digest. Report any warnings it prints. Without
+   `hub:` key holding the project, revision and digest. Report any warnings it prints; the warning that
+   the plan names no problem is expected when the user chose no problem. A 422 that names a problem means
+   the project has no such code: take the code from `evo-agents hub problem list` and put again. Without
    `--if-revision` it never replaces a plan the hub already holds; if it refuses because the slug exists,
    go back to collision handling instead of adding the flag. When `evo-agents` is missing, not signed in,
    or the hub does not answer, leave the draft where it is, report the error, and say the plan is not on
@@ -515,6 +567,26 @@ the turn and end it. Number the questions, give each its options with the recomm
 marked as recommended, and the tradeoff in a line, so the member can answer "1b, 2a"; the reply starts
 your next turn.
 
+**Problems.** Read the project's problems as Phase 1 says, from two sources. The first is
+`evo-agents hub problem list --project <project> --json`, `<project>` being the project the prompt names:
+it only reads, with this machine's hub login, and fails on a worker that has none. The second is the
+request: one from the Loop names its problem in a line such as "its problems are [P-3]". When neither gives
+a problem that fits the plan, ask the member, as a decision of the same round:
+
+```
+evo-agents worker ask --category scope --question "No problem of the project fits this plan. Add one?" \
+  --option add="Add a problem:you add the drafted problem on the hub and reply with its code" \
+  --option none="No problem:the plan names none, and its context says why" \
+  --recommended add --context-file .evo-run/ask-problem.md
+```
+
+The context file holds Phase 2's draft of the problem and the problems you read, with why none fits, or
+says that you could not read them, so the member may reply with the code of a problem the project has.
+Never run `evo-agents hub problem set` or `close` in an author run: the agent of a run writes no problem,
+a writer of the project does, on the hub's Problems page or with that command. On add, put the code the
+member gives in `problems`; on none, leave `problems` out and say so in `context`. A put that names a code
+the project lacks is refused (422): ask the member for the code in the chat instead of guessing one.
+
 **Put a new plan.** Check the draft as Phase 4's list before writing says, then validate it with steps 1
 and 2 after writing. Leave out steps 3 to 6: the draft is not under the harness's `plans/active/`, the
 plan goes to the hub through the run instead of `evo-agents hub plan put`, and the run commits nothing.
@@ -527,9 +599,9 @@ evo-agents worker put .evo-run/<slug>.yaml
 The hub stores it in the run's project as the member who dispatched the run, with the same checks as
 `evo-agents hub plan put`: 422 for a body that does not match plan.schema.json, 413 over the size the hub
 keeps, and the label the project's hub sink must clear. Fix what a 422 or 413 says and put it again; fix
-the warnings it prints too. A 403 means the member lost the writer role: say so in the chat and stop
-putting. Without `--if-revision` the command never replaces a plan the hub holds (409). The command prints
-the plan's id and revision on success.
+the warnings it prints too, except the one that the plan names no problem when the member chose none. A 403
+means the member lost the writer role: say so in the chat and stop putting. Without `--if-revision` the
+command never replaces a plan the hub holds (409). The command prints the plan's id and revision on success.
 
 **One run, one plan.** An author run writes exactly one plan: the one its prompt names, or the one its
 first put created. A put with another id is refused (422), and so is `--if-revision` before the run has a
