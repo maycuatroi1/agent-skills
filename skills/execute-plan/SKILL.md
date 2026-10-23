@@ -349,7 +349,8 @@ failed `blocking: false` step can be left behind if the user accepts it.
 
 When `EVO_RUN_KIND` is `plan`, the rules are in `references/worker-plan-run.md` next to this file: reading
 the plan with `evo-agents worker plan`, the clusters and subagents of a run, recording steps with
-`evo-agents worker step`, asking the owner with `evo-agents worker ask`, pushes and their notices, CI,
+`evo-agents worker step`, the autonomy card at the head of the prompt (what to do, ask or leave), asking the
+owner with `evo-agents worker ask`, pushes and their notices, CI,
 blocks, `.evo-run/result.json`, and a run with a session per step. Read it before the first cluster;
 where it differs from sections 1 to 8, it wins.
 
