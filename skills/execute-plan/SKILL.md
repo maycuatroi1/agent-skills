@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.13.0
+version: 0.14.0
 ---
 
 # Execute exec-plan
@@ -273,7 +273,8 @@ shas, and the next cluster. Before writing it, check each claim in it against a 
 of this session; say "not verified" for anything you cannot point to.
 
 Pushing a branch, opening a pull request, merging it into the default branch, deploying and tagging a
-release are yours to do without asking. Before the merge, test locally the cases the change puts at
+release are yours to do without asking (in a worker plan run, only when the run's autonomy card shows merge and
+deploy as auto or notify: `references/worker-plan-run.md`). Before the merge, test locally the cases the change puts at
 risk; the broad run is the full CI of a release tag, not a wait on pull-request CI.
 
 Stop and ask only when:
@@ -348,7 +349,8 @@ failed `blocking: false` step can be left behind if the user accepts it.
 
 When `EVO_RUN_KIND` is `plan`, the rules are in `references/worker-plan-run.md` next to this file: reading
 the plan with `evo-agents worker plan`, the clusters and subagents of a run, recording steps with
-`evo-agents worker step`, asking the owner with `evo-agents worker ask`, pushes and their notices, CI,
+`evo-agents worker step`, the autonomy card at the head of the prompt (what to do, ask or leave), asking the
+owner with `evo-agents worker ask`, pushes and their notices, CI,
 blocks, `.evo-run/result.json`, and a run with a session per step. Read it before the first cluster;
 where it differs from sections 1 to 8, it wins.
 

@@ -75,9 +75,26 @@ recorded, pass the rest of the verify and `gh pr checks <pr> --repo <owner/repo>
 name the CI run in `--evidence`. Never use `evo harness step`, `evo-agents hub plan` or the hub's `plan_step` tool here:
 the hub writes the step from the worker's report, as the member who dispatched the run.
 
-**Ask only what the owner must decide.** Use `evo-agents worker ask` only for a decision of one of the categories the
-run's prompt lists. Merging, deploying and releasing are yours: never ask under `deploy`, even when an older prompt lists
-it.
+**Ask only what the owner must decide.** A run of a hub with autonomy levels starts its prompt with an autonomy card:
+it names the run's principal (the person the run acts for), their effective level, and the classes of action K1 to K12
+that are not auto, each as deny, ask or notify, with the category to ask an ask class in. The card decides:
+
+- a class in ask: ask with `evo-agents worker ask --category <the category the card names>` before acting, and act
+  only on the answer;
+- a class in deny: do not do it, not even through a decision; write in the step's evidence what was left undone and the
+  source the card names, and leave the step `pending` when its outcome needs it;
+- a class in notify or auto: do it without asking (the hub tells the principal of a notify act);
+- `architecture` and `scope` belong to no class: ask them as below whatever the card says.
+
+Merging, deploying and releasing are yours only when the card shows K5 (merge) and K6 (deploy) as auto or notify; with
+K5 or K6 in ask, ask under `merge` or `deploy` first. The hub and the worker's hook enforce the card on their own, so a
+refusal from either is the card applied, not a block to work around. The floors hold at every level: a backup younger
+than 24 hours (`evo-agents worker backup`) before deleting data that is not the run's scratch, and no credential value
+in a commit, a push, an event or a log.
+
+A prompt without an autonomy card (an older hub, a local run) lists the categories to ask itself: use only those, and
+then merging, deploying and releasing are yours: never ask under `deploy`, even when an older prompt lists it. The
+categories of such a prompt:
 
 - `delete_data`: deleting data that is not the run's own scratch: database rows, files, buckets, other people's
   branches;
