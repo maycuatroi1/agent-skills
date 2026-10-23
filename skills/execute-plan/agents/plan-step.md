@@ -107,9 +107,14 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    branch already fails it, and do not run it again when no file changed since it passed. While you
    work, run the tests of the code you touch. Widen that when your change is risky or touches code many
    others depend on, and write why as a decision.
-   Outside a worker plan run, a verify or test run that takes more than about two minutes goes in a
-   Bash call with `run_in_background: true`; wait for its completion notice. Claude Code blocks `sleep N`
-   followed by `tail` of its log.
+   Outside a worker plan run, you cannot wait for a background command's completion notice: ending
+   your turn hands control back to the main session. A verify or test run expected to finish within 10
+   minutes runs in the foreground, with the Bash call's `timeout` raised to fit it (up to 600000 ms). A
+   longer one starts with `run_in_background: true` and appends an exit marker to its log, for example
+   `<command> > verify.log 2>&1; echo "VERIFY_EXIT $?" >> verify.log`. Wait on it with one Monitor
+   until-loop, or with one foreground Bash call of `until grep -q VERIFY_EXIT verify.log; do sleep 5;
+   done` with a `timeout` of 600000 ms (run it again if that times out), then read the exit code from the
+   marker. Claude Code blocks `sleep N` followed by `tail` of the log; do not poll the log turn by turn.
    In a worker plan run, a verify that starts with `cd` into a developer's checkout, such as
    `cd ~/github/<repo> && ...`, runs from `repo` without that `cd`. Write `effective` as one shell line
    that runs from the worktree root: the main session passes it to `--verify` of `evo-agents worker step`.
