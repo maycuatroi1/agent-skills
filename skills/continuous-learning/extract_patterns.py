@@ -189,11 +189,21 @@ If nothing worth saving: return {{"skills": [], "cli_suggestions": []}}.
 === END ==="""
 
 
+def child_env():
+    # The claude -p child runs the user's hooks too: without these it would
+    # start another extraction, and the evo-hub hooks would register it as a
+    # local run and upload its transcript as if it were a real session.
+    env = os.environ.copy()
+    env["CONTINUOUS_LEARNING_CHILD"] = "1"
+    env["EVO_HUB_LOCAL_SYNC"] = "0"
+    env["EVO_HUB_TRANSCRIPTS"] = "0"
+    return env
+
+
 def call_claude(prompt, config):
     model = config.get("claude_model", "claude-haiku-4-5")
     timeout = int(config.get("claude_timeout_seconds", 300))
-    env = os.environ.copy()
-    env["CONTINUOUS_LEARNING_CHILD"] = "1"
+    env = child_env()
     try:
         proc = subprocess.run(
             ["claude", "-p", prompt, "--model", model],

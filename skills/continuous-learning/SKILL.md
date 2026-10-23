@@ -93,7 +93,7 @@ chmod +x /home/binhna/git/agent-skills/skills/continuous-learning/evaluate-sessi
    - Skips if transcript has fewer messages than `min_session_length`
    - Skips if `{cwd}/.claude/skills/.learned/.processed/<session_id>` already exists
    - Scans the transcript for references to existing learned skills and bumps their usage telemetry (`.claude/skills/.learned/usage.json`)
-   - Builds compact session summary, calls `claude -p` with extraction prompt
+   - Builds compact session summary, calls `claude -p` with extraction prompt. The child (and the Curator's consolidate call) gets `CONTINUOUS_LEARNING_CHILD=1`, `EVO_HUB_LOCAL_SYNC=0` and `EVO_HUB_TRANSCRIPTS=0` from `child_env()`, so the evo-hub hooks neither register it as a local run nor upload its transcript
    - Writes each approved skill to `{cwd}/.claude/skills/<name>/SKILL.md` (discoverable); pending skills to `{cwd}/.claude/skills/.learned/_pending/<name>/`
    - Writes each CLI suggestion to `{cwd}/.claude/cli-suggestions/_pending/<name>.md`
    - When `auto_approve=false` (default), skills land in `.learned/_pending/` and CLI suggestions in `cli-suggestions/_pending/` for manual review
