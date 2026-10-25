@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.14.2
+version: 0.15.0
 ---
 
 # Execute exec-plan
@@ -350,7 +350,8 @@ failed `blocking: false` step can be left behind if the user accepts it.
 When `EVO_RUN_KIND` is `plan`, the rules are in `references/worker-plan-run.md` next to this file: reading
 the plan with `evo-agents worker plan`, the clusters and subagents of a run, recording steps with
 `evo-agents worker step`, the autonomy card at the head of the prompt (what to do, ask or leave), asking the
-owner with `evo-agents worker ask`, pushes and their notices, CI,
+owner with `evo-agents worker ask` (with the option you recommend and why, whether the act can be undone and
+how, and the evidence, since the owner may answer on a phone with one tap), pushes and their notices, CI,
 blocks, `.evo-run/result.json`, and a run with a session per step. Read it before the first cluster;
 where it differs from sections 1 to 8, it wins.
 

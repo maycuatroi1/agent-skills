@@ -101,6 +101,7 @@ python3 setup.py
 - `gh` CLI, signed in - for `execute-plan` to wait on the CI of a pull request it opened
 - Claude Code v2.1.248 or later - for the one-hour prompt cache of `execute-plan`'s `plan-step` subagent (`experimental.cacheTtl` in `skills/execute-plan/agents/plan-step.md`)
 - An evo-agents worker daemon >= 0.9.0 - for `create-exec-plan` in an author run; the worker brings `evo-agents worker plan` and `worker put`, and the hub hands the run its own copy of the skill; decisions in an author run need a worker and hub that support them, and the skill falls back to the chat otherwise
+- An evo-agents worker >= 0.46.0 - for the reason, the undo and the evidence that `create-exec-plan` and `execute-plan` give each `evo-agents worker ask` (`--recommended-reason`, `--reversible`, `--undo`, `--evidence`); an older worker refuses those flags, and the skills ask again without them
 - `python3` 3.9+ and `git` - for `curator` (standard library only; PyYAML used when present to read `harness.yaml`)
 - `evo-agents` + `uv` + `git` + the `claude` CLI - for `update-evo-agents` (`python3` 3.9+ for its `scripts/check.py`, stdlib only)
 - `evo-agents` >= 0.42.0, signed in, with the writer role on the project - for `problem-intake` (`evo-agents hub intake`)

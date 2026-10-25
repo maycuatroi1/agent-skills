@@ -87,10 +87,27 @@ that are not auto, each as deny, ask or notify, with the category to ask an ask 
 - `architecture` and `scope` belong to no class: ask them as below whatever the card says.
 
 Merging, deploying and releasing are yours only when the card shows K5 (merge) and K6 (deploy) as auto or notify; with
-K5 or K6 in ask, ask under `merge` or `deploy` first. The hub and the worker's hook enforce the card on their own, so a
-refusal from either is the card applied, not a block to work around. The floors hold at every level: a backup younger
-than 24 hours (`evo-agents worker backup`) before deleting data that is not the run's scratch, and no credential value
-in a commit, a push, an event or a log.
+K5 or K6 in ask, ask under `merge` or `deploy` first (CI, below, has the merge question). The hub and the worker's hook
+enforce the card on their own, so a refusal from either is the card applied, not a block to work around. The floors hold
+at every level: a backup younger than 24 hours (`evo-agents worker backup`) before deleting data that is not the run's
+scratch, and no credential value in a commit, a push, an event or a log.
+
+A class in ask, asked before the act:
+
+```
+evo-agents worker ask --category delete_data --question "Drop the column orders.legacy_ref on production? No code reads it since <sha>." --context-file <notes.md> --option "drop=Drop it" --option "keep=Keep it:step <id> stays pending" --recommended drop --recommended-reason "<why drop, in a sentence or two>" --reversible yes --undo "Restore the column from the backup taken before the drop" --evidence code:<repo>:<path of the migration> --step <id>
+```
+
+**Recommend, and say why.** The owner may read a decision on a phone, where its push opens it, and should be able to
+answer it there with one tap, from the question and its options alone. So every `evo-agents worker ask` with a natural
+choice carries `--recommended` and `--recommended-reason`: why that option, in a sentence or two (at most 500
+characters). One about an act also says whether the act can be undone: `--reversible yes` with `--undo` (how, at most
+500 characters), or `--reversible no`. Each thing the question rests on goes in its own `--evidence`, at most 20:
+`run:ID`, `run:ID:SEQ`, `output:ID`, `P-<n>/E-<n>`, `code:REPO:PATH[:LINE]` or an https URL such as the pull request.
+The context file holds the rest. Without `--recommended` the command prints a warning on stderr and still asks; it
+refuses an evidence ref of any other form, and `--undo` with `--reversible no`, before sending anything. These flags
+need evo-agents 0.46.0 or later on the worker; an older one refuses them as unknown, so ask again without them and put
+the reason, the undo and the refs at the top of the context file.
 
 A prompt without an autonomy card (an older hub, a local run) lists the categories to ask itself: use only those, and
 then merging, deploying and releasing are yours: never ask under `deploy`, even when an older prompt lists it. The
@@ -106,7 +123,7 @@ categories of such a prompt:
 - `scope`: a question of scope the plan leaves open: adding, dropping or reshaping a step or what it delivers.
 
 ```
-evo-agents worker ask --category live_migration --question "<one or two sentences>" --context-file <notes.md> --option "go=Backfill now" --option "hold=Wait:Backfill after the owner checks a sample" --recommended hold --step <id>
+evo-agents worker ask --category live_migration --question "<one or two sentences>" --context-file <notes.md> --option "go=Backfill now" --option "hold=Wait:Backfill after the owner checks a sample" --recommended hold --recommended-reason "<why hold, in a sentence or two>" --reversible yes --undo "<how to undo the backfill, such as the backup it restores>" --evidence code:<repo>:<path of the backfill> --step <id>
 ```
 
 It takes 2 to 6 options and prints the decision's id. Go on with the steps that do not depend on the answer; when none
@@ -146,20 +163,26 @@ at most 30 minutes after a turn ends while a background command runs, so put `15
 and start the watch again each time it ends with `124`, until 90 minutes have passed since the push. The
 agent pushes fix commits to the run's branch itself, never forced, with the notice above when that is a
 default branch. A merge that needs the owner's consent and waits on CI is asked with
-`evo-agents worker ask` as soon as the PR is open, worded "merge PR <n> once its required checks pass?",
-with the watch started in the same turn; on `0` with a yes, merge without asking again.
-After 90 minutes without a result, ask the owner and end the turn:
+`evo-agents worker ask` as soon as the PR is open, with the watch started in the same turn:
 
 ```
-evo-agents worker ask --category scope --question "CI of <PR or commit> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --step <id>
+evo-agents worker ask --category merge --question "Merge PR <n> into <default branch> once its required checks pass?" --option "merge=Merge it" --option "hold=Leave it open:step <id> stays pending" --recommended merge --recommended-reason "<what the PR changes, and the risky cases tested locally that pass>" --reversible yes --undo "Revert the merge commit with a new PR" --evidence https://github.com/<owner>/<repo>/pull/<n> --step <id>
+```
+
+On `0` with a yes, merge without asking again. A deploy asked under `deploy` reads the same, with the release to go
+back to in `--undo`. After 90 minutes without a result, ask the owner and end the turn:
+
+```
+evo-agents worker ask --category scope --question "CI of <PR or commit> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --recommended-reason "<the checks still pending, and why they may still finish>" --evidence https://github.com/<owner>/<repo>/pull/<n> --step <id>
 ```
 
 **Blocked is not done.** A frontier emptied by a block is not a stop. When what blocks the steps left is something
 only the owner can change (a permission of the GitHub App, a credential, an account, access to a service, a push the
 remote refuses), ask a `scope` decision that names what the owner must do, with a way around the block among the
-options when there is one, and end the turn. When the answer did not lift the block (the push is still refused, the
-access still missing), ask again with what you found and the options left; never end the run on it. A turn that ends
-with no decision open ends the run: the worker pushes what is committed and lets the session go.
+options when there is one, the option you recommend and why, and what you found as `--evidence`, and end the turn.
+When the answer did not lift the block (the push is still refused, the access still missing), ask again with what you
+found and the options left; never end the run on it. A turn that ends with no decision open ends the run: the worker
+pushes what is committed and lets the session go.
 
 **Stop.** When every step is done, or the owner's answer says to stop, and no decision is open, write
 `.evo-run/result.json` in the run directory, not in a repo, and end the turn:
@@ -194,7 +217,9 @@ session after this one ends.
       cluster, same-repo steps serial in the run's worktree, steps recorded only with
       `evo-agents worker step` and runnable `--verify` commands, each step's whole verify run once through
       `evo-agents worker step <id> verify` and reused by `done`, the owner asked only in the listed
-      categories, a `Decision:` line for every other choice, a notice after each push or merge into a
-      default branch, and `.evo-run/result.json` written once, at the end.
+      categories, each question with `--recommended` and `--recommended-reason` (an act with `--reversible`,
+      and `--undo` when it can be undone; `--evidence` when there is any), a `Decision:` line for every
+      other choice, a notice after each push or merge into a default branch, and `.evo-run/result.json`
+      written once, at the end.
 - [ ] In a plan run with a session per step (the prompt says `in an agent session of its own`): only
       the named step done, recorded with the commands its prompt gives, no frontier and no other step.
