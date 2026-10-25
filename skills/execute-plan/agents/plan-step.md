@@ -96,7 +96,9 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    graph) when the repo's `AGENTS.md` asks for it.
 2. Implement the step. In an outcome step, when `commit: yes`, commit each coherent part once the
    checks that cover it pass, so a later subagent can pick up from your last commit if you run out of
-   context.
+   context. Before any lint check or the verify, run the repo's own fixers on the files you changed, for
+   Python `ruff format <files>` then `ruff check --fix <files>`, so the check reports only what needs a
+   hand fix. Wrap docstrings and comments at the repo's line length as you write them.
 3. Run the step's `verify` exactly as written, on your last commit. One exception: when it is `npm test -- <file>` or
    similar and the package's `test` script hardcodes a broad glob such as `tests/*.test.ts`, the
    appended path does not filter the suite. Run the underlying runner on the target instead, for
