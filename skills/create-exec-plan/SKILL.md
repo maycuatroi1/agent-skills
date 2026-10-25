@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.8.0
+version: 0.9.0
 ---
 
 # Create exec plan
@@ -545,13 +545,25 @@ A blocking question with 2 to 6 natural options is a decision. Ask each with its
 evo-agents worker ask --category scope --question "Keep the old endpoint for one release?" \
   --option keep="Keep it:one release of overlap, two code paths" \
   --option drop="Drop it:one path, clients break on upgrade" \
-  --recommended keep --context-file .evo-run/ask-endpoint.md
+  --recommended keep \
+  --recommended-reason "Two clients still call it; one release of overlap lets them move before it goes." \
+  --evidence code:api:src/routes/orders.py:42 --evidence code:web:src/lib/orders.ts \
+  --context-file .evo-run/ask-endpoint.md
 ```
 
 The category is `scope` for the plan's scope, outcome, compatibility and rollout, and `architecture` for
-a choice of design. Put the option you recommend in `--recommended`, and a short context, a few lines of
+a choice of design. The member may read the question on a phone, where a push opens it, and should be
+able to answer it there with one tap, from the question and its options alone. So give every question
+with a natural choice the option you recommend in `--recommended` and why in `--recommended-reason`, a
+sentence or two (at most 500 characters), and pass `--evidence` once for each thing the question rests
+on: `code:REPO:PATH[:LINE]` for code you read, `P-<n>/E-<n>` for a line of a problem's evidence,
+`run:ID`, `output:ID` or an https URL. The questions of an author run are about the plan, not about an
+act of yours, so they leave `--reversible` and `--undo` out. Put a short context, a few lines of
 markdown with what you found, in a file under `.evo-run/` passed with `--context-file`. The command
 prints the decision's id; the member answers it on the hub with a click, and may add words of their own.
+Without `--recommended` it prints a warning on stderr and still asks, and it refuses an evidence ref of
+any other form before sending anything. A worker older than evo-agents 0.46.0 refuses these flags as
+unknown: ask again without them, with the reason and the refs at the top of the context file.
 
 Ask every decision of a round in the same turn, then end the turn with one message in the chat: what
 your investigation found, what you decided yourself, and the decisions you asked, by id. A question
@@ -563,9 +575,9 @@ hub's default) is parked and resumes in this session the same way.
 
 Ask in the chat alone when the run's prompt says to ask only in the chat, or when `evo-agents worker ask`
 refuses (a worker or hub too old for decisions in an author run): ask the round in the last message of
-the turn and end it. Number the questions, give each its options with the recommended one first and
-marked as recommended, and the tradeoff in a line, so the member can answer "1b, 2a"; the reply starts
-your next turn.
+the turn and end it. Number the questions, give each its options with the recommended one first,
+marked as recommended with why in a few words, and the tradeoff in a line, so the member can answer
+"1b, 2a"; the reply starts your next turn.
 
 **Problems.** Read the project's problems as Phase 1 says, from two sources. The first is
 `evo-agents hub problem list --project <project> --json`, `<project>` being the project the prompt names:
@@ -577,7 +589,9 @@ a problem that fits the plan, ask the member, as a decision of the same round:
 evo-agents worker ask --category scope --question "No problem of the project fits this plan. Add one?" \
   --option add="Add a problem:you add the drafted problem on the hub and reply with its code" \
   --option none="No problem:the plan names none, and its context says why" \
-  --recommended add --context-file .evo-run/ask-problem.md
+  --recommended add \
+  --recommended-reason "The plan can then name the hurt it removes and the metric it moves." \
+  --context-file .evo-run/ask-problem.md
 ```
 
 The context file holds Phase 2's draft of the problem and the problems you read, with why none fits, or
