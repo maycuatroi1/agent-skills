@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.9.0
+version: 0.10.0
 ---
 
 # Create exec plan
@@ -280,6 +280,13 @@ Cut a step where something has to happen between two pieces of work, not to keep
 - a seam owner's change is a step its consumers' steps depend on;
 - a checkpoint (a prescribed step, a review the user wants) gets its own step;
 - work that can run in parallel, in another repo or on files no other step touches, gets its own step.
+
+Keep out of the steps what only time or a person outside the run can make true: a number that needs N nights or
+weeks of data, a review or approval a person does by hand, a machine or account someone has to buy or grant. A run
+that reaches such a step parks for days with the code already shipped, and the plan stays active. Put each into
+`open_questions` as a non-blocking item whose `note` gives the date to check, the command that measures it and who
+acts; the plan closes when the code ships. Ask the user before writing such a step only when the outcome itself is
+the measurement.
 
 A repository usually needs a handful of outcome steps. If a plan reaches the old shape of one step per
 module, merge steps that share a verify and have no checkpoint between them.
