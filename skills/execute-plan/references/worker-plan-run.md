@@ -184,7 +184,7 @@ evo-agents worker ask --category scope --question "CI of <PR or commit> gave no 
 **Waiting on another plan.** A step that needs a step of another plan done first waits for it with
 `evo-agents worker wait --reason "<what and why>" --on plan.step --contains plan=<slug> --contains step=<id>
 --contains status=done --until +2d --step <id>`, not with a timer alone: the hub wakes the run when that step is marked
-done (evo-agents 0.48 or later on the hub).
+done (evo-agents 0.49 or later on the hub).
 
 **Blocked is not done.** A frontier emptied by a block is not a stop. When what blocks the steps left is something
 only the owner can change (a permission of the GitHub App, a credential, an account, access to a service, a push the
