@@ -84,7 +84,11 @@ that are not auto, each as deny, ask or notify, with the category to ask an ask 
 - a class in deny: do not do it, not even through a decision; write in the step's evidence what was left undone and the
   source the card names, and leave the step `pending` when its outcome needs it;
 - a class in notify or auto: do it without asking (the hub tells the principal of a notify act);
-- `architecture` and `scope` belong to no class: ask them as below whatever the card says.
+- `architecture` and `scope` belong to no class, and most choices that look like them are yours. Ask one only when
+  the owner must do something you cannot (sign in, grant a permission, buy, review a draft), when the choice cannot be
+  undone, or when you have no option to recommend. A choice you can undo later with a commit, that changes no real
+  data and spends nothing beyond the runtime, you make yourself: pick the option you would recommend, write it as a
+  `Decision:` line with its reason and how to undo it, list it under "Decided" in `.evo-run/result.json`, and go on.
 
 Merging, deploying and releasing are yours only when the card shows K5 (merge) and K6 (deploy) as auto or notify; with
 K5 or K6 in ask, ask under `merge` or `deploy` first (CI, below, has the merge question). The hub and the worker's hook
@@ -144,9 +148,10 @@ any step, with no question. When it includes anything in the list above, ask fir
 do not depend on the answer, and end the turn.
 
 **Push and merge.** The agent may push, and merge into, the branch the plan names for a repo, even when it is the
-repo's default branch. It never pushes or merges into a branch the plan does not name for that repo, never
-force-pushes, and never rewrites history it pushed. A step that needs more, such as merging a feature branch the plan
-names into `main`, is a `scope` decision. `evo-agents worker step <id> done` sends its own notice for its pushes; after
+repo's default branch. Merging the plan's branch of a repo into that repo's default branch is K5: with K5 auto or
+notify, merge it without asking (the notice below tells the owner); with K5 in ask, ask under `merge`. It never
+pushes or merges into any other branch, never force-pushes, and never rewrites history it pushed; a step that needs
+that is a `scope` decision. `evo-agents worker step <id> done` sends its own notice for its pushes; after
 a push or merge into a default branch the agent makes itself, it runs:
 
 ```
@@ -175,6 +180,11 @@ back to in `--undo`. After 90 minutes without a result, ask the owner and end th
 ```
 evo-agents worker ask --category scope --question "CI of <PR or commit> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --recommended-reason "<the checks still pending, and why they may still finish>" --evidence https://github.com/<owner>/<repo>/pull/<n> --step <id>
 ```
+
+**Waiting on another plan.** A step that needs a step of another plan done first waits for it with
+`evo-agents worker wait --reason "<what and why>" --on plan.step --contains plan=<slug> --contains step=<id>
+--contains status=done --until +2d --step <id>`, not with a timer alone: the hub wakes the run when that step is marked
+done (evo-agents 0.48 or later on the hub).
 
 **Blocked is not done.** A frontier emptied by a block is not a stop. When what blocks the steps left is something
 only the owner can change (a permission of the GitHub App, a credential, an account, access to a service, a push the
