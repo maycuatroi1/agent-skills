@@ -60,6 +60,13 @@ def group(header):
 
 # Each group: sentences an author flagged (must hit) and close neighbours that read fine (must not).
 GROUP_CASES = {
+    "Nhãn nói điều hiển nhiên": (
+        ["Video: The PagerDuty Platform Overview, 99 giây",
+         "Video: What is PagerDuty Process Automation?, 142 giây",
+         "Video trên trang AIOps (YouTube, cần mạng)"],
+        ["Video Paige điều tra một incident",
+         "Request timeout sau 30 giây, client retry.",
+         "Video YouTube, cần mạng khi trình chiếu."]),
     "Binary contrast dịch sát": (
         ["Đây không phải lỗi của compiler, mà là lỗi của người viết.",
          "không phải là thiếu GPU. Đó là thiếu dữ liệu sạch.",
