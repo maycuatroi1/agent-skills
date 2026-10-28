@@ -544,6 +544,7 @@ lọt. Rà riêng mọi title, heading, tiêu đề và phụ đề hình, chữ
 | Câu thesis làm heading | Mảng và cây là cùng một thứ | Lưu cây nhị phân trong mảng |
 | Khung đánh số dẫn chiếu khắp bài | Tầng 0 tới 4, rồi "ở tầng 3" | Gọi phần bằng nội dung: "phần chia thặng dư" |
 | Khuôn "Từ X tới Y" | 7.8 One request, from the process to the answer | Xem mục 19 |
+| Nhãn kể loại media, thời lượng, nền tảng | Video: The PagerDuty Platform Overview, 99 giây | Bỏ nhãn; lưu ý trình chiếu (cần mạng) để trong speaker notes |
 
 Title của bài hay tài liệu không dùng câu hỏi; tác giả dặn "đừng dùng câu hỏi làm title". Heading bên trong thì
 được dùng câu người đọc thật sự hỏi, cụ thể tới mức trả lời được ("Không có W thì tính thế nào"). Câu hỏi treo kiểu

@@ -363,3 +363,10 @@ pha (ấm )?(trà|cà phê)
 # gì?") là heading tốt, chỉ câu hỏi treo ("Tốt tới đâu") mới hỏng, phải đọc mới biết.
 ^#{1,6}[[:space:]].*:[[:space:]]
 [0-9]+([.,][0-9]+)?[Kk]? (clap|claps|lượt xem|lượt thích|stars)
+
+# --- Nhãn nói điều hiển nhiên (vietnamese-patterns mục 21, bắt 28/10/2026) ---
+# Nhãn trên khung video kể loại media, thời lượng hoặc nền tảng phát. Người xem thấy đó
+# là video; tác giả: "chẳng ai cần cái thông tin này cả". Lưu ý trình chiếu (cần mạng)
+# để trong speaker notes.
+(video|clip)[^,]*, [0-9]+ (giây|phút)
+\((YouTube|Wistia|Vimeo), cần mạng\)

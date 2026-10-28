@@ -34,6 +34,7 @@ al. 2025). Pairs of before and after carry more signal than another page of rule
 | Blog title, 2026-09-21 | x^x = 49: câu sai trong bài Medium 1.4K clap và lời sửa trong comment | "việc quái gì mention medium 1.4k clap lên header làm gì ?" | Popularity numbers and colon in a title |
 | Doc heading, 2026-09-25 | Tầng 0, hiện trạng: một hoá đơn bằng giờ người | "đặc mùi ai slop" | Label, colon, and metaphor heading |
 | Slides, 2026-09-20 | It is 2 a.m. and the shop is slow | "chẳng ai viết kiểu này cả" | Staged scene |
+| Slides, 2026-10-28 | Nhãn trên khung video: "Video: The PagerDuty Platform Overview, 99 giây" | "chẳng ai cần cái thông tin này cả. Ai cũng biết nó là video, chẳng ai cần biết 99 giây" | Label restating the medium and its length |
 | Messenger to students, 2026-10-12 | "hệ thống AI hỗ trợ triage" ở mục tiêu, không RQ nào, phép đo nào nói tới AI. Bỏ hoặc đo | ... không RQ nào, phép đo nào nói tới AI. Tự nhiên nó mọc ra ở đây | Keep the jab when cutting |
 | Messenger to students, 2026-10-12 | Bọn em tự viết rule rồi tự dựng đáp án thì hội đồng hỏi 1 câu là xong | Hay bọn em tự viết rule rồi tự dựng đáp án rồi tự claim là cách làm của tôi VIP pro hơn | Mimic the target's voice instead of predicting consequences |
 | Messenger to students, 2026-10-12 | Sửa thẳng lên bản online để thầy track change, xong báo thầy | Bọn m sửa lên bản online nhé. Thầy sẽ check change để review chứ không đọc lại full cho bọn m kiểu mỗi tuần 1 file mới tinh nữa. OK ? | Give the reason; end with a tag question |
