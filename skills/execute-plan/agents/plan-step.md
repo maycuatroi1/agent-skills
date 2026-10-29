@@ -93,7 +93,10 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
 ## Work
 
 1. Before changing a symbol, run impact analysis (`gitnexus impact`, or `kg_impact` of the evo-kg
-   graph) when the repo's `AGENTS.md` asks for it.
+   graph) when the repo's `AGENTS.md` asks for it. To find where a name is defined or used in a repo of
+   the harness, call `kg_search({query, repo})` of the evo-kg graph first when it is bound: it reads the
+   integration branch of every repo without a checkout and gives the lines; grep only when its results
+   lack the file, or for code you just changed.
 2. Implement the step. In an outcome step, when `commit: yes`, commit each coherent part once the
    checks that cover it pass, so a later subagent can pick up from your last commit if you run out of
    context. Before any lint check or the verify, run the repo's own fixers on the files you changed, for

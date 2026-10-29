@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.11.0
+version: 0.12.0
 ---
 
 # Create exec plan
@@ -115,7 +115,9 @@ Outside a hub harness there are no problems to read, and the plan has no `proble
 - Locate the relevant entry points, symbols, callers, data models, tests, configuration, and generated
   artifacts.
 - Use GitNexus for execution flow, impact analysis, and cross-repo relationships when an index is
-  available. Use targeted Glob, Grep, and file reads for direct evidence.
+  available. When the harness binds an evo-kg graph, find a name's definition and uses with
+  `kg_search({query, repo})` before grepping a checkout, and tell the subagents you brief to do the
+  same. Use targeted Glob, Grep, and file reads for direct evidence.
 - Follow source URLs, issues, pull requests, or external specifications supplied by the user.
 - Identify persisted data, public APIs, CLI surfaces, file formats, credentials, deployment boundaries,
   and other compatibility constraints.
