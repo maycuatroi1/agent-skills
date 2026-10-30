@@ -479,6 +479,72 @@ class Cli(Home):
         self.assertIn("claude:nosuch:1", err.getvalue())
         self.assertIn("no file", err.getvalue())
 
+    def draft(self, name: str, head: str, body: str = "## Problem\n\npip again.\n") -> Path:
+        path = Path(self.tmp.name) / name
+        path.write_text("---\n" + head + "---\n\n" + body, encoding="utf-8")
+        return path
+
+    def refused(self, path: Path) -> str:
+        err = io.StringIO()
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(err):
+            self.run_cli("propose", "--file", str(path))
+        return err.getvalue()
+
+    CORRECTION = (
+        "title: Stop pip in this harness\nlens: corrections\nkind: hook\ntarget: .claude/settings.json\n"
+        "evidence:\n  - codex:c1:3\n  - codex:c1:4\n"
+    )
+    WHY = "## Why not higher\n\npip is on the PATH of every worker; it cannot be removed from the image.\n"
+
+    def test_failing_example_required_for_a_correction(self) -> None:
+        self.run_cli("collect", "--days", "30")
+        err = self.refused(self.draft("c.md", self.CORRECTION + "guard: lint\n", self.WHY))
+        for key in ("failing_ref", "failing_input", "failing_probe"):
+            self.assertIn(f"missing {key}", err)
+
+    def test_failing_example_must_quote_the_cited_line(self) -> None:
+        self.run_cli("collect", "--days", "30")
+        invented = self.CORRECTION + (
+            "guard: lint\nfailing_ref: codex:c1:4\nfailing_input: pip install requests==2.0\n"
+            "failing_probe: bash -lc 'pip --version'\n"
+        )
+        self.assertIn("failing_input is not in codex:c1:4", self.refused(self.draft("i.md", invented, self.WHY)))
+        real = invented.replace("pip install requests==2.0", "pip install foo")
+        out = self.run_cli("propose", "--file", str(self.draft("r.md", real, self.WHY)))
+        self.assertIn("open (corrections, hook", out)
+        stored = (self.state() / "proposals" / f"{out.split()[0]}.md").read_text()
+        self.assertIn("failing_input: pip install foo", stored)
+
+    def test_failing_example_from_a_hub_run(self) -> None:
+        self.run_cli("collect", "--days", "30")
+        head = self.CORRECTION + (
+            "guard: lint\nfailing_ref: run:1273:42\nfailing_input: pip install foo --user\n"
+            "failing_probe: evo-agents hub run logs 1273 --after 41 --kind tool_call\n"
+        )
+        self.assertIn("open", self.run_cli("propose", "--file", str(self.draft("h.md", head, self.WHY))))
+        bad = head.replace("run:1273:42", "run:1273").replace("Stop pip", "Stop pip twice")
+        self.assertIn("failing_ref run:1273", self.refused(self.draft("b.md", bad.replace("hook", "cli"), self.WHY)))
+
+    def test_ladder_rung_required_and_justified(self) -> None:
+        self.run_cli("collect", "--days", "30")
+        example = (
+            "failing_ref: codex:c1:4\nfailing_input: pip install foo\nfailing_probe: bash -lc 'pip --version'\n"
+        )
+        self.assertIn("missing guard", self.refused(self.draft("n.md", self.CORRECTION + example, self.WHY)))
+        self.assertIn("guard is one of", self.refused(self.draft("x.md", self.CORRECTION + example + "guard: hook\n")))
+        self.assertIn("Why not higher", self.refused(self.draft("w.md", self.CORRECTION + example + "guard: lint\n")))
+        prose_hook = self.CORRECTION + example + "guard: prose\n"
+        self.assertIn("guard prose is a change of kind", self.refused(self.draft("p.md", prose_hook, self.WHY)))
+        rule = self.CORRECTION.replace("kind: hook", "kind: rule") + example + "guard: lint\n"
+        self.assertIn("kind rule is prose", self.refused(self.draft("q.md", rule, self.WHY)))
+        top = self.CORRECTION.replace("kind: hook", "kind: harness") + example + "guard: remove\n"
+        self.assertIn("open", self.run_cli("propose", "--file", str(self.draft("t.md", top))))
+
+    def test_ladder_optional_outside_the_failure_lenses(self) -> None:
+        self.run_cli("collect", "--days", "30")
+        head = "title: Shorter map\nlens: context\nkind: context\ntarget: AGENTS.md\nevidence:\n  - code:AGENTS.md:5\n"
+        self.assertIn("open", self.run_cli("propose", "--file", str(self.draft("m.md", head))))
+
     def test_notice(self) -> None:
         self.assertIn("4 sessions", self.run_cli("notice", "--min", "3"))  # 3 Claude Code, 1 Codex
         self.run_cli("collect", "--days", "30")
