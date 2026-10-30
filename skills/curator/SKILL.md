@@ -1,7 +1,7 @@
 ---
 name: curator
 description: Review a harness from its own recent sessions and propose context, CLI, skill, rule, hook or permission changes with evidence; nothing changes until the person accepts. Use for "/curator", "curate the harness", "review recent sessions", "tối ưu harness", "tối ưu context", "context quá lớn", or to turn repeated commands into a CLI and repeated workflows into a skill.
-version: 0.1.1
+version: 0.2.0
 ---
 
 # Curator
@@ -96,7 +96,17 @@ python3 <skill>/scripts/curator.py propose --file /tmp/p1.md
 ```
 
 It refuses a proposal without evidence, with a reference it cannot find, or one that repeats an open proposal or
-one the person rejected in the last 30 days. Give a `metric` whenever the change should move a number (names in
+one the person rejected in the last 30 days.
+
+A proposal that stops a failure (lens `corrections` or `tool_errors`) names its `guard`, the rung of the guard
+ladder it climbs to, strongest first: `remove` the wrong path, a `type` or schema, a `lint` or a guard at run time,
+a behaviour `test`, and `prose` (a rule, context, a document) last. Pick the highest rung that can work; below
+`remove`, a `## Why not higher` section says why each higher rung cannot. A proposal citing a correction also
+carries a real failing example: `failing_ref` (the transcript line `claude:<session>:<line>`, or `run:<id>:<event>`
+of a hub run), `failing_input` (the input that went wrong, quoted from that line, never written for the proposal),
+and `failing_probe` (the command or probe that shows it still goes wrong on the harness as it is). The script
+refuses a correction without them, and an input the cited transcript line does not contain. Read a hub run's
+event with `evo-agents hub run logs <id> --after <event - 1> --kind tool_call`. Give a `metric` whenever the change should move a number (names in
 `references/proposals.md`); the script records the current value as the baseline.
 
 How to design each kind of change: `references/context.md` for the context, `references/building.md` for CLI
@@ -137,9 +147,9 @@ that made its number worse is a proposal to revert it.
 | `context` | startup and peak tokens, what loaded, instruction file smells, unused skills and MCP servers, big outputs, re-reads, compactions | trim or move always-loaded text, scope skills down, quiet a command, add a pointer to the map |
 | `cli` | repeated commands, inline scripts on the same files, sequences, `--help` read again | a script or subcommand, registered in the map |
 | `skills` | skills used and unused, repeated workflows, learned skills waiting, overlapping triggers | a new skill, a gotcha added to one, a skill scoped down |
-| `tool_errors` | tools and programs that fail, repeated error signatures | an error message that teaches its fix, a wrapper, a rule |
-| `environment` | blocked by the harness, 5xx, network, credentials, missing tools | a rule the agent was never told, an install step, a fix outside the prompt |
-| `corrections` | turns that correct the agent, interrupts | a rule, then a hook when the rule exists and is still broken |
+| `tool_errors` | tools and programs that fail, repeated error signatures | the highest rung that works: remove the failing path, a wrapper or check, a test, an error message that teaches its fix; a rule last |
+| `environment` | blocked by the harness, 5xx, network, credentials, missing tools | an install step, a fix outside the prompt, a rule the agent was never told |
+| `corrections` | turns that correct the agent, interrupts | a guard on the highest rung that works (remove, type, lint or hook, test), a rule only when none can; always with a failing example |
 | `harness` | orientation reads, re-derived boot and test commands | a map entry, an init or test script |
 | `cost` | tokens by runtime, models, subagent volume | a cheaper model for a subagent, less context per subagent |
 
@@ -151,7 +161,8 @@ that made its number worse is a proposal to revert it.
 - Every proposal names a specific thing that happened, with references. "Consider adding documentation" is not a
   proposal.
 - One proposal, one change, one target file or command.
-- Prefer moving a rule into a machine check over writing it louder in a document.
+- Guard by the ladder: remove the wrong path, then a type or schema, a lint or runtime guard, a behaviour test,
+  and prose last. A rule is the fallback when no machine guard can work, not the first try before a hook.
 - Do not trust a count you have not opened. The figures match words and exit codes; they do not understand them.
 
 ## Optional: a nudge at session start
@@ -188,7 +199,7 @@ The line goes into every session's context; leave the hook out when that is not 
 | `scripts/_redact.py` | removes secrets from everything stored or shown |
 | `references/lenses.md` | each lens: what to read, check, propose, and its false positives |
 | `references/context.md` | how to organize context, and the moves that make it smaller |
-| `references/building.md` | how to build a CLI command, a skill, a rule, a hook, a permission, a memory |
+| `references/building.md` | the guard ladder; how to build a CLI command, a skill, a rule, a hook, a permission, a memory |
 | `references/proposals.md` | the proposal format, kinds, metrics and lifecycle |
 | `tests/test_curator.py` | `python3 -m unittest discover -s <skill>/tests` |
 

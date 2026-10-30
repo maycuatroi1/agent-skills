@@ -53,7 +53,7 @@ from _sources import (  # noqa: E402
     load,
 )
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 DEFAULT_DAYS = 14
 DEFAULT_MIN_SESSIONS = 3
 NOTICE_SESSIONS = 10
@@ -69,6 +69,13 @@ ACTIONS = {
     "reverted": "reverted",
 }
 REQUIRED = ("title", "lens", "kind", "target", "evidence")
+# The guard ladder, strongest first: remove the wrong path, a type or schema, a lint or runtime guard, a behaviour
+# test, and prose (a rule, context, a document) last. A proposal names its rung; below the top it says why not higher.
+LADDER = ("remove", "type", "lint", "test", "prose")
+PROSE_KINDS = ("rule", "docs", "memory", "context")
+WHY_NOT_HIGHER = re.compile(r"^##\s+Why not higher\s*$\n+(?=\S)(?!##)", re.M)
+FAILING = ("failing_ref", "failing_input", "failing_probe")
+RUN_REF = re.compile(r"^run:(\d+):(\d+)$")
 REF = re.compile(r"^(claude|codex):([^:]+)(?::(\d+))?$")
 
 
@@ -654,6 +661,58 @@ def check_evidence(reference: str, index: dict, root: Path, figures: dict, conte
     return None
 
 
+def check_guard(data: dict, body: str) -> list[str]:
+    """What is wrong with the rung of the guard ladder a proposal names; required for the failure lenses."""
+    guard = data.get("guard")
+    if not guard:
+        if data.get("lens") in ("corrections", "tool_errors"):
+            return [f"missing guard: one of {', '.join(LADDER)}, the highest rung that can work (references/building.md)"]
+        return []
+    if guard not in LADDER:
+        return [f"guard is one of {', '.join(LADDER)}"]
+    problems = []
+    if guard == "prose" and data.get("kind") not in PROSE_KINDS:
+        problems.append(f"guard prose is a change of kind {', '.join(PROSE_KINDS)}, not {data.get('kind')}")
+    if guard != "prose" and data.get("kind") in PROSE_KINDS:
+        problems.append(f"kind {data.get('kind')} is prose; set guard: prose or change the kind")
+    if guard != LADDER[0] and not WHY_NOT_HIGHER.search(body):
+        problems.append(f"guard {guard} is below {LADDER[0]}: add a '## Why not higher' section saying why each higher rung cannot work")
+    return problems
+
+
+def squash(text: str) -> str:
+    return " ".join(str(text).split()).casefold()
+
+
+def check_failing_example(data: dict, index: dict) -> list[str]:
+    """What is missing from the failing example a proposal that cites a correction must carry: the concrete input
+    of the time it went wrong, quoted from the transcript line or run event it cites, and the command or probe that
+    shows it still goes wrong on the harness as it is. An example written for the proposal is refused."""
+    if data.get("lens") != "corrections":
+        return []
+    problems = [f"missing {key} (a correction needs a real failing example)" for key in FAILING if not data.get(key)]
+    if problems:
+        return problems
+    reference, quoted = str(data["failing_ref"]), squash(data["failing_input"])
+    if len(quoted) < 8:
+        return ["failing_input is shorter than 8 characters: quote the whole input that went wrong"]
+    if RUN_REF.match(reference):
+        return []  # a hub run's event: the reviewer reads it with `evo-agents hub run logs`
+    found = REF.match(reference)
+    if not found or not found.group(3):
+        return [f"failing_ref {reference}: a transcript line (claude:<session>:<line>, codex:...) or run:<id>:<event>"]
+    runtime, prefix, seq = found.groups()
+    key = resolve_session(index, runtime, prefix)
+    if not key:
+        return [f"failing_ref {reference}: no single session of the last collect matches"]
+    line = line_at(index[key]["path"], int(seq))
+    if line is None:
+        return [f"failing_ref {reference}: no such line"]
+    if quoted not in squash(summarize(line, 10**7)) and quoted not in squash(redact(json.dumps(line, ensure_ascii=False))):
+        return [f"failing_input is not in {reference}: quote the input from that line, do not write an example"]
+    return []
+
+
 def slug(text: str) -> str:
     return re.sub(r"-+", "-", re.sub(r"[^a-z0-9]+", "-", text.lower())).strip("-")[:48] or "proposal"
 
@@ -697,6 +756,8 @@ def propose(args) -> None:
         why = check_evidence(reference, index, root, figures, context)
         if why:
             problems.append(f"evidence {reference}: {why}")
+    problems += check_guard(data, body)
+    problems += check_failing_example(data, index)
     if data.get("metric"):
         value = metric(data["metric"], figures, context)
         if value is None:
@@ -729,6 +790,7 @@ def propose(args) -> None:
         n += 1
     record = {"id": ident, "state": "open", "created": now_iso()}
     record.update({key: value for key, value in data.items() if key not in ("id", "state", "created")})
+    record.update({key: redact(str(record[key])) for key in FAILING if record.get(key)})
     (state / "proposals").mkdir(exist_ok=True)
     (state / "proposals" / f"{ident}.md").write_text(dump_frontmatter(record, redact(body)), encoding="utf-8")
     ledger(

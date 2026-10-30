@@ -41,6 +41,46 @@ Revert the commit.
 Required: `title`, `lens`, `kind`, `target`, `evidence` (at least one reference). Optional: `metric`. The script
 adds `id`, `state`, `created`, and `baseline` when there is a metric.
 
+Required for lens `corrections` and `tool_errors`: `guard`, the rung of the guard ladder (`building.md`): `remove`,
+`type`, `lint`, `test` or `prose`. Below `remove`, the body has a `## Why not higher` section. `prose` goes with the
+kinds `rule`, `docs`, `memory` and `context`, and those kinds with `prose` only. Optional elsewhere, checked the same
+way when given.
+
+Required for lens `corrections`, the failing example:
+
+| Key | Holds |
+|---|---|
+| `failing_ref` | where it went wrong: a transcript line `claude:<session>:<line>` or `codex:...`, or `run:<id>:<event>`, an event of a hub run (`evo-agents hub run logs <id> --after <event - 1>`) |
+| `failing_input` | the concrete input of that time (a command, a path, an argument), quoted from that line; at least 8 characters |
+| `failing_probe` | the command or probe that shows it still goes wrong on the harness today, and refuses or passes once the guard is in |
+
+For a transcript line, the script refuses an input the line does not contain: the example comes from the run, not
+from the proposal. A correction proposal looks like:
+
+```markdown
+---
+title: Refuse pip install in Bash
+lens: corrections
+kind: hook
+target: .claude/settings.json
+guard: lint
+failing_ref: codex:c1a2b3:4
+failing_input: pip install foo
+failing_probe: echo '{"tool_input":{"command":"pip install foo"}}' | .claude/hooks/no-pip.sh
+evidence:
+  - codex:c1a2b3:3
+  - claude:3d66bbc1:212
+metric: corrections
+---
+
+## Problem
+...
+
+## Why not higher
+
+remove: pip stays on the image, other tools call it. type: nothing types a shell line.
+```
+
 **Lenses:** `context`, `cli`, `skills`, `tool_errors`, `environment`, `corrections`, `harness`, `cost`.
 
 **Kinds:** `context` (always-loaded text or its organization), `cli` (a command or script), `skill`, `rule` (a line

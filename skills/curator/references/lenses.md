@@ -82,10 +82,11 @@ trace, and a seasonal skill looks dead in a short window.
 (expensive)? Is the failure the work itself (a test that fails before a fix is written) rather than trouble with a
 tool?
 
-**Propose:** for an error that repeats with the same signature, the cheapest fix that makes it stop: a wrapper that
-sets the missing flag, an error message in the project's own tool that names the fix, a line in the map ("run X
-before Y"), or a lint config change when the same lint rule fails in many sessions (for example a line length the
-code base does not follow).
+**Propose:** for an error that repeats with the same signature, the highest rung of the guard ladder (`building.md`)
+that makes it stop: remove the path that fails (a wrapper that always sets the missing flag, a default that is
+right), a schema or check that refuses the wrong input early with an error message that names the fix, a test, and
+only then a line in the map ("run X before Y"). A lint config change fits when the same lint rule fails in many
+sessions for a rule the code base does not follow (a line length).
 
 **Misleads when:** `lint_failed` and `tests_failed` are the expected inner loop of real work; `wrong_input` from
 `Edit` (string not found) is often a stale read, not a tool problem.
@@ -98,19 +99,22 @@ code base does not follow).
 **Check:** these are failures the agent did not cause and often cannot fix by trying harder. Read the exact
 message: a harness block usually says what to do instead.
 
-**Propose:** a rule the agent was never told, placed where it will be read before the blocked action (for example,
-how to wait for a background job in this runtime); an install step in the init script; for a server answering 5xx,
-a finding for whoever owns that server, not a prompt change.
+**Propose:** an install step in the init script; for a server answering 5xx, a finding for whoever owns that server,
+not a prompt change; for a block the agent keeps hitting, a fact it was never told, placed where it will be read
+before the blocked action (for example, how to wait for a background job in this runtime).
 
 ## corrections
 
 **Read:** Corrections: turns that start like a correction, contain a correction phrase, or follow an interrupt.
 
-**Check:** read each one; the patterns are words, not meaning. Keep the real ones and group them by the rule they
-imply.
+**Check:** read each one; the patterns are words, not meaning. Keep the real ones and group them by the behaviour
+they correct. For each group, open the turn before the correction and take the input that went wrong (the command,
+the edit, the answer), then run a probe that shows it still goes wrong today.
 
-**Propose:** a one-line rule in the right file (global when it applies to every repo, project otherwise), with the
-reason. When the rule already exists and was still broken, propose a hook or a check instead of a louder rule.
+**Propose:** the same correction more than once is a missing guard. Climb the guard ladder (`building.md`): remove
+the wrong path, a type or schema, a lint or a runtime guard (a hook), a behaviour test, and a one-line rule in the
+right file only when none of those can work, saying why in `## Why not higher`. Every correction proposal carries
+its failing example (`failing_ref`, `failing_input`, `failing_probe`); `curator.py propose` refuses it without one.
 
 ## harness
 
