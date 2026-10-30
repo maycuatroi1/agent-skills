@@ -50,9 +50,14 @@ and records it after reading the report:
 
 ```
 evo-agents worker step <id> in_progress --repo <repo>
-evo-agents worker step <id> done --repo <repo> --evidence "<text>" --verify "<command>"
+evo-agents worker step <id> done --repo <repo> --evidence "<text>" --verify "<command>" --proof "<a-id>=<value>"
 evo-agents worker step <id> pending --repo <repo> --evidence "<what landed, what failed, the stash>"
 ```
+
+When the step's acceptance names criteria of the plan's acceptance (`a4`), `done` takes one `--proof ID=VALUE`
+for each, copied from the report's `proofs`: the test that proves it (`path::test_name`), the command that shows it,
+or `n/a: why`. The hub refuses `done` without one for each and keeps them with the step; the Judge reads the criterion
+and the locator, not your prose. A step without such criteria takes none.
 
 `done` checks the step with its `--verify` commands, run with `/bin/sh` in the repo's worktree (repeat `--verify` once
 per command), and refuses the step when one exits non-zero. Otherwise it commits what is left in the worktree, pushes
@@ -151,7 +156,15 @@ do not depend on the answer, and end the turn.
 repo's default branch. Merging the plan's branch of a repo into that repo's default branch is K5: with K5 auto or
 notify, merge it without asking (the notice below tells the owner); with K5 in ask, ask under `merge`. It never
 pushes or merges into any other branch, never force-pushes, and never rewrites history it pushed; a step that needs
-that is a `scope` decision. `evo-agents worker step <id> done` sends its own notice for its pushes; after
+that is a `scope` decision.
+
+In a repo whose policy has `merge_check` on, the hub judges the pull request before you merge it: run
+`evo-agents worker merge-check <repo> [--pr N]`, which parks the run without holding a slot until the verdict answers
+it in this session. The check merges the current base into the head, runs the plan's verify and the hidden checks
+there, then the Judges and the security pass. Merge only on a pass, with `gh pr merge <n> --merge --match-head-commit
+<head>` at the head it judged; the worker's hook refuses a merge without a passing verdict at the current head. A fail
+lists its findings by id: fix them, push, and ask again, since a verdict holds for the head it judged alone.
+`evo-agents worker step <id> done` sends its own notice for its pushes; after
 a push or merge into a default branch the agent makes itself, it runs:
 
 ```

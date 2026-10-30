@@ -188,6 +188,9 @@ outside_scope: <path: reason, one per line> | none
 verify_command: <plan command>; effective: <command run, if different>
 verify_output: |
   <last 15 lines, verbatim, never paraphrased>
+proofs: |
+  <criterion id>=<path::test_name | the command that shows it | n/a: why>, one per line, for each id the
+  step's acceptance names | none (the step names no criterion of the plan's acceptance)
 stash: <ref, only when the verify failed in the main checkout>
 decisions: |
   Decision: <a choice the plan did not make, and why, one line each> | none
@@ -197,6 +200,10 @@ notes: <at most 3 lines: what the plan got wrong, what a later step must know>
 A decision is any choice a reviewer or a later step could question: a route different from the one the
 plan suggests, a file the plan named that you left alone, a contract detail the plan left open, a check
 you ran instead of one that could not run here. Routine edits are not decisions.
+
+A proof names where the criterion is shown, not that it holds: the test that fails without the change, or
+the command whose output proves it. Write `n/a: why` only for a criterion no command can prove, such as a
+person's review.
 
 Verbatim output is the point. A report that says "tests pass" without the run is the failure this
 contract exists to prevent, and it is the same failure that makes plan state lie.
