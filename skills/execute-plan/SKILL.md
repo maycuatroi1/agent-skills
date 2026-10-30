@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.17.0
+version: 0.18.0
 ---
 
 # Execute exec-plan
@@ -274,7 +274,8 @@ of this session; say "not verified" for anything you cannot point to.
 
 Pushing a branch, opening a pull request, merging it into the default branch, deploying and tagging a
 release are yours to do without asking (in a worker plan run, only when the run's autonomy card shows merge and
-deploy as auto or notify: `references/worker-plan-run.md`). Before the merge, test locally the cases the change puts at
+deploy as auto or notify, and, in a repo whose policy has `merge_check` on, after the hub's merge check passed at the
+head you merge: `references/worker-plan-run.md`). Before the merge, test locally the cases the change puts at
 risk; the broad run is the full CI of a release tag, not a wait on pull-request CI.
 
 Stop and ask only when:
