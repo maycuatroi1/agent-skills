@@ -1,7 +1,7 @@
 ---
 name: stop-slop
 description: Draft, edit, or review English and Vietnamese prose to remove AI tells while preserving facts, uncertainty, and the author's voice. Use for "bỏ giọng AI", "viết cho tự nhiên", "stop-slop", prose rewrites, or editorial reviews. Includes phrase and structural checks, Vietnamese usage guidance, authorship and evidence boundaries, and a six-dimension review rubric. Not a style filter for code, formulas, or structured data.
-version: 0.6.0
+version: 0.6.1
 ---
 
 # stop-slop
@@ -166,7 +166,8 @@ outrank every rule below: a sentence can pass all of them and still be one the a
 21. **Titles, headings, labels, and figure text get their own pass.** List every one separately and read
     it as prose. No colon in a title or heading, no counting cadence ("Six steps, three figures"), no
     negative headings, no teaser questions, no question as a title, no self-certifying adjectives ("So
-    sánh công bằng" became "So sánh"), no popularity numbers of someone else's post in a title. The
+    sánh công bằng" became "So sánh"), no popularity numbers of someone else's post in a title, no two-clause
+    metaphor thesis as a title ("Tokenizer là một bộ nén, và tiếng Việt đang trả thuế cho nó"). The
     blacklist targets body sentences and cannot read text inside images, so title patterns slip through.
     Vietnamese section 21.
 

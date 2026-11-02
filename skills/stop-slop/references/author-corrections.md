@@ -32,6 +32,7 @@ al. 2025). Pairs of before and after carry more signal than another page of rule
 | Blog, 2026-09-22 | Đây là đề xuất để thử, chưa phải một hệ thống đã triển khai... | (deleted) "Rất ai slob kiểu assistant" | Hedge stacking |
 | Blog, 2026-09-21 | Nếu bạn thấy mình tính sai ở đâu... mình muốn được cãi lại. | (deleted) | Templated closing invitation |
 | Blog title, 2026-09-21 | x^x = 49: câu sai trong bài Medium 1.4K clap và lời sửa trong comment | "việc quái gì mention medium 1.4k clap lên header làm gì ?" | Popularity numbers and colon in a title |
+| Blog title, 2026-11-03 | Tokenizer là một bộ nén, và tiếng Việt đang trả thuế cho nó | "cái câu này nghe rất là tối nghĩa và mang đặc mùi AI" | Two-clause metaphor thesis as a title, dangling "nó" |
 | Doc heading, 2026-09-25 | Tầng 0, hiện trạng: một hoá đơn bằng giờ người | "đặc mùi ai slop" | Label, colon, and metaphor heading |
 | Slides, 2026-09-20 | It is 2 a.m. and the shop is slow | "chẳng ai viết kiểu này cả" | Staged scene |
 | Slides, 2026-10-28 | Nhãn trên khung video: "Video: The PagerDuty Platform Overview, 99 giây" | "chẳng ai cần cái thông tin này cả. Ai cũng biết nó là video, chẳng ai cần biết 99 giây" | Label restating the medium and its length |

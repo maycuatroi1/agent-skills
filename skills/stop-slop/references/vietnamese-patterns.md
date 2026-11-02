@@ -542,6 +542,7 @@ lọt. Rà riêng mọi title, heading, tiêu đề và phụ đề hình, chữ
 | Câu hỏi chung chung | Tốt tới đâu | Gọi tên phép đo, hoặc câu hỏi người đọc thật sự hỏi |
 | Tính từ tự chứng nhận | So sánh công bằng; Phân tích khách quan | So sánh; Phân tích |
 | Câu thesis làm heading | Mảng và cây là cùng một thứ | Lưu cây nhị phân trong mảng |
+| Thesis ẩn dụ hai vế làm title | Tokenizer là một bộ nén, và tiếng Việt đang trả thuế cho nó | Tiếng Việt tốn thêm token vì từ điển và dấu cách |
 | Khung đánh số dẫn chiếu khắp bài | Tầng 0 tới 4, rồi "ở tầng 3" | Gọi phần bằng nội dung: "phần chia thặng dư" |
 | Khuôn "Từ X tới Y" | 7.8 One request, from the process to the answer | Xem mục 19 |
 | Nhãn kể loại media, thời lượng, nền tảng | Video: The PagerDuty Platform Overview, 99 giây | Bỏ nhãn; lưu ý trình chiếu (cần mạng) để trong speaker notes |
@@ -549,6 +550,13 @@ lọt. Rà riêng mọi title, heading, tiêu đề và phụ đề hình, chữ
 Title của bài hay tài liệu không dùng câu hỏi; tác giả dặn "đừng dùng câu hỏi làm title". Heading bên trong thì
 được dùng câu người đọc thật sự hỏi, cụ thể tới mức trả lời được ("Không có W thì tính thế nào"). Câu hỏi treo kiểu
 teaser ("Tốt tới đâu", "Vì sao điều này quan trọng") thì không.
+
+Title hai vế nối bằng ", và" là khuôn tiêu đề tiếng Anh dịch sang: vế đầu định nghĩa lại chủ đề bằng ẩn dụ ("X là
+một Y"), vế sau cho một chủ thể không biết hành động đi trả giá ("tiếng Việt đang trả thuế"), cuối câu là đại từ
+"nó" không rõ chỉ gì. Dịch ngược ra đúng "X is a Y, and Z is paying for it". Tác giả gạch ngày 2026-11-03: "nghe rất
+là tối nghĩa và mang đặc mùi AI". Câu này lọt dù reviewer được dặn soát title, vì title nằm trong frontmatter và có
+từ chặng brief: chép riêng từng title ra rồi đọc, đừng đọc lướt trong lúc soát đoạn. Title nói điều bài đo được hoặc
+gọi tên phép đo, bằng chữ thường người đọc dùng.
 
 Tính từ tự chứng nhận ("công bằng", "khách quan", "toàn diện", "đầy đủ", "chính xác", "thật") khẳng định chất lượng
 mà phần nội dung phải tự chứng minh. Người đọc thấy chữ đó là biết ai viết. Bỏ tính từ; nếu cách so sánh có điểm
