@@ -1,7 +1,7 @@
 ---
 name: stop-slop
 description: Draft, edit, or review English and Vietnamese prose to remove AI tells while preserving facts, uncertainty, and the author's voice. Use for "bỏ giọng AI", "viết cho tự nhiên", "stop-slop", prose rewrites, or editorial reviews. Includes phrase and structural checks, Vietnamese usage guidance, authorship and evidence boundaries, and a six-dimension review rubric. Not a style filter for code, formulas, or structured data.
-version: 0.6.1
+version: 0.6.2
 ---
 
 # stop-slop
