@@ -1,7 +1,7 @@
 ---
 name: curator
-description: Review a harness from its own recent sessions and propose context, CLI, skill, rule, hook or permission changes with evidence; nothing changes until the person accepts. Use for "/curator", "curate the harness", "review recent sessions", "tối ưu harness", "tối ưu context", "context quá lớn", or to turn repeated commands into a CLI and repeated workflows into a skill.
-version: 0.2.0
+description: Review a harness from its own recent sessions and propose context, CLI, skill, rule, hook, permission or knowledge-graph changes with evidence; nothing changes until the person accepts. Use for "/curator", "curate the harness", "review recent sessions", "tối ưu harness", "tối ưu context", "context quá lớn", "tối ưu knowledge graph", "kg tìm không ra", or to turn repeated commands into a CLI and repeated workflows into a skill.
+version: 0.3.0
 ---
 
 # Curator
@@ -12,14 +12,16 @@ halves:
 - `scripts/curator.py` reads the transcripts that Claude Code and Codex keep on this machine for the sessions of one
   harness and counts, without any model: tool errors and their causes, repeated commands, command sequences and
   inline scripts, corrections, skills and subagents used, how large the context was at the start and at the peak,
-  what filled it, and what every session loads before anyone types. It writes a report of about 150 lines.
+  what filled it, and what every session loads before anyone types. In a harness on the evo-agents hub it also reads
+  the knowledge graph's health through the evo-agents CLI. It writes a report of about 150 lines.
 - You read the report, open the evidence behind the few signals that matter, and turn each into one proposal: a
   change to the context, a CLI command, a skill, a rule, a hook or a permission. The person decides; you apply
   what they accept; the next review measures whether it helped.
 
 The work it exists for, in order of what it usually pays: organizing context so sessions start smaller and stay
-smaller, wrapping repeated command lines in a CLI, writing the skill a repeated workflow is missing, and fixing the
-harness where the same failure keeps coming back.
+smaller, wrapping repeated command lines in a CLI, writing the skill a repeated workflow is missing, fixing the
+harness where the same failure keeps coming back, and making the knowledge graph lead agents to the code they
+change.
 
 ## When to use
 
@@ -28,6 +30,7 @@ harness where the same failure keeps coming back.
 - The agent keeps rebuilding the same command line, or writes the same throwaway script every session.
 - The same correction or the same tool error shows up across sessions.
 - Before writing a new skill or CLI command, to see whether the sessions actually need it.
+- Agents search the knowledge graph and then grep anyway, or edit files its results never named.
 
 Skip it for a single session's problem (fix it there) and for a harness with fewer than about ten sessions in the
 window: most signals only become legible across sessions.
@@ -59,13 +62,16 @@ Same `--cluster` and `--path`; `--runtime claude` or `--runtime codex` to read o
 the path of `report.md` and two JSON files in the state directory. Read `report.md`. Do not load `figures.json`
 whole; when you need one key, read just that key.
 
+When `harness.yaml` names `hub.project`, collect also runs `evo-agents hub curator figures --project <project>
+--json` and keeps its `kg_health` as `figures.kg`: the Knowledge graph section of the report. `--no-hub` skips it.
+
 The state directory is outside the repo (`$CURATOR_STATE`, else `$XDG_STATE_HOME/curator`, else
 `~/.local/state/curator`), because the figures quote what people typed and what commands printed. Never copy it
 into a repo.
 
 ### 3. Pick the signals
 
-If the person named a lens (`/curator context`, `cli`, `skills`, `errors`), stay in it. Otherwise rank what the
+If the person named a lens (`/curator context`, `cli`, `skills`, `errors`, `kg`), stay in it. Otherwise rank what the
 report shows by sessions affected, times what it costs (tokens carried every turn, failed calls, minutes of
 re-derivation), times how cheap the fix is. Keep at most five. A review that proposes fifteen things trains the
 person to ignore the curator. `references/lenses.md` says, lens by lens, what to read in the report, what to check
@@ -110,7 +116,9 @@ event with `evo-agents hub run logs <id> --after <event - 1> --kind tool_call`. 
 `references/proposals.md`); the script records the current value as the baseline.
 
 How to design each kind of change: `references/context.md` for the context, `references/building.md` for CLI
-commands, skills, rules, hooks, permissions and memory.
+commands, skills, rules, hooks, permissions and memory, `references/kg.md` for decisions on the knowledge graph
+(`kg_decision`) and changes to how it is built or searched (`kg_code`, measured on the tune and holdout splits
+before it ships).
 
 ### 6. Present and decide
 
@@ -152,6 +160,7 @@ that made its number worse is a proposal to revert it.
 | `corrections` | turns that correct the agent, interrupts | a guard on the highest rung that works (remove, type, lint or hook, test), a rule only when none can; always with a failing example |
 | `harness` | orientation reads, re-derived boot and test commands | a map entry, an init or test script |
 | `cost` | tokens by runtime, models, subagent volume | a cheaper model for a subagent, less context per subagent |
+| `kg` | the hub's night: edited files the graph missed, empty lookups, grep after a lookup, retrieval eval, review queue, lagging sources | a graph decision (merge, deprecate, link, one rule's fixes), a ranking or build change measured by `kg eval`, a source fix |
 
 ## Rules
 
@@ -186,13 +195,15 @@ The line goes into every session's context; leave the hook out when that is not 
   finding is really a rubric gap (no init script, no seam registry), say so and use that skill's `apply` flow.
 - The evo-agents hub has its own Curator, a night shift for projects on the hub. Its lens names match these where
   they overlap. In a harness whose `harness.yaml` has `hub.project`, its figures (`curator_figures`, `digest_list`,
-  `run_tool_stats` MCP tools) cover worker runs that never ran on this machine; read them alongside the report.
+  `run_tool_stats` MCP tools) cover worker runs that never ran on this machine; read them alongside the report. The
+  `kg` lens reads its `kg_health` and changes the graph through `evo-agents hub kg`; the hub's KG optimize loop
+  (`evo-agents hub kg optimize`) applies a review rule's fixes and undoes what makes the holdout worse.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `scripts/curator.py` | the CLI: scope, collect, report, show, propose, list, decide, outcomes, backup, notice |
+| `scripts/curator.py` | the CLI: scope, collect (with the hub's kg_health), report, show, propose, list, decide, outcomes, backup, notice |
 | `scripts/_sources.py` | reads Claude Code and Codex transcripts into one shape |
 | `scripts/_figures.py` | the deterministic figures |
 | `scripts/_context.py` | the inventory of always-loaded context and its smells |
@@ -201,6 +212,8 @@ The line goes into every session's context; leave the hook out when that is not 
 | `references/context.md` | how to organize context, and the moves that make it smaller |
 | `references/building.md` | the guard ladder; how to build a CLI command, a skill, a rule, a hook, a permission, a memory |
 | `references/proposals.md` | the proposal format, kinds, metrics and lifecycle |
+| `references/kg.md` | the knowledge graph: where its numbers come from, each signal, and how to change the graph |
 | `tests/test_curator.py` | `python3 -m unittest discover -s <skill>/tests` |
 
 Requires Python 3.9 or later and `git`; standard library only. PyYAML is used when present to read `harness.yaml`.
+The `kg` lens needs `evo-agents` on the PATH and a hub login.

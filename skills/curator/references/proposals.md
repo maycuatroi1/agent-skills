@@ -81,10 +81,16 @@ metric: corrections
 remove: pip stays on the image, other tools call it. type: nothing types a shell line.
 ```
 
-**Lenses:** `context`, `cli`, `skills`, `tool_errors`, `environment`, `corrections`, `harness`, `cost`.
+**Lenses:** `context`, `cli`, `skills`, `tool_errors`, `environment`, `corrections`, `harness`, `cost`, `kg`.
 
 **Kinds:** `context` (always-loaded text or its organization), `cli` (a command or script), `skill`, `rule` (a line
-in an instruction file), `memory`, `hook`, `permission`, `harness` (init, test or boot scripts, structure), `docs`.
+in an instruction file), `memory`, `hook`, `permission`, `harness` (init, test or boot scripts, structure), `docs`,
+`kg_decision` (a decision on the knowledge graph), `kg_code` (how the graph is built or searched).
+
+Required for kind `kg_decision`: `kg_action` (`deprecate`, `merge`, `link`, or `review` for one rule's open items),
+`kg_to` for `merge` and `link`, `kg_rel` for `link`; `target` is the node id, or the rule. Required for kind
+`kg_code`: `eval`, the command that measures `kg_search` on the tune and holdout splits; `decide <id> applied`
+needs `--note` with hit@5 before and after on both. See `kg.md`.
 
 **Target:** the file the change edits (relative to the root, or `~/...` outside it), or the command it adds.
 
@@ -113,8 +119,16 @@ in an instruction file), `memory`, `hook`, `permission`, `harness` (init, test o
 | `corrections` | correction-pattern turns over prompts |
 | `big_outputs` | big outputs per 100 calls |
 | `rereads` | within-session re-reads per session |
+| `kg_miss_rate` | files edited after a kg lookup that no result ranked in its top 5, over files edited |
+| `kg_empty_rate`, `kg_fallback_rate` | empty lookups over lookups; searches right after an empty lookup over empty lookups |
+| `kg_grep_after`, `kg_unclicked` | chains of lookups a grep followed; kg searches whose files were not opened |
+| `kg_lookup_tokens_p50`, `kg_lookup_tokens_p90`, `kg_answer_tokens` | tokens of a lookup's result; tokens before the first file a result named was opened |
+| `kg_hit5[:holdout\|:<type>]` | hit@5 of kg_search in the retrieval eval, overall, on the holdout, or for one question type |
+| `kg_review:<rule>` | open items of a review rule |
+| `kg_behind` | commits the graph's sources have not read |
 
-Rates are per session or per call, so windows of different length compare. A metric measures the review window; let
+The `kg_*` metrics read the hub's night for the whole project (`kg.md`), with the hub's names where it has the
+same measure. Rates are per session or per call, so windows of different length compare. A metric measures the review window; let
 a change be in use for a few days before reading its outcome.
 
 ## Lifecycle
