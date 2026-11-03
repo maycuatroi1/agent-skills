@@ -1,153 +1,127 @@
 # Lenses
 
-Each lens is a way of reading the report. For each: where its signal is, what to open before believing it, what it
-usually leads to, and how it misleads. The thresholds are starting points; say so when you use one.
-
-## context
-
-**Read:** the Context section. Startup tokens per runtime and kind (interactive, headless, subagent), peak tokens,
-compactions, the components loaded at the start of the newest session, the instruction files with their smells,
-the skill listing (size, unused skills, lines over 500 characters, trigger phrases two skills share), MCP servers
-(calls, instruction size, deferred tools), big outputs, re-reads, orientation reads.
-
-**Check:**
-
-- What the startup number is made of. The transcript itemizes instruction files, the skill listing, MCP
-  instructions, agent listing, deferred tool names, the system prompt and hook output; the rest of the count is
-  not itemized (tool schemas are part of it). Only the itemized parts and the files behind them are yours to edit.
-- For an instruction file with dated lines or long paragraphs, read those lines: status and history in a map is
-  the usual finding.
-- For an unresolved path, check whether it names a file in a sibling repo; if so the line needs the repo name, not
-  a deletion.
-- For an unused skill, check it is not used through a slash command under another name, and ask whether the
-  window is long enough: a skill used monthly looks unused in 14 days.
-- For a big output, open the call: a one-time `git diff` of a release is fine; the same command spilling every
-  session is not.
-- For a re-read, open the session: re-reading after an edit is normal; reading the same 60k file ten times is not.
-
-**Propose:** see `context.md` for the moves. Typical: move a status paragraph out of `AGENTS.md` into the plan or
-report it describes and leave a one-line pointer; move a skill used by one harness out of the user-global
-directory; disable an MCP server a harness never calls; add a quiet flag or a `--json` field selection to a command
-whose output is large; give a file read in many sessions' first calls a one-line answer in the map.
-
-**Misleads when:** the window is short, the newest session is unusual (a long resumed session), or the token
-estimate (characters divided by 4) is taken literally for code or text with diacritics. Startup tokens are
-measured; component tokens are estimated.
-
-## cli
-
-**Read:** Repeated commands (a normalized command line in N sessions), Inline scripts (heredocs and `-c` programs
-grouped by the file they work on), Sequences (programs that follow each other in N sessions).
-
-**Check:** open two references. Is it the same job each time, with the same inputs varying in the same places? Is
-there already a command for it (a `package.json` script, a `Makefile` or `justfile` target, a `scripts/` file, a
-project CLI) that the agent did not know about? Then the fix is a line in the map, not a new command.
-
-**Propose:**
-
-- A command line rebuilt every session, especially one that sets up an environment (`export PATH=... PYTHONPATH=...
-  DSN=...`): a script in the repo, named for the job.
-- An inline script on the same files in many sessions (`python3 script on plans/active/*.yaml`): a subcommand that
-  prints the view the scripts compute, or a pointer to the tool that already does.
-- `X --help | head` in many sessions: the agent relearns a tool's interface each time; add the two lines it needs
-  to the map or to the skill that uses the tool.
-- `X 2>&1 | tail -n` in many sessions: the command is too loud; a quiet target or flag.
-- A sequence of three or four programs in many sessions: a script that runs the sequence, if the steps never need
-  judgment between them.
-
-**Misleads when:** the repeated command is routine (git status, git diff, commit), exploratory (grep, sed, find;
-the figures already leave these out), or repeated inside one long session only. Count sessions, not runs.
-
-## skills
-
-**Read:** Skills used (sessions, loads, and how: Skill tool, slash command, reading `SKILL.md`), the listing's
-unused skills, the backlog (learned skills and CLI suggestions pending, garden proposals pending), subagents started.
-
-**Check:** a workflow without a skill shows up as the same sequence of reads, commands and corrections in several
-sessions. Open them and write down the steps; if you cannot write the same steps for three sessions, it is not a
-skill yet. For a pending learned skill, look for sessions where its knowledge would have helped.
-
-**Propose:** a new skill (see `building.md`), a gotcha added to an existing skill where its sessions keep failing
-the same way, a description rewritten with the trigger phrases people actually typed, two skills with overlapping
-triggers merged or separated, a pending learned skill promoted or discarded with its evidence.
-
-**Misleads when:** usage is undercounted: a skill applied from its description without being loaded leaves no
-trace, and a seasonal skill looks dead in a short window.
-
-## tool_errors
-
-**Read:** Tool errors (rate per tool and per shell program), Repeated errors (signature, count, sessions, cause).
-
-**Check:** open the failing call and the call after it. Did the agent recover in one step (cheap) or spend several
-(expensive)? Is the failure the work itself (a test that fails before a fix is written) rather than trouble with a
-tool?
-
-**Propose:** for an error that repeats with the same signature, the highest rung of the guard ladder (`building.md`)
-that makes it stop: remove the path that fails (a wrapper that always sets the missing flag, a default that is
-right), a schema or check that refuses the wrong input early with an error message that names the fix, a test, and
-only then a line in the map ("run X before Y"). A lint config change fits when the same lint rule fails in many
-sessions for a rule the code base does not follow (a line length).
-
-**Misleads when:** `lint_failed` and `tests_failed` are the expected inner loop of real work; `wrong_input` from
-`Edit` (string not found) is often a stale read, not a tool problem.
-
-## environment
-
-**Read:** Causes flagged `(environment)`: `harness_blocked`, `server_5xx`, `rate_limit`, `network`, `credentials`,
-`os_permission`, `missing_tool`.
-
-**Check:** these are failures the agent did not cause and often cannot fix by trying harder. Read the exact
-message: a harness block usually says what to do instead.
-
-**Propose:** an install step in the init script; for a server answering 5xx, a finding for whoever owns that server,
-not a prompt change; for a block the agent keeps hitting, a fact it was never told, placed where it will be read
-before the blocked action (for example, how to wait for a background job in this runtime).
-
-## corrections
-
-**Read:** Corrections: turns that start like a correction, contain a correction phrase, or follow an interrupt.
-
-**Check:** read each one; the patterns are words, not meaning. Keep the real ones and group them by the behaviour
-they correct. For each group, open the turn before the correction and take the input that went wrong (the command,
-the edit, the answer), then run a probe that shows it still goes wrong today.
-
-**Propose:** the same correction more than once is a missing guard. Climb the guard ladder (`building.md`): remove
-the wrong path, a type or schema, a lint or a runtime guard (a hook), a behaviour test, and a one-line rule in the
-right file only when none of those can work, saying why in `## Why not higher`. Every correction proposal carries
-its failing example (`failing_ref`, `failing_input`, `failing_probe`); `curator.py propose` refuses it without one.
+Each lens is a way of reading the night's figures (`evo-agents hub curator figures --json`, key `figures`). For each:
+the keys to read, what to open before believing them, what they usually lead to, and how they mislead. The lens names
+are the hub's: a finding or proposal takes one with `--lens`. Every list entry carries `evidence` (a `session:...`
+or `run:...` spec) to open and to cite.
 
 ## harness
 
-**Read:** Orientation reads, re-derived commands (a test or boot command assembled differently in several
-sessions), files edited in several repos without a plan.
+**Read:** `harness`: `fixed_tokens_per_session` (what every session carries before work), `sources` (always-loaded
+files, MCP instructions, skills, hooks: their tokens and share), `always_loaded` (each instruction file per repo, with
+its tokens and the sessions that loaded it), `skill_list` (the skill listing, and `again_share`, the part that came
+into a context already holding it), `skill_bodies` (the text of each skill loaded), `tool_output` (tokens of tool
+results by tool), `heaviest` (the sessions that carried the most), `spool`. Also `repeated_commands` (below) and
+`clusters` (what kinds of task the sessions are).
 
-**Propose:** a map entry for the file every session reads first, a `scripts/test` or `init.sh` for the command that
-gets re-derived, and for gaps the harness-engineering rubric covers (seam registry, cross-repo plan), a pointer to
-that skill.
+**Check:**
 
-## cost
+- Read the heaviest always-loaded files themselves: status and history in a map is the usual finding; dated lines,
+  long paragraphs, paths that no longer exist.
+- A file loaded by every session is worth more than a long one loaded by few.
+- For a skill whose body is large and loaded often, read it: is the bulk a reference that could wait in a
+  `references/` file?
+- For big tool output, open a session from `heaviest`: a one-time `git diff` of a release is fine; the same command
+  spilling every session is not.
 
-**Read:** Usage (tokens by runtime, models), subagent transcripts and their calls, startup tokens of subagents.
+**Propose:** see `context.md` for the moves. Typical: move a status paragraph out of `AGENTS.md` into the plan or report
+it describes and leave a one-line pointer; move a skill used by one harness out of the user-global directory; disable
+an MCP server the harness never calls; add a quiet flag or a `--json` field selection to a command whose output is
+large; give a file read in many sessions' first calls a one-line answer in the map. Kind `docs`, `skill` or
+`global_config` (a file outside the repos).
 
-**Propose:** a cheaper model for a subagent type that only searches or summarizes; less context in what a subagent
-starts with; fewer broad reads in the main session when a subagent would return a summary. Name the numbers; cost
-proposals without numbers are opinions.
+**Misleads when:** one long resumed session dominates `heaviest`; a token estimate (characters over
+`chars_per_token`) is taken literally for code or text with diacritics.
 
-## kg
+### Repeated commands (CLI candidates)
 
-**Read:** the Knowledge graph section: what agents got from the graph (lookups, empty ones and the searches after
-them, files edited that no result ranked in its top 5, chains a grep followed, tokens per lookup), the retrieval
-eval (hit@5 overall, on the holdout, per question type), the review queue by rule, and the sources that lag. The
-figures are the hub's night for the whole project; `kg.md` has the commands behind each line.
+**Read:** `repeated_commands`: a command line run in several sessions, with `sessions`, `times` and evidence;
+`sessions.compound_bash`.
 
-**Check:** run the query of a cited session again now and look at the rank of the file the agent went on to edit; a
-graph rebuilt since the night may already answer it. Read a few review items of a rule before proposing anything
-for all of them. Read the eval per type next to its `n`.
+**Check:** open two sessions. Is it the same step every time, or the same program doing different work? Is there
+already a command for it that the agent did not find (then it is a context or skill problem)?
 
-**Propose:** a `kg_decision` (merge, deprecate, link, or one rule's fixes) for what the review queue and the
-sessions both show; a `kg_code` change with its eval for ranking or ingestion; an environment fix for a lagging
-source; a `context` or `skill` change when the graph answers and agents do not ask it. See `kg.md`.
+**Propose:** a script or a subcommand, named in the map, kind `cli`. Not every repeat is a CLI: `git status` is
+routine.
 
-**Misleads when:** misses count every file edited after any lookup, including new files and files the lookup was
-not about; a type with a handful of questions swings by chance; `ambiguous_match` is mostly harmless; the night's
-numbers lag a build made since.
+## tool_errors
+
+**Read:** `tools` (calls, errors, `error_rate`, by `source`: sessions or runs) and `programs` (per Bash program:
+`usage_errors`, wrong calls, apart from `env_errors`).
+
+**Check:** open the evidence; group failures by what went wrong, not by tool. An expected failure (a test written to
+fail, `grep` finding nothing) is not an error.
+
+**Propose:** climb the guard ladder (`building.md`): remove the failing path, a wrapper that refuses the wrong call with
+the right one, a test, an error message that names its fix; a rule last. Kind `fix`, `cli` or `lint`.
+
+## environment
+
+**Read:** `environment`: by `cause` (harness blocked, server 5xx, rate limit, network, credentials, OS permission,
+missing tool), with `samples`.
+
+**Check:** whether the cause is still live today (a 5xx of one evening is not a pattern); whether the harness blocks
+something on purpose.
+
+**Propose:** an install step, a fix outside the prompt (the hub, the worker image), a line the agent was never told.
+Kind `operation`, `fix` or `docs`.
+
+## corrections
+
+**Read:** `corrections`: the turns where the person corrected an agent, with the session.
+
+**Check:** read each one; the patterns are words, not meaning. Keep the real ones and group them by the behaviour they
+correct. For each group, open the turn before the correction and take the input that went wrong.
+
+**Propose:** the same correction more than once is a missing guard. Climb the guard ladder (`building.md`). A proposal
+whose evidence cites a correction and whose paths hold an AGENTS.md, a CLAUDE.md, a skill or `.claude` settings needs a
+probe (`proposals.md`): a task and a one-line verify that shows whether an agent repeats the mistake.
+
+## skills_memory
+
+**Read:** `skills`: per skill, `sessions`, `calls`, `typed` (as /name), the snags after a load (`bash`, `error_rate`,
+`usage_errors`, `env_errors`, `interrupts`, `corrections`) next to the baseline of every session
+(`baseline_error_rate`, `baseline_interrupt_rate`), and `run_outcomes` of the runs that loaded it; `learned_skills`,
+the backlog of continuous-learning.
+
+**Check:** a skill whose snags stand well above the baseline: open the sessions after its load and find what it told the
+agent that went wrong. A skill nobody loads in the window: is the window long enough?
+
+**Propose:** a gotcha added to the skill, a step fixed, a skill scoped to the harness that uses it, a new skill for a
+workflow `clusters` shows again and again. Kind `skill` or `memory`.
+
+## runtime and cost
+
+**Read:** `runtime.sessions` (tokens, cache reads and writes, `context` first and peak, cost, the heaviest sessions),
+`runtime.runs`, `runtime.merged_prs` (cost per merged pull request), `runtime.hooks` and `runtime.tools` (median and
+95th percentile time), `sessions.models`, `runs.cost_usd`.
+
+**Check:** a slow hook: is it every prompt or a cold start? A heavy session: which subagents and tool outputs?
+
+**Propose:** a cheaper model for a subagent that only searches or summarizes; less context in what a subagent starts
+with; a hook made asynchronous or quiet. Name the numbers; a cost proposal without numbers is an opinion.
+
+## failed_runs
+
+**Read:** `failed_runs` by cause (`failed`, `lost`, a `sample`), `stuck_steps` (plan steps not moving, with days).
+
+**Check:** read a run's events (`evo-agents hub run logs ID`). A cause that is the environment belongs to that lens.
+
+**Propose:** what would have kept the run going: a verify that can run, a missing tool on the workers, a step split.
+
+## kg_health
+
+**Read:** `kg_health`: `retrieval` (lookups, empty ones, the searches after them, files edited that no result ranked in
+its top 5, grep after a lookup, tokens per lookup), `eval` (hit@5 overall, on the holdout, per question type),
+`review.open` (the review queue by rule), `sources` (commits behind, files missing, stale, deleted), `coverage`.
+
+**Check and propose:** `kg.md`.
+
+**Misleads when:** misses count every file edited after any lookup, including new files and files the lookup was not
+about; a question type with a handful of questions swings by chance; the night's numbers lag a build made since.
+
+## The others
+
+`tech_debt` (`open_items`, `stuck_steps`), `code_health`, `docs_drift`, `security`, `product_goals` and `product`
+(`product`) are lenses of the night shift too; read them the same way: the key, two pieces of evidence, the file the
+change would touch.

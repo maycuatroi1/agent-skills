@@ -17,24 +17,23 @@ Take the highest rung that can work, strongest first:
 5. `prose`: a rule, a line of context, a document. Last, for what no machine can check (a judgment, a fact the
    agent needs).
 
-The proposal names its rung in `guard`. Below `remove`, its `## Why not higher` section says, rung by rung, why the
+The proposal's summary names its rung. Below `remove`, a `## Why not higher` section of the summary says, rung by rung, why the
 higher ones cannot work here ("the wrong command is how other repos call it, so it cannot be removed; nothing
 types a shell line; a hook can match it"). "A rule is cheaper" is not a reason.
 
-A proposal for a correction carries the failure it guards against as it happened: `failing_ref`, the transcript
-line or hub run event where it went wrong; `failing_input`, the concrete input of that time, quoted from there;
-`failing_probe`, the command or probe that shows it still goes wrong on the harness today. Run the probe before
-proposing; when it no longer fails, the harness already changed and there is nothing to guard. Never write an
-example of your own: `curator.py propose` refuses an input the cited line does not contain. The probe is also how
-the guard is verified once applied: it must now be refused or pass.
+A proposal for a correction cites the failure it guards against as it happened (the `transcript:` line or `run:`
+event where it went wrong) and carries a probe (`proposals.md`): the task that led there and a one-line verify that
+fails while an agent still repeats the mistake. Run the probe before proposing; when it no longer fails, the harness
+already changed and there is nothing to guard. Never write an example of your own: quote the input of that time from
+the line you cite. The probe is also how the hub checks the guard once merged: it must now pass.
 
 Real examples:
 
 - Sessions ran `pip install foo` in a uv project and the person said "không, dùng uv thay vì pip" twice. Prose would
   be a line "use uv, not pip" in AGENTS.md. Higher: `lint`, a PreToolUse hook on Bash that refuses `pip install`
-  with "use `uv add`" (`remove` is out: pip is on the image for other tools). Failing example: `failing_input: pip
-  install foo`, `failing_probe: echo '{"tool_input":{"command":"pip install foo"}}' | .claude/hooks/no-pip.sh`,
-  which exits 0 today.
+  with "use `uv add`" (`remove` is out: pip is on the image for other tools). Probe: the input `pip install foo` from the
+  cited line; verify `echo '{"tool_input":{"command":"pip install foo"}}' | .claude/hooks/no-pip.sh`, which exits 0
+  today.
 - An agent of a worker run wrote outside its run directory with Edit, and only Bash was checked. A rule "edit only
   inside the run" was already in the prompt and broken. Higher: `lint`, the PreToolUse guard checks Edit and Write
   too; with a behaviour `test` that feeds it a path outside the directory.
