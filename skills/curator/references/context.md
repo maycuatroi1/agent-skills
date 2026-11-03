@@ -55,7 +55,9 @@ that points to everything else, and a third layer that does not fill up with out
 
 ## Measuring
 
-Give each context proposal a metric so the next review can tell whether it worked: `startup_tokens` (median startup
-tokens of interactive sessions), `file_chars:<file>`, `listing_chars`, `big_outputs`, `rereads`, `compactions`.
-Startup tokens move with things outside the harness too (a new runtime version, a new plugin); compare the
-itemized components when the total moves for no reason you can see.
+Say in each context proposal's summary which figure should move, with its value tonight, so the next review can
+tell whether it worked: `harness.fixed_tokens_per_session`, the tokens of one file in `harness.always_loaded`,
+`harness.skill_list`, a tool's `harness.tool_output`, `runtime.sessions.context` (first and peak), compactions. The
+hub keeps the night's figures with the proposal and compares them after the merge. Fixed tokens move with things
+outside the harness too (a new runtime version, a new plugin); compare the sources when the total moves for no
+reason you can see.
