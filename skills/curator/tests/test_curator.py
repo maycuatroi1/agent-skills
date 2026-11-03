@@ -555,6 +555,118 @@ class Cli(Home):
         self.assertEqual(target.read_text(), (self.root / "AGENTS.md").read_text())
 
 
+KG_HEALTH = {
+    "build": {"id": 7, "finished_at": "2026-10-05T03:00:00Z"},
+    "retrieval": {
+        "used": 4,
+        "lookups": 20,
+        "empty": 2,
+        "empty_rate": 0.1,
+        "fallbacks": 2,
+        "fallback_rate": 1.0,
+        "edited": 10,
+        "in_top": 4,
+        "in_top_rate": 0.4,
+        "misses": 6,
+        "chains": 8,
+        "grep_after": 2,
+        "grep_after_rate": 0.25,
+        "click_rate": 0.5,
+        "tokens_per_lookup": {"p50": 250, "p90": 1400},
+        "tokens_to_answer": {"p50": 380},
+        "evidence": ["session:aaaa"],
+    },
+    "eval": {
+        "set": {"name": "demo", "version": 1},
+        "methods": {"kg_search": {"n": 40, "hit@5": 0.75}},
+        "holdout": {"kg_search": {"n": 10, "hit@5": 0.7, "tokens_per_hit": 340}},
+        "by_type": {"transcript": {"kg_search": {"n": 5, "hit@5": 0.0}}},
+    },
+    "review": {"open": {"ambiguous_match": 12, "possible_duplicate": 3}},
+    "sources": [{"source": "app", "behind": 4, "missing": 1, "stale": 0, "deleted": 0}],
+    "coverage": {"mentions": 100, "resolved_ratio": 0.9, "ambiguous_ratio": 0.05, "dangling_ratio": 0.05},
+}
+
+
+class KnowledgeGraph(Home):
+    """The graph's health comes from the evo-agents CLI; a fake one on the PATH answers here."""
+
+    draft = Cli.draft
+    refused = Cli.refused
+
+    def setUp(self) -> None:
+        super().setUp()
+        (self.root / "harness.yaml").write_text("version: 1\nhub:\n  project: demo\nrepos: []\n", encoding="utf-8")
+        bin_dir = Path(self.tmp.name) / "bin"
+        bin_dir.mkdir()
+        self.calls = Path(self.tmp.name) / "calls.txt"
+        fake = bin_dir / "evo-agents"
+        night = {"project": "demo", "night": "2026-10-05", "figures": {"kg_health": KG_HEALTH}}
+        fake.write_text(
+            f"#!/bin/sh\necho \"$@\" >> '{self.calls}'\ncat <<'EOF'\n{json.dumps(night)}\nEOF\n", encoding="utf-8"
+        )
+        fake.chmod(0o755)
+        self.saved_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = f"{bin_dir}{os.pathsep}{self.saved_path}"
+
+    def tearDown(self) -> None:
+        os.environ["PATH"] = self.saved_path
+        super().tearDown()
+
+    def test_hub_project_without_yaml(self) -> None:
+        (self.root / "harness.yaml").write_text("hub:\n  url: https://hub\n  project: 'demo'\n", encoding="utf-8")
+        self.assertEqual(curator.hub_project(self.root), "demo")
+        (self.root / "harness.yaml").write_text("repos: []\n", encoding="utf-8")
+        self.assertIsNone(curator.hub_project(self.root))
+
+    def test_collect_reads_the_hub_and_reports_it(self) -> None:
+        self.run_cli("collect", "--days", "30")
+        self.assertIn("hub curator figures --project demo --json", self.calls.read_text())
+        report = (self.state() / "report.md").read_text()
+        self.assertIn("## Knowledge graph", report)
+        self.assertIn("missed 6 (60%)", report)
+        self.assertIn("holdout 70% on 10", report)
+        self.assertIn("ambiguous_match 12", report)
+        self.assertIn("app 4 behind", report)
+        figures = json.loads((self.state() / "figures.json").read_text())
+        self.assertEqual(curator.metric("kg_miss_rate", figures, {}), 0.6)
+        self.assertEqual(curator.metric("kg_unclicked", figures, {}), 0.5)
+        self.assertEqual(curator.metric("kg_hit5:holdout", figures, {}), 0.7)
+        self.assertEqual(curator.metric("kg_hit5:transcript", figures, {}), 0.0)
+        self.assertEqual(curator.metric("kg_review:possible_duplicate", figures, {}), 3)
+        self.assertEqual(curator.metric("kg_lookup_tokens_p90", figures, {}), 1400)
+        self.assertEqual(curator.metric("kg_behind", figures, {}), 4)
+
+    def test_no_hub_and_no_cli(self) -> None:
+        self.run_cli("collect", "--days", "30", "--no-hub")
+        self.assertFalse(self.calls.exists())
+        self.assertIn("Not read: --no-hub", (self.state() / "report.md").read_text())
+        os.environ["PATH"] = "/nonexistent"
+        self.assertIn("not on PATH", curator.hub_kg("demo")["error"])
+
+    def test_kg_proposals(self) -> None:
+        self.run_cli("collect", "--days", "30")
+        head = "title: Merge the two runner nodes\nlens: kg\nkind: kg_decision\ntarget: app:runner.py\n"
+        head += "evidence:\n  - figure:kg.health.review.open.possible_duplicate\n"
+        self.assertIn("kg_action is one of", self.refused(self.draft("k1.md", head)))
+        self.assertIn("needs kg_to", self.refused(self.draft("k2.md", head + "kg_action: merge\n")))
+        out = self.run_cli(
+            "propose", "--file", str(self.draft("k3.md", head + "kg_action: merge\nkg_to: app:old/runner.py\n"
+                                                + "metric: kg_review:possible_duplicate\n"))
+        )
+        self.assertIn("baseline kg_review:possible_duplicate = 3", out)
+        code = "title: Rank files edited after a search higher\nlens: kg\nkind: kg_code\ntarget: app/kg/search.py\n"
+        code += "evidence:\n  - figure:kg.health.retrieval.misses\nmetric: kg_miss_rate\n"
+        self.assertIn("needs eval", self.refused(self.draft("k4.md", code)))
+        out = self.run_cli("propose", "--file", str(self.draft("k5.md", code + "eval: evo-agents kg eval q.jsonl\n")))
+        ident = out.split()[0]
+        err = io.StringIO()
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(err):
+            self.run_cli("decide", ident, "applied")
+        self.assertIn("hit@5 before and after", err.getvalue())
+        self.run_cli("decide", ident, "applied", "--note", "tune 0.75 -> 0.77, holdout 0.70 -> 0.70")
+
+
 class Redaction(unittest.TestCase):
     def test_patterns(self) -> None:
         text = (

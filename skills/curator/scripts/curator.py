@@ -8,6 +8,11 @@ anyone types, and writes a short report the agent reads instead of the transcrip
 evidence it needs (``show``), writes proposals (``propose``), and records what the person decided (``decide``); a
 later review measures whether an applied proposal moved its metric (``outcomes``).
 
+In a harness whose ``harness.yaml`` names ``hub.project``, ``collect`` also asks the evo-agents CLI for the
+knowledge graph's health of the latest night (``evo-agents hub curator figures``, its ``kg_health``): what agents got
+from the graph, its retrieval eval, its review queue and how far its sources lag. The report shows it and the
+``kg_*`` metrics read it; nothing about the graph is counted here.
+
     curator.py scope                 which directories and transcripts belong to this harness
     curator.py collect [--days 14]   figures, context inventory and report.md, in the state directory
     curator.py report                report.md again from the saved figures
@@ -53,13 +58,15 @@ from _sources import (  # noqa: E402
     load,
 )
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 DEFAULT_DAYS = 14
 DEFAULT_MIN_SESSIONS = 3
 NOTICE_SESSIONS = 10
 REJECTED_DAYS = 30  # a proposal like one rejected this recently is refused
-LENSES = ("context", "cli", "skills", "tool_errors", "environment", "corrections", "harness", "cost")
-KINDS = ("context", "cli", "skill", "rule", "memory", "hook", "permission", "harness", "docs")
+LENSES = ("context", "cli", "skills", "tool_errors", "environment", "corrections", "harness", "cost", "kg")
+KINDS = ("context", "cli", "skill", "rule", "memory", "hook", "permission", "harness", "docs", "kg_decision", "kg_code")
+KG_ACTIONS = ("deprecate", "merge", "link", "review")  # a kg_decision: a decision on a node, or a review rule's fixes
+HUB_TIMEOUT = 90  # seconds the evo-agents CLI has to answer
 STATES = ("open", "accepted", "rejected", "deferred", "applied", "reverted")
 ACTIONS = {
     "accept": "accepted",
@@ -133,6 +140,50 @@ def cluster_repos(root: Path) -> list[str]:
         section = text.split("\nrepos:", 1)[1] if "\nrepos:" in text else ""
         paths = [found.strip().strip("'\"") for found in re.findall(r"^\s*-?\s*path:\s*(.+)$", section, re.M)]
     return [str(Path(path).expanduser()) for path in paths]
+
+
+def hub_project(root: Path) -> str | None:
+    """The hub project a harness.yaml at ``root`` names (``hub: {project: ...}``), if any."""
+    manifest = root / "harness.yaml"
+    if not manifest.is_file():
+        return None
+    text = manifest.read_text(encoding="utf-8", errors="replace")
+    try:
+        import yaml  # optional
+
+        hub = (yaml.safe_load(text) or {}).get("hub") or {}
+        project = hub.get("project") if isinstance(hub, dict) else None
+    except Exception:
+        found = re.search(r"^hub:\s*\n(?:[ \t]+.*\n)*?[ \t]+project:\s*(\S+)", text, re.M)
+        project = found.group(1) if found else None
+    return str(project).strip("'\"") if project else None
+
+
+def hub_kg(project: str | None) -> dict:
+    """The knowledge graph's health of the project's latest night, from ``evo-agents hub curator figures``:
+    ``health`` is its ``kg_health`` (retrieval, eval, review, sources, coverage, build). Without a project, the CLI,
+    or an answer, ``error`` says why."""
+    if not project:
+        return {"error": "harness.yaml names no hub.project"}
+    if not shutil.which("evo-agents"):
+        return {"project": project, "error": "evo-agents is not on PATH"}
+    command = ["evo-agents", "hub", "curator", "figures", "--project", project, "--json"]
+    try:
+        done = subprocess.run(command, capture_output=True, text=True, timeout=HUB_TIMEOUT)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return {"project": project, "error": f"{' '.join(command)}: {error}"}
+    try:
+        night = json.loads(done.stdout)
+    except ValueError:
+        return {"project": project, "error": redact(cut((done.stderr or done.stdout).strip(), 300))}
+    health = (night.get("figures") or {}).get("kg_health") if isinstance(night, dict) else None
+    if not isinstance(health, dict):
+        return {
+            "project": project,
+            "night": night.get("night") if isinstance(night, dict) else None,
+            "error": "the night's figures hold no kg_health",
+        }
+    return {"project": project, "night": night.get("night"), "health": health}
 
 
 def scope_paths(root: Path, cluster: bool, extra: list[str]) -> list[str]:
@@ -216,7 +267,7 @@ def collect(args) -> None:
         "skipped": dict(skipped),
         "backlog": backlog(root, state),
     }
-    figures = {"meta": meta, **figures}
+    figures = {"meta": meta, **figures, "kg": {"error": "--no-hub"} if args.no_hub else hub_kg(hub_project(root))}
     index = {
         s.key: {
             "path": s.path,
@@ -456,6 +507,8 @@ def render(figures: dict, context: dict, open_proposals: list[dict]) -> str:
             f"{mem['missing_targets'][:3]}, not indexed {mem['unindexed'][:3]}"
         )
 
+    out += render_kg(figures.get("kg") or {})
+
     out += ["", "## Usage", ""]
     for runtime, u in figures["usage"].items():
         tokens = ", ".join(f"{name} {k(v)}" for name, v in u["tokens"].items())
@@ -467,6 +520,78 @@ def render(figures: dict, context: dict, open_proposals: list[dict]) -> str:
             if p.get("state") in ("open", "deferred"):
                 out.append(f"- {p['id']} [{p.get('state')}] {p.get('kind')}: {p.get('title')} -> {p.get('target')}")
     return "\n".join(out) + "\n"
+
+
+def _pct(value) -> str:
+    return f"{value:.0%}" if isinstance(value, (int, float)) else "-"
+
+
+def render_kg(kg: dict) -> list[str]:
+    """The Knowledge graph section: the hub's kg_health of the latest night, in a few lines."""
+    out = ["", "## Knowledge graph", ""]
+    health = kg.get("health")
+    if not health:
+        return out + [f"- Not read: {kg.get('error', 'no figures')}."]
+    project = kg.get("project")
+    build = health.get("build") or {}
+    out.append(
+        f"Project {project} on the hub, night {kg.get('night')}, build {build.get('id')} "
+        f"({build.get('finished_at', '-')}). Every session and run of the project counts, not only this machine's. "
+        f"Whole figures: `evo-agents hub curator figures --project {project} --json` (key figures.kg_health)."
+    )
+    r = health.get("retrieval") or {}
+    if r:
+        miss = 1 - r["in_top_rate"] if isinstance(r.get("in_top_rate"), (int, float)) else None
+        tokens = r.get("tokens_per_lookup") or {}
+        answer = r.get("tokens_to_answer") or {}
+        out.append(
+            f"- Retrieval: {r.get('used', 0)} sessions or runs looked up the graph, {r.get('lookups', 0)} lookups, "
+            f"{r.get('empty', 0)} empty ({_pct(r.get('empty_rate'))}), searches right after an empty one "
+            f"{r.get('fallbacks', 0)}. Files edited after a lookup: {r.get('edited', 0)}, in a result's top 5 "
+            f"{r.get('in_top', 0)}, missed {r.get('misses', 0)} ({_pct(miss)}). Chains a grep followed: "
+            f"{r.get('grep_after', 0)} of {r.get('chains', 0)} ({_pct(r.get('grep_after_rate'))}). Searches whose "
+            f"files were opened: {_pct(r.get('click_rate'))}. Tokens per lookup p50 {k(tokens.get('p50'))}, p90 "
+            f"{k(tokens.get('p90'))}; before the first file a result named was opened, p50 {k(answer.get('p50'))}."
+        )
+        if r.get("evidence"):
+            out.append(f"  - Worst sessions (read with the hub's transcript_lines): {', '.join(r['evidence'][:5])}")
+    ev = health.get("eval") or {}
+    if ev.get("methods"):
+        whole = (ev.get("methods") or {}).get("kg_search") or {}
+        held = (ev.get("holdout") or {}).get("kg_search") or {}
+        types = "; ".join(
+            f"{name} {_pct((row.get('kg_search') or {}).get('hit@5'))} (n={(row.get('kg_search') or {}).get('n')})"
+            for name, row in (ev.get("by_type") or {}).items()
+        )
+        out.append(
+            f"- Retrieval eval (set {(ev.get('set') or {}).get('name')} v{(ev.get('set') or {}).get('version')}): "
+            f"kg_search hit@5 {_pct(whole.get('hit@5'))} on {whole.get('n')} questions, holdout "
+            f"{_pct(held.get('hit@5'))} on {held.get('n')}, tokens per hit {held.get('tokens_per_hit')}. By type: "
+            f"{types}. Questions skipped: {ev.get('skipped', 0)}"
+            + (f" ({', '.join(f'{why} {n}' for why, n in ev['skipped_by'].items())})" if ev.get("skipped_by") else "")
+            + "."
+        )
+    review = (health.get("review") or {}).get("open") or {}
+    if review:
+        out.append(
+            "- Review queue, open items by rule: "
+            + ", ".join(f"{rule} {n}" for rule, n in sorted(review.items(), key=lambda kv: -kv[1]))
+            + f". Items: `evo-agents hub kg review --project {project} --rule RULE`."
+        )
+    lagging = [
+        f"{s.get('source')} {s.get('behind', 0)} behind, {s.get('missing', 0)} missing, {s.get('stale', 0)} stale, "
+        f"{s.get('deleted', 0)} deleted"
+        for s in health.get("sources") or []
+        if s.get("behind") or s.get("missing") or s.get("stale") or s.get("deleted")
+    ]
+    out.append("- Sources: " + ("; ".join(lagging[:8]) if lagging else "every source read up to its branch."))
+    cov = health.get("coverage") or {}
+    if cov.get("mentions"):
+        out.append(
+            f"- Mentions: {cov.get('mentions')} resolved {_pct(cov.get('resolved_ratio'))}, ambiguous "
+            f"{_pct(cov.get('ambiguous_ratio'))}, dangling {_pct(cov.get('dangling_ratio'))}."
+        )
+    return out
 
 
 def report(args) -> None:
@@ -680,6 +805,23 @@ def check_guard(data: dict, body: str) -> list[str]:
     return problems
 
 
+def check_kg(data: dict) -> list[str]:
+    """What a change of the knowledge graph lacks: a decision names its action and the other node or edge type it
+    needs; a code change names the eval that measures it before and after."""
+    problems = []
+    if data.get("kind") == "kg_decision":
+        action = data.get("kg_action")
+        if action not in KG_ACTIONS:
+            problems.append(f"kg_action is one of {', '.join(KG_ACTIONS)} (target: the node id, or the review rule)")
+        if action in ("merge", "link") and not data.get("kg_to"):
+            problems.append(f"kg_action {action} needs kg_to, the other node")
+        if action == "link" and not data.get("kg_rel"):
+            problems.append("kg_action link needs kg_rel, an edge type the graph's ontology knows")
+    if data.get("kind") == "kg_code" and not data.get("eval"):
+        problems.append("a kg_code change needs eval: the command measuring kg_search on the tune and holdout splits")
+    return problems
+
+
 def squash(text: str) -> str:
     return " ".join(str(text).split()).casefold()
 
@@ -758,6 +900,7 @@ def propose(args) -> None:
             problems.append(f"evidence {reference}: {why}")
     problems += check_guard(data, body)
     problems += check_failing_example(data, index)
+    problems += check_kg(data)
     if data.get("metric"):
         value = metric(data["metric"], figures, context)
         if value is None:
@@ -828,6 +971,8 @@ def decide(args) -> None:
     if not path.is_file():
         fail(f"no proposal {args.id}")
     data, body = parse_frontmatter(path.read_text(encoding="utf-8"))
+    if args.action == "applied" and data.get("kind") == "kg_code" and not args.note:
+        fail("a kg_code change is applied with --note giving hit@5 before and after on the tune and holdout splits")
     data["state"] = ACTIONS[args.action]
     data["decided"] = now_iso()
     if args.note:
@@ -888,6 +1033,49 @@ def metric(name: str, figures: dict, context: dict):
     if head == "rereads":
         rows = (figures.get("rereads") or {}).get("within_session") or []
         return round(len(rows) / sessions, 3) if sessions else None
+    if head.startswith("kg_"):
+        return kg_metric(head, arg, (figures.get("kg") or {}).get("health") or {})
+    return None
+
+
+def kg_metric(head: str, arg: str, health: dict):
+    """A ``kg_*`` metric from the hub's kg_health of the night collected; the names follow the hub's
+    (``evo_agents.hub.kg_coverage.METRICS``), as rates where the hub counts."""
+    r = health.get("retrieval") or {}
+
+    def rate(key: str, invert: bool = False):
+        value = r.get(key)
+        return round(1 - value if invert else value, 4) if isinstance(value, (int, float)) else None
+
+    if head == "kg_empty_rate":
+        return rate("empty_rate")
+    if head == "kg_fallback_rate":
+        return rate("fallback_rate")
+    if head == "kg_miss_rate":
+        return rate("in_top_rate", invert=True)
+    if head == "kg_grep_after":
+        return rate("grep_after_rate")
+    if head == "kg_unclicked":
+        return rate("click_rate", invert=True)
+    if head in ("kg_lookup_tokens_p50", "kg_lookup_tokens_p90"):
+        return (r.get("tokens_per_lookup") or {}).get(head.rsplit("_", 1)[1])
+    if head == "kg_answer_tokens":
+        return (r.get("tokens_to_answer") or {}).get("p50")
+    ev = health.get("eval") or {}
+    if head == "kg_hit5":
+        if arg in ("", "all"):
+            row = (ev.get("methods") or {}).get("kg_search")
+        elif arg == "holdout":
+            row = (ev.get("holdout") or {}).get("kg_search")
+        else:
+            row = ((ev.get("by_type") or {}).get(arg) or {}).get("kg_search")
+        return row.get("hit@5") if row else None
+    if head == "kg_review":
+        open_items = (health.get("review") or {}).get("open")
+        return (open_items or {}).get(arg, 0) if isinstance(open_items, dict) else None
+    if head == "kg_behind":
+        sources = health.get("sources")
+        return sum(int(s.get("behind") or 0) for s in sources) if isinstance(sources, list) else None
     return None
 
 
@@ -1005,6 +1193,7 @@ def main(argv=None) -> None:
     p.add_argument("--cluster", action="store_true", help="add the repos of harness.yaml and their worktrees")
     p.add_argument("--path", action="append", help="add a directory (repeatable)")
     p.add_argument("--include-imported", action="store_true", help="keep Codex sessions imported from elsewhere")
+    p.add_argument("--no-hub", action="store_true", help="do not ask the evo-agents hub for the knowledge graph's health")
     p.add_argument("--json", action="store_true")
     p = common(sub.add_parser("report", help="report.md again from the saved figures"))
     p.add_argument("--print", action="store_true", help="print the report instead of its path")

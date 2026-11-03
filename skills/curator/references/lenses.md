@@ -132,3 +132,22 @@ that skill.
 **Propose:** a cheaper model for a subagent type that only searches or summarizes; less context in what a subagent
 starts with; fewer broad reads in the main session when a subagent would return a summary. Name the numbers; cost
 proposals without numbers are opinions.
+
+## kg
+
+**Read:** the Knowledge graph section: what agents got from the graph (lookups, empty ones and the searches after
+them, files edited that no result ranked in its top 5, chains a grep followed, tokens per lookup), the retrieval
+eval (hit@5 overall, on the holdout, per question type), the review queue by rule, and the sources that lag. The
+figures are the hub's night for the whole project; `kg.md` has the commands behind each line.
+
+**Check:** run the query of a cited session again now and look at the rank of the file the agent went on to edit; a
+graph rebuilt since the night may already answer it. Read a few review items of a rule before proposing anything
+for all of them. Read the eval per type next to its `n`.
+
+**Propose:** a `kg_decision` (merge, deprecate, link, or one rule's fixes) for what the review queue and the
+sessions both show; a `kg_code` change with its eval for ranking or ingestion; an environment fix for a lagging
+source; a `context` or `skill` change when the graph answers and agents do not ask it. See `kg.md`.
+
+**Misleads when:** misses count every file edited after any lookup, including new files and files the lookup was
+not about; a type with a handful of questions swings by chance; `ambiguous_match` is mostly harmless; the night's
+numbers lag a build made since.
