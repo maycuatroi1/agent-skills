@@ -173,15 +173,28 @@ evo-agents worker notify --kind merge_default_branch --title "<one line>" --body
 
 with `--kind push_default_branch` for a push, and `--commit` once per commit.
 
-**CI.** The wait for CI of `ci-wait.md`, next to this file, holds here, with the same watch, the same exit
-statuses and the same fix subagents. `evo-agents worker step <id> done` runs `--verify` before it pushes, so a step whose verify
-needs CI of a commit not yet on the remote is pushed by the agent first, as the paragraph above allows,
-then recorded with `done` once the wait ends green. With Claude Code, the worker keeps the session open
-at most 30 minutes after a turn ends while a background command runs, so put `1500` in place of `5400`
-and start the watch again each time it ends with `124`, until 90 minutes have passed since the push. The
-agent pushes fix commits to the run's branch itself, never forced, with the notice above when that is a
-default branch. A merge that needs the owner's consent and waits on CI is asked with
-`evo-agents worker ask` as soon as the PR is open, with the watch started in the same turn:
+**CI.** A worker plan run does not keep the watch of `ci-wait.md` in its session: a wait there holds the worker's
+slot for as long as it lasts and the run cannot park (run #1537 of evo-agents held one for more than seven hours,
+waiting for a tag's CI, PyPI and hub builds with Monitor and loops that slept), and the worker's hook (evo-agents PR
+#424 on) refuses Monitor, `gh pr checks --watch`, `gh run watch`, a sleep of 2 minutes or more and a loop that sleeps.
+Wait with the hub instead, and end the turn:
+
+```
+evo-agents worker wait --reason "CI of <PR or commit>" --until +15m --step <id>
+```
+
+The hub parks the run, which holds no worker, and wakes this session on the same worker after 15 minutes. Then look
+once, `gh pr checks <pr> --repo <owner/repo> --required` (or `gh run list --repo <owner/repo> --commit <sha>` for a
+push without a PR), and act on what it shows as `ci-wait.md` does on the watch's exit status: every required check
+passed is its `0`, a failed one its `1` with the same fix subagents, no check reported yet its first `1`. Checks still
+pending mean wait again, until 90 minutes have passed since the push, which is its `124`. The same holds for anything
+else elsewhere the plan waits on: a package on an index, a build or a run on the hub, a deploy. A test suite or a build
+on this machine is work, not a wait, and may still run in the background. `evo-agents worker step <id> done` runs
+`--verify` before it pushes, so a step whose verify needs CI of a commit not yet on the remote is pushed by the agent
+first, as the paragraph above allows, then recorded with `done` once the checks are green. The agent pushes fix commits
+to the run's branch itself, never forced, with the notice above when that is a default branch. A merge that needs the
+owner's consent and waits on CI is asked with `evo-agents worker ask` as soon as the PR is open, with the wait asked
+in the same turn:
 
 ```
 evo-agents worker ask --category merge --question "Merge PR <n> into <default branch> once its required checks pass?" --option "merge=Merge it" --option "hold=Leave it open:step <id> stays pending" --recommended merge --recommended-reason "<what the PR changes, and the risky cases tested locally that pass>" --reversible yes --undo "Revert the merge commit with a new PR" --evidence https://github.com/<owner>/<repo>/pull/<n> --step <id>

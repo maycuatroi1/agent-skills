@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.18.0
+version: 0.19.0
 ---
 
 # Execute exec-plan
@@ -313,6 +313,9 @@ watch for that PR or run is still running. Plan-step subagents never push or ope
 wait is the main session's. Before pushing such a branch or opening such a PR, read
 `references/ci-wait.md` next to this file: the watch command, its 90-minute limit, and what to do on each
 exit status, a red check and a push without a PR included.
+In an evo-agents worker plan run (`EVO_RUN_KIND=plan`), the watch stays out of the session:
+`references/worker-plan-run.md` (CI) waits with `evo-agents worker wait`, which parks the run, and looks
+once each time the wait wakes.
 
 ## 7. Resuming is the normal case
 
