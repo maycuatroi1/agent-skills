@@ -5,8 +5,9 @@ The CLI and the worker daemon follow the nightly tag of main, the plugins follow
 itself (it reports `self_update` to the hub) is never restarted from here, and a worker whose version is locked on
 the hub keeps the CLI where it is, since both run one install. A harness's CI installs evo-ak from git @nightly,
 which is current by definition; a line evo-ak==X is that harness's lock, reported as "locked at X" and never
-counted as behind. The plugins' hooks and MCP servers run `uvx --offline --from evo-ak==X`, so each such X must be
-in uv's cache or they do nothing; the skills follow the hub (`evo-agents hub skills sync`); the hub's own version is
+counted as behind. The plugins' hooks and MCP servers run `evo-agents` from the PATH, the CLI above; plugins of
+0.56.2 and before ran `uvx --offline --from evo-ak==X` instead, so such an X must be in uv's cache until they update
+(`plugin_runtime`, empty once none pins); the skills follow the hub (`evo-agents hub skills sync`); the hub's own version is
 reported, never updated. Stdlib only, Python 3.9+.
 
   check.py                  a readable report
@@ -255,8 +256,9 @@ def uv_cached(version: str) -> bool:
 def plugin_runtime_state() -> list[dict]:
     """Each evo-ak version an installed evo plugin pins in its hooks or MCP servers, and whether uv has it.
 
-    The hooks run `uvx --offline`, and the MCP servers run the pin from uv's cache: while uvx cannot run it,
-    both run `evo-agents` from the PATH instead (one line on stderr says so), and a plugin update moves the pin."""
+    Only plugins of 0.56.2 and before pin one: their hooks run `uvx --offline` and their MCP servers the pin from uv's
+    cache, else `evo-agents` from the PATH (one line on stderr says so). Later plugins run `evo-agents` from the PATH
+    and pin nothing, so a plugin update empties this list."""
     rows = []
     for pid, entry in installed_plugin_entries().items():
         if pid.split("@")[0] not in PLUGINS or not entry.get("installPath"):
