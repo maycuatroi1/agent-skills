@@ -32,11 +32,11 @@ cited already, is refused: read `evo-agents hub curator earlier` first.
 
 ```bash
 evo-agents hub curator propose --lens LENS --kind KIND --title "the change, in one line" \
-  --path REPO:PATH [--path...] --finding ID [--evidence SPEC...] \
+  --path REPO:PATH --finding ID --evidence SPEC \
   --summary-file summary.md --plan-file draft.yaml [--probe-file probe.yaml]
 ```
 
-- `--path`: each file it would edit, in a repo of the project. The paths and what the knowledge graph says they reach
+- `--path` (repeat it): each file it would edit, in a repo of the project. The paths and what the knowledge graph says they reach
   set the tier.
 - `--finding` and `--evidence`: what it rests on, at least one.
 - `--summary-file`: the problem, the change, the expected effect and what waiting costs, and how to undo it.
