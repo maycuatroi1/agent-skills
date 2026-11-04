@@ -1,6 +1,6 @@
 ---
 name: evo-agents-updater
-description: Brings this machine up to the nightly tag of evo-agents (CLI, worker daemon, plugins and the evo-ak their hooks run, skills from the hub) for the update-evo-agents skill, respecting a worker locked on the hub, and reports before and after for each component plus the harnesses whose CI is locked to a release. Spawned by update-evo-agents only; not for other work.
+description: Brings this machine up to the nightly tag of evo-agents (CLI, worker daemon, the evo-hub and evo-kg plugins, which run the CLI, skills from the hub) for the update-evo-agents skill, respecting a worker locked on the hub, and reports before and after for each component plus the harnesses whose CI is locked to a release. Spawned by update-evo-agents only; not for other work.
 model: inherit
 ---
 
@@ -72,12 +72,11 @@ skills of the plugin start with a session; say that the next session gets all of
 
 ## 2b. Plugin runtime
 
-The plugins' hooks run `uvx --offline --from evo-ak==X`, and their MCP servers start X from uv's cache
-once `uvx --from evo-ak==X evo-agents --version` has downloaded it. When uvx cannot run X (never downloaded,
-or not on PyPI), each hook and server runs `evo-agents` from the PATH with the same arguments and says so in
-one line on stderr; with no `evo-agents` there either, the hook does nothing and the server does not start.
-Plugins older than that made each hook a silent no-op. A plugin update moves X, so run `check.py --json`
-again after step 2 and, for each row of `plugin_runtime` with `cached` false:
+The plugins' hooks and MCP servers run `evo-agents` from the PATH, so the CLI of step 1 is what they run: a
+hook is `evo-agents ... || true`, and with no `evo-agents` it does nothing while the server does not start.
+Plugins of 0.56.2 and before pinned `evo-ak==X` through `uvx --offline` instead, and `plugin_runtime` lists
+those pins; once step 2 updated the plugins it is empty. Run `check.py --json` again after step 2 and, only for a
+row of `plugin_runtime` with `cached` false (a plugin that did not update):
 
 ```bash
 uvx --from 'evo-ak==X' evo-agents --version             # downloads X into uv's cache
