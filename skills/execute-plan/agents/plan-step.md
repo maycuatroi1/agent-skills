@@ -106,12 +106,19 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    similar and the package's `test` script hardcodes a broad glob such as `tests/*.test.ts`, the
    appended path does not filter the suite. Run the underlying runner on the target instead, for
    example `node --test --import tsx tests/foo.test.ts`, and record both commands. Do not guess for an
-   unfamiliar runner; when equivalence is unclear, run the plan's command as written. Run the full
-   suite, lint or typecheck only when the verify says so or the repo requires it before a commit.
-   Test less: do not run the verify as a baseline before you start, unless you have reason to think the
+   unfamiliar runner; when equivalence is unclear, run the plan's command as written. Run a test suite,
+   lint or typecheck only when the verify says so or the repo requires it before a commit. Test once, at
+   the end: do not run the verify as a baseline before you start, unless you have reason to think the
    branch already fails it, and do not run it again when no file changed since it passed. While you
-   work, run the tests of the code you touch. Widen that when your change is risky or touches code many
-   others depend on, and write why as a decision.
+   work, write and change the tests your change needs, but run no test suite: the plan's last step
+   selects the tests the whole diff needs and runs them together. Run one test only when you cannot tell
+   otherwise whether it exercises your change, and write why as a decision.
+   When your step is that last step (the tests the plan's diff needs, then merge and deploy), the main
+   session's prompt or the step's `what` says so: select the tests by node id from
+   `git diff --stat <base>...<branch>` as `SKILL.md` section 6 (The last step) says, run them in one
+   command (`-n auto` in evo-agents), fix what fails, run the failed node ids again until they pass, and
+   report the selection with one reason a line under `decisions` and the command under `effective`.
+   The merge and the deploy are the main session's.
    Outside a worker plan run, you cannot wait for a background command's completion notice: ending
    your turn hands control back to the main session. A verify or test run expected to finish within 10
    minutes runs in the foreground, with the Bash call's `timeout` raised to fit it (up to 600000 ms). A

@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.12.0
+version: 0.13.0
 ---
 
 # Create exec plan
@@ -216,41 +216,57 @@ For multi-repo work:
 Give every acceptance criterion an `id` (`a1`, `a2`, ...), so steps can name the criteria they make true.
 Mark a criterion `invariant: true` when it must hold after every step and not only at the end, such as
 "the OpenAPI document does not change". Every step that could break an invariant runs its check, so keep
-an invariant's `verify` cheap: a contract test, lint, a narrow slice of tests. Every acceptance criterion
-needs a `verify` an agent can run, or a precise manual check when no command can prove it.
+an invariant's `verify` cheap: lint, an import rule, a grep, a command that prints the contract. Every
+acceptance criterion needs a `verify` an agent can run, or a precise manual check when no command can
+prove it. A criterion only a test can prove names that test in its `verify` (by node id); the plan's last
+step runs it with the rest of its selection.
 
 ### How much each step tests
 
-A step's `verify` tests what that step changes. It runs the tests of the code the step touches, picked by
-file or by name, plus the repo's cheap whole-repo checks (lint, import rules, contract tests). A selection
-that reaches past the step's own tests "to catch regressions", such as
-`-k "orgchart or dispatch or claim or credentials or grant"`, is the broad run under another name: in one
-evo-agents plan run a verify with that selection and the whole migration module took 35 minutes, and it
-ran three times.
+A step's `verify` runs no test suite. It runs cheap checks only: the repo's lint and format check, its
+import rules, a typecheck of the files the step touches when the repo has one, and a grep or a command
+that proves the step's outcome (the new subcommand is in `--help`, the route is in the OpenAPI document,
+the old name is gone from the code). In one evo-agents plan run a verify that ran the step's tests and the
+whole migration module took 35 minutes, and it ran three times; the tests of a step are better run once,
+on the whole diff, at the end.
+
+Testing is the work of the plan's last step (below): the executing agent selects the tests the plan's diff
+needs, runs them and fixes what fails, then merges the pull request and deploys. The plan names no test
+command for it, since which tests the diff needs is known only once the diff exists.
 
 No `verify` holds the broad run: the whole test suite, the end-to-end suite, a wide pass over neighbouring
-areas, or waiting for CI on a pull request. The broad run is the full CI of the release tag (`v*`), after
-the merge; when it fails, the next patch release fixes forward. The release step's `verify` checks its
-own outcome (the tag, the published package), never the suites again. "The full suite stays green" is
-not an invariant either: checked after every step, it repeats the slowest check of the repository many
-times for little gain.
+areas, waiting for CI on a pull request, or a review before the merge. The broad run is the
+full CI of the release tag (`v*`), after the merge; when it fails, the next patch release fixes forward.
+The release step's `verify` checks its own outcome (the tag, the published package), never the suites
+again. "The full suite stays green" is not an invariant either: checked after every step, it repeats the
+slowest check of the repository many times for little gain.
 
-When a change touches code many others depend on (a shared module, a seam), add the tests of its direct
-dependents, named by file, and say why in the step's `note`. That is still not the whole suite.
+Never check that the branch contains the latest base branch (`git merge-base --is-ancestor origin/main
+HEAD`, "the branch sits on origin/main"). The base branch moves while a verify runs, so the check fails;
+an evo-agents worker already replays a run's commits onto the moved branch before it pushes. Bringing the
+branch onto the base branch, and renumbering a migration whose number the base branch took meanwhile, is
+work of the last step, whose selection then includes the tests the move touched.
 
-Keep every `verify` fast:
+### The last step: the tests the diff needs, then merge and deploy
 
-- Run tests in parallel where the repository supports it. In evo-agents every pytest command takes
-  `-n auto` (pytest-xdist; each worker gets databases of its own).
-- Test a migration by its revision, not by the whole module: in evo-agents,
-  `python -m pytest -q -n auto tests/hub/test_migrate.py -k 0099` runs the test of revision 0099. Run the
-  whole of `test_migrate.py` only when the step changes how migrations run.
-- Never check that the branch contains the latest base branch (`git merge-base --is-ancestor origin/main
-  HEAD`, "the branch sits on origin/main"). The base branch moves while a verify runs, so the check fails
-  and forces every slow check to run again; an evo-agents worker already replays a run's commits onto
-  the moved branch before it pushes. Bringing the branch onto the base branch, and renumbering a
-  migration whose number the base branch took meanwhile, is work of the merge step, which then reruns
-  only the tests that the move touched.
+Every plan ends with one step that closes it. Its `what` says, in the plan's language:
+
+- select the tests the plan's diff needs, by node id (`path::test_name`): the tests of each changed file
+  and of the code that calls what changed, the tests named in the acceptance criteria, the contract tests
+  when an API, CLI or file format changed, a migration's test by its revision (in evo-agents,
+  `tests/hub/test_migrate.py -k 0099`); never whole files "to be safe", never the whole suite;
+- run them in one command, in parallel where the repository supports it (every evo-agents pytest command
+  takes `-n auto`), fix what fails, and run the failed node ids again until they pass;
+- then merge the pull request and deploy at once, without waiting for its CI or a review:
+  where merging into the default branch deploys (evo-agents: the hub deploys and the nightly tag follows),
+  the merge is the deploy; elsewhere run the repository's deploy right after it.
+
+It depends on every other step of its repo. Its `verify` checks the outcome cheaply, such as
+`gh pr view <branch> --json state -q .state | grep -qx MERGED`; the executor records the test command it
+selected as well. A plan of several repos has one such step per repo, in merge order, each consumer's
+after its owners'. A release step (a `v*` tag), when the plan has one, comes after it, and a red tag CI is
+fixed forward with the next patch. A plan with no pull request and no deploy (a document, a plan of plans)
+still ends with the step, which then selects and runs the tests alone.
 
 ### Two kinds of step
 
@@ -281,6 +297,7 @@ Cut a step where something has to happen between two pieces of work, not to keep
   change across a whole package with one machine check is one step, not one step per directory;
 - a seam owner's change is a step its consumers' steps depend on;
 - a checkpoint (a prescribed step, a review the user wants) gets its own step;
+- the last step (the tests the diff needs, then merge and deploy) is a step of its own;
 - work that can run in parallel, in another repo or on files no other step touches, gets its own step.
 
 Keep out of the steps what only time or a person outside the run can make true: a number that needs N nights or
@@ -322,8 +339,8 @@ An outcome step's `what`:
   mostly in ..."), never as a file-by-file sequence;
 - includes the contract, documentation, generated-artifact and cleanup work the outcome implies.
 
-Its `verify` runs the checks of every item of its `acceptance`, plus the checks of the invariants it
-could break, scoped to what the step changes as "How much each step tests" says.
+Its `verify` runs the cheap checks of every item of its `acceptance`, plus the checks of the invariants it
+could break, as "How much each step tests" says; an item only a test proves is proven by the last step.
 
 A prescribed step's `what` names exact files, symbols, commands and order, as far as the investigation
 established them.
@@ -381,7 +398,7 @@ steps:
       invariants it must keep, and starting points the investigation found. No file-by-file route.
     acceptance: [a1]
     depends_on: []
-    verify: Tests of what this step changes, for a1 and the invariants it could break, from the repo root.
+    verify: Cheap check of a1 and the invariants it could break (lint, import rules, a grep), from the repo root.
     status: pending
     blocking: true
     note: Why this ordering or verification matters.
@@ -395,6 +412,18 @@ steps:
     status: pending
     blocking: true
     note: Why this step is prescribed rather than an outcome.
+  - id: 3
+    repo: repository-name
+    title: Tests of the diff pass; merged and deployed
+    what: >
+      Select the tests the plan's diff needs by node id (the changed files' tests, their callers', the
+      tests the criteria name, the contract tests), run them in one command, fix what fails, then merge
+      the pull request and deploy at once, without waiting for its CI.
+    depends_on: [1, 2]
+    verify: gh pr view feat/outcome-slug --json state -q .state | grep -qx MERGED
+    status: pending
+    blocking: true
+    note: The full suite runs on the release tag's CI; a red tag CI is fixed with the next patch.
 
 seams_touched:
   - name: contract-name
@@ -466,10 +495,12 @@ Before writing, verify that:
 - Every blocking step has verification.
 - Every step's `verify` is one shell command line with no prose in it, and every command it calls exists
   (check a CLI's subcommands with `--help` rather than guessing them).
-- Every acceptance criterion has an `id` and is proven by the `verify` of at least one step.
-- No `verify` runs the whole suite, the end-to-end suite or a selection wider than its step's own tests,
-  waits for CI, or checks that the branch contains the base branch; every evo-agents pytest command
-  takes `-n auto`.
+- Every acceptance criterion has an `id` and is proven by the `verify` of at least one step, or by a test
+  its own `verify` names, which the last step runs.
+- No step's `verify` runs a test suite, waits for CI or a review, or checks that the branch
+  contains the base branch: lint, import rules, a typecheck, a grep or a command proving the outcome.
+- The plan ends with the last step of "How much each step tests" (one per repo in merge order): it selects
+  the tests the diff needs by node id, runs them, fixes what fails, then merges and deploys at once.
 - Every id in an outcome step's `acceptance` names an existing criterion, and its `what` restates those
   criteria in words.
 - No outcome step lays out a file-by-file route, and every prescribed step is one of the cases Phase 3

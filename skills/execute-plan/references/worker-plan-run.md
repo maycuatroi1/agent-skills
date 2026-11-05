@@ -56,8 +56,8 @@ evo-agents worker step <id> pending --repo <repo> --evidence "<what landed, what
 
 When the step's acceptance names criteria of the plan's acceptance (`a4`), `done` takes one `--proof ID=VALUE`
 for each, copied from the report's `proofs`: the test that proves it (`path::test_name`), the command that shows it,
-or `n/a: why`. The hub refuses `done` without one for each and keeps them with the step; the Judge reads the criterion
-and the locator, not your prose. A step without such criteria takes none.
+or `n/a: why`. The hub refuses `done` without one for each and keeps them with the step: a reader checks the
+criterion against the locator, not your prose. A step without such criteria takes none.
 
 `done` checks the step with its `--verify` commands, run with `/bin/sh` in the repo's worktree (repeat `--verify` once
 per command), and refuses the step when one exits non-zero. Otherwise it commits what is left in the worktree, pushes
@@ -75,9 +75,9 @@ runs the verify again on the new tree, as it must. Take the commands from the
 report's `verify_command`, the effective one when it differs, as they run from the worktree root: a plan `verify` that
 starts with `cd ~/github/<repo>` points at a developer's checkout, not at this worktree. The hub writes the run,
 `repo@commit` and each verify command's exit code into the evidence itself, so `--evidence` says what was done, plus
-the `Decision:` lines below. When the pull request's CI ran some of the verify's suites green on the commit being
-recorded, pass the rest of the verify and `gh pr checks <pr> --repo <owner/repo>` to `--verify` in their place, and
-name the CI run in `--evidence`. Never use `evo harness step`, `evo-agents hub plan` or the hub's `plan_step` tool here:
+the `Decision:` lines below. The last step of the plan (section 6, The last step) passes the test command it
+selected to `--verify` with the step's own verify, so the worker runs the selection once as the job and records it.
+Never use `evo harness step`, `evo-agents hub plan` or the hub's `plan_step` tool here:
 the hub writes the step from the worker's report, as the member who dispatched the run.
 
 **Ask only what the owner must decide.** A run of a hub with autonomy levels starts its prompt with an autonomy card:
@@ -96,7 +96,7 @@ that are not auto, each as deny, ask or notify, with the category to ask an ask 
   `Decision:` line with its reason and how to undo it, list it under "Decided" in `.evo-run/result.json`, and go on.
 
 Merging, deploying and releasing are yours only when the card shows K5 (merge) and K6 (deploy) as auto or notify; with
-K5 or K6 in ask, ask under `merge` or `deploy` first (CI, below, has the merge question). The hub and the worker's hook
+K5 or K6 in ask, ask under `merge` or `deploy` first (Push and merge, below, has the question). The hub and the worker's hook
 enforce the card on their own, so a refusal from either is the card applied, not a block to work around. The floors hold
 at every level: a backup younger than 24 hours (`evo-agents worker backup`) before deleting data that is not the run's
 scratch, and no credential value in a commit, a push, an event or a log.
@@ -148,9 +148,9 @@ it becomes a `scope` decision only when no route reaches the step's outcome with
 an invariant or a non-goal. A step bigger than one subagent's context is not a decision: record what landed with
 `pending` and spawn the next subagent on it.
 
-**Checkpoints.** A checkpoint step (full-suite verification, review, merge, release, deploy) is the agent's: do it like
-any step, with no question. When it includes anything in the list above, ask first with `--step <id>`, do the parts that
-do not depend on the answer, and end the turn.
+**Checkpoints.** A checkpoint step (the last step that selects and runs the tests, then merges, a release, a
+deploy) is the agent's: do it like any step, with no question. When it includes anything in the list above, ask first
+with `--step <id>`, do the parts that do not depend on the answer, and end the turn.
 
 **Push and merge.** The agent may push, and merge into, the branch the plan names for a repo, even when it is the
 repo's default branch. Merging the plan's branch of a repo into that repo's default branch is K5: with K5 auto or
@@ -158,14 +158,18 @@ notify, merge it without asking (the notice below tells the owner); with K5 in a
 pushes or merges into any other branch, never force-pushes, and never rewrites history it pushed; a step that needs
 that is a `scope` decision.
 
-In a repo whose policy has `merge_check` on, the hub judges the pull request before you merge it: run
-`evo-agents worker merge-check <repo> [--pr N]`, which parks the run without holding a slot until the verdict answers
-it in this session. The check merges the current base into the head, runs the plan's verify and the hidden checks
-there, then the Judges and the security pass. Merge only on a pass, with `gh pr merge <n> --merge --match-head-commit
-<head>` at the head it judged; the worker's hook refuses a merge without a passing verdict at the current head. A fail
-lists its findings by id: fix them, push, and ask again, since a verdict holds for the head it judged alone.
-`evo-agents worker step <id> done` sends its own notice for its pushes; after
-a push or merge into a default branch the agent makes itself, it runs:
+Merge the plan's pull request as soon as the last step's tests pass, with `gh pr merge <n> --merge`: never wait for
+its CI or a review first. Where merging into the default branch deploys (evo-agents: the hub deploys and the nightly
+tag follows), the merge is the deploy; elsewhere run the repo's deploy right after it. With K5 in ask, ask once the
+tests pass, and merge on the answer:
+
+```
+evo-agents worker ask --category merge --question "Merge PR <n> into <default branch>? The tests its diff needs pass." --option "merge=Merge it" --option "hold=Leave it open:step <id> stays pending" --recommended merge --recommended-reason "<what the PR changes, and the tests selected that pass>" --reversible yes --undo "Revert the merge commit with a new PR" --evidence https://github.com/<owner>/<repo>/pull/<n> --step <id>
+```
+
+A deploy asked under `deploy` reads the same, with the release to go back to in `--undo`.
+`evo-agents worker step <id> done` sends its own notice for its pushes; after a push or merge into a default branch
+the agent makes itself, it runs:
 
 ```
 evo-agents worker notify --kind merge_default_branch --title "<one line>" --body "<what and why>" --repo <repo> --branch <branch> --commit <sha>
@@ -173,26 +177,15 @@ evo-agents worker notify --kind merge_default_branch --title "<one line>" --body
 
 with `--kind push_default_branch` for a push, and `--commit` once per commit.
 
-**CI.** A worker plan run does not keep the watch of `ci-wait.md` in its session: a wait there holds the worker's
-slot for as long as it lasts and the run cannot park (run #1537 of evo-agents held one for more than seven hours,
-waiting for a tag's CI, PyPI and hub builds with Monitor and loops that slept), and the worker's hook (evo-agents PR
-#424 on) refuses Monitor, `gh pr checks --watch`, `gh run watch`, a sleep of 2 minutes or more and a loop that sleeps.
-Wait with the hub instead, and end the turn:
+**Waiting.** A pull request's CI is never waited for. What a run may wait on is a GitHub Actions run (a release
+tag's CI, the deploy of a merge into the default branch) or something else outside the machine (a package on an
+index, a build or a run on the hub). It does not keep the watch of `ci-wait.md` in its session: a wait there holds the
+worker's slot for as long as it lasts and the run cannot park (run #1537 of evo-agents held one for more than seven
+hours, waiting for a tag's CI, PyPI and hub builds with Monitor and loops that slept), and the worker's hook
+(evo-agents PR #424 on) refuses Monitor, `gh pr checks --watch`, `gh run watch`, a sleep of 2 minutes or more and a
+loop that sleeps. A test run or a build on this machine is work, not a wait, and may still run in the background.
 
-```
-evo-agents worker wait --reason "CI of <PR or commit>" --until +15m --step <id>
-```
-
-The hub parks the run, which holds no worker, and wakes this session on the same worker after 15 minutes. Then look
-once, `gh pr checks <pr> --repo <owner/repo> --required` (or `gh run list --repo <owner/repo> --commit <sha>` for a
-push without a PR), and act on what it shows as `ci-wait.md` does on the watch's exit status: every required check
-passed is its `0`, a failed one its `1` with the same fix subagents, no check reported yet its first `1`. Checks still
-pending mean wait again, until 90 minutes have passed since the push, which is its `124`. The same holds for anything
-else elsewhere the plan waits on: a package on an index, a build or a run on the hub. A test suite or a build on this
-machine is work, not a wait, and may still run in the background.
-
-A GitHub Actions run, such as the CI of a release tag or the deploy of a merge into the default branch, is waited for
-on the run itself rather than on a timer. Take its id, the `databaseId` of
+A GitHub Actions run is waited for on the run itself rather than on a timer. Take its id, the `databaseId` of
 `gh run list --repo <owner/repo> --workflow <file> --branch <tag or branch> --limit 1 --json databaseId` (repeat it a
 few seconds after the push when the list is still empty), then:
 
@@ -206,22 +199,20 @@ or when it completes; the message carries the run's status, conclusion and faile
 its build and publish need the CI, so nothing is published while the other jobs finish. Waiting for the end alone, such
 as a deploy whose result is all that counts, adds `--contains status=completed`; a later attempt of the same run,
 `--contains attempt=<n>`. A hub without this kind (before evo-agents PR #459) answers 422, and so does one that cannot
-read the run's repo: then wait with `--until +15m` as above. `evo-agents worker step <id> done` runs
-`--verify` before it pushes, so a step whose verify needs CI of a commit not yet on the remote is pushed by the agent
-first, as the paragraph above allows, then recorded with `done` once the checks are green. The agent pushes fix commits
-to the run's branch itself, never forced, with the notice above when that is a default branch. A merge that needs the
-owner's consent and waits on CI is asked with `evo-agents worker ask` as soon as the PR is open, with the wait asked
-in the same turn:
+read the run's repo: then wait on a timer and end the turn, which is also how anything else outside the machine is
+waited for:
 
 ```
-evo-agents worker ask --category merge --question "Merge PR <n> into <default branch> once its required checks pass?" --option "merge=Merge it" --option "hold=Leave it open:step <id> stays pending" --recommended merge --recommended-reason "<what the PR changes, and the risky cases tested locally that pass>" --reversible yes --undo "Revert the merge commit with a new PR" --evidence https://github.com/<owner>/<repo>/pull/<n> --step <id>
+evo-agents worker wait --reason "<what and why>" --until +15m --step <id>
 ```
 
-On `0` with a yes, merge without asking again. A deploy asked under `deploy` reads the same, with the release to go
-back to in `--undo`. After 90 minutes without a result, ask the owner and end the turn:
+The hub parks the run, which holds no worker, and wakes this session on the same worker after 15 minutes; look once
+(`gh run view <id> --repo <owner/repo>`), and wait again while it still runs. The agent pushes fix commits itself,
+never forced, with the notice above when that is a default branch. After 90 minutes without a result, ask the owner
+and end the turn:
 
 ```
-evo-agents worker ask --category scope --question "CI of <PR or commit> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --recommended-reason "<the checks still pending, and why they may still finish>" --evidence https://github.com/<owner>/<repo>/pull/<n> --step <id>
+evo-agents worker ask --category scope --question "<the run> gave no result in 90 minutes. Wait longer?" --option "wait=Wait 90 more minutes" --option "pending=Leave step <id> pending" --recommended wait --recommended-reason "<the jobs still running, and why they may still finish>" --evidence https://github.com/<owner>/<repo>/actions/runs/<id> --step <id>
 ```
 
 **Waiting on another plan.** A step that needs a step of another plan done first waits for it with
@@ -272,7 +263,9 @@ session after this one ends.
       `evo-agents worker step <id> verify` and reused by `done`, the owner asked only in the listed
       categories, each question with `--recommended` and `--recommended-reason` (an act with `--reversible`,
       and `--undo` when it can be undone; `--evidence` when there is any), a `Decision:` line for every
-      other choice, a notice after each push or merge into a default branch, and `.evo-run/result.json`
-      written once, at the end.
+      other choice, the last step's selected tests run through `--verify` and the pull request merged at
+      once with no wait on its CI, a notice after each push or merge into a default branch, a release tag's
+      CI or a deploy waited for with `evo-agents worker wait`, and `.evo-run/result.json` written once, at
+      the end.
 - [ ] In a plan run with a session per step (the prompt says `in an agent session of its own`): only
       the named step done, recorded with the commands its prompt gives, no frontier and no other step.
