@@ -1,7 +1,7 @@
 ---
 name: execute-plan
-description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.20.0
+description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status, runs the tests the diff needs at the end, then merges and deploys. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
+version: 0.21.0
 ---
 
 # Execute exec-plan
@@ -58,12 +58,12 @@ tree state already has trustworthy verbatim output from the subagent. Do not run
 targeted steps unless the plan explicitly makes them acceptance criteria or the repository cannot run
 the target in isolation.
 
-Test less, and lean toward the broad check at the end. No baseline run of a verify before the work
-starts, unless there is reason to think the branch already fails it; no rerun on a tree that has not
-changed since a passing run; no whole suite "for regressions" in a step whose verify does not ask for
-one. The plan's late step and the pull request's CI carry the broad check. This is a default, not a
-rule: a subagent may test wider when its change is risky or touches code many others depend on, and
-writes why as a `Decision:` line.
+Test once, at the end. A step's verify is cheap (lint, import rules, a grep or command proving the
+outcome) and runs no test suite; no baseline run of a verify before the work starts, and no rerun on a
+tree that has not changed since a passing run. The plan's last step selects the tests the whole diff
+needs, runs them and fixes what fails (section 6, The last step), and the full suite runs only on the CI
+of a release tag. A plan written before this rule may still have test suites in its steps' verify: run
+them as written, since the verify is the step's contract, but add no test run of your own.
 
 ## 1. Load state cheaply
 
@@ -105,9 +105,9 @@ nearly every step, and reading it as "nothing ordered after this may start" turn
 `depends_on` allowed 14 levels into 22 serial steps. `blocking: true` marks a step the plan cannot
 finish without; `blocking: false` marks one whose failure the user may accept. Section 8 uses it.
 
-One barrier remains. A step whose `what` is a checkpoint (full-suite verification, baseline
-comparison, release, deploy) starts only after every step ordered before it is `done`, and no step
-ordered after it starts until it is `done`, even when `depends_on` would allow it.
+One barrier remains. A step whose `what` is a checkpoint (the last step that selects and runs the tests,
+then merges, a baseline comparison, a release, a deploy) starts only after every step ordered before it is
+`done`, and no step ordered after it starts until it is `done`, even when `depends_on` would allow it.
 
 If the frontier is empty but pending steps remain, report exactly which unmet dependency is holding
 the plan and stop. Do not invent work.
@@ -219,7 +219,7 @@ For each report, in plan order:
 1. Check that it has the exact command, `result: pass`, verbatim output, and at least one commit sha
    when `commit: yes`. Do not re-run a check the report already shows passing on its last commit.
 2. Re-run only what is missing or failed, external or manual acceptance the subagent could not do, and
-   checks a later merge invalidated. A verify that needs CI runs once the wait of section 6 ends green.
+   checks a later merge invalidated.
 3. After a parallel same-repo cluster, merge each step branch into the plan branch in step order with
    `git -C <repo> merge --no-ff <plan-branch>-step-<id>`, then run the merged steps' verify commands
    once, together in one call. On a merge conflict, abort the merge, leave that step `pending`, and run
@@ -274,9 +274,8 @@ of this session; say "not verified" for anything you cannot point to.
 
 Pushing a branch, opening a pull request, merging it into the default branch, deploying and tagging a
 release are yours to do without asking (in a worker plan run, only when the run's autonomy card shows merge and
-deploy as auto or notify, and, in a repo whose policy has `merge_check` on, after the hub's merge check passed at the
-head you merge: `references/worker-plan-run.md`). Before the merge, test locally the cases the change puts at
-risk; the broad run is the full CI of a release tag, not a wait on pull-request CI.
+deploy as auto or notify: `references/worker-plan-run.md`). The merge follows the last step's tests at once:
+never wait for the pull request's CI or a review first.
 
 Stop and ask only when:
 
@@ -288,11 +287,7 @@ Stop and ask only when:
 - going on would change the contract: an acceptance criterion, an invariant, a non-goal, the seam order
   or the rollback;
 - a step failed (section 8) and no other step is ready;
-- the CI a step waits on gave no result in 90 minutes (`references/ci-wait.md`).
-
-When the repository runs required checks on the pull request, start the background watch below as soon
-as the PR is open and merge when it ends with `0`. A red check leaves the PR open and is handled as
-`references/ci-wait.md` says.
+- a release tag's CI or a deploy a step waits on gave no result in 90 minutes (`references/ci-wait.md`).
 
 Everything else, a wrong file name in a step, an API shaped differently than the plan assumed, a better
 order, an extra file to touch, is decided by the subagent or by you and recorded as a `Decision:` line.
@@ -303,20 +298,45 @@ once in the status line together with the re-entry command, for example
 call. Re-entry costs one `evo harness show` plus one step board: the subagents read what earlier steps
 decided from the handoff, so the new session needs none of this one's history.
 
-### Wait for CI in the background
+### The last step: the tests the diff needs, then merge and deploy
 
-When a step's verify or a merge needs the CI of a pull request (the verify calls `gh pr checks` or checks
-that the PR is merged, or the plan says the checks must pass before the merge), the main session waits
-for the PR's required checks itself, in the background. It never runs `sleep` in the foreground, never
-asks the user to say when CI is done, and never ends a turn while a step waits for CI unless a background
-watch for that PR or run is still running. Plan-step subagents never push or open a pull request, so the
-wait is the main session's. Before pushing such a branch or opening such a PR, read
-`references/ci-wait.md` next to this file: the watch command, its 90-minute limit, and what to do on each
-exit status, a red check and a push without a PR included.
+A plan ends with one step (one per repo, in merge order) that selects the tests the plan's diff needs, runs
+them, fixes what fails, then merges and deploys. Do it whether or not the plan wrote it: a plan without it
+gets it before it closes, and the step's evidence says so in a `Decision:` line. One fresh subagent does
+it, as section 4 says, with `context` naming the plan branch and the base branch.
+
+- **Select.** From `git diff --stat <base>...<plan branch>` of the repo, pick tests by node id
+  (`path::test_name`): the tests of each changed file, the tests of the code that calls what changed (the
+  impact of `gitnexus impact` or the evo-kg graph's `kg_impact` when the repo has one), the tests the plan's
+  acceptance criteria name, the contract tests when an API, CLI or file format changed, and a migration's
+  test by its revision. Never a whole file "to be safe", never the whole suite. List the selection, one
+  reason a line, in the step's evidence.
+- **Run** them in one command, in parallel where the repo supports it: every evo-agents pytest command
+  takes `-n auto`. When the merge needs the branch on the moved base branch, the main session brings it
+  there before the subagent starts and says so in `context`, and the selection adds the tests the move
+  touched.
+- **Fix** what fails in the same subagent, and run the failed node ids again until they pass. A test that
+  also fails on the base branch alone is not the plan's: name it in the evidence and go on.
+- **Merge and deploy**: the main session does both as soon as the report shows the selection passing,
+  without waiting for the pull request's CI or a review. Where merging into the default branch deploys
+  (evo-agents: the hub deploys and the nightly tag follows), the merge is the deploy; elsewhere run the
+  repo's deploy right after it. The full suite runs only on the CI of a release tag, and a red tag CI is
+  fixed forward with the next patch release.
+
+Record the step with the selected test command and the step's own verify, both in the evidence (a worker
+plan run passes both to `--verify`).
+
+### Wait for a release tag's CI or a deploy in the background
+
+A pull request's CI is never waited for. A release step may still wait on the GitHub Actions run of its
+tag, and a deploy on its workflow run, to fix a red one forward. The main session waits for that run itself,
+in the background: it never runs `sleep` in the foreground, never asks the user to say when it is done,
+and never ends a turn while a step waits on it unless a background watch for that run is still running.
+Plan-step subagents never push, so the wait is the main session's. Read `references/ci-wait.md` next to
+this file first: the watch command, its 90-minute limit, and what to do on each exit status.
 In an evo-agents worker plan run (`EVO_RUN_KIND=plan`), the watch stays out of the session:
-`references/worker-plan-run.md` (CI) waits with `evo-agents worker wait`, which parks the run, and looks
-once each time the wait wakes; a GitHub Actions run, such as a release tag's CI or a deploy, is waited for with
-`--on github.workflow_run`, which wakes the run on its first failed job or when it completes.
+`references/worker-plan-run.md` (Waiting) waits with `evo-agents worker wait --on github.workflow_run`,
+which parks the run and wakes it on the run's first failed job or when it completes.
 
 ## 7. Resuming is the normal case
 
@@ -374,8 +394,10 @@ where it differs from sections 1 to 8, it wins.
       handoff (`evo-agents hub plan handoff`, or the evo-hub tool `plan_handoff`) instead of this
       session's history.
 - [ ] Main session read no product code and accepted current verbatim evidence instead of re-running it.
-- [ ] No baseline run, no rerun on an unchanged tree, and no whole suite a step's verify did not ask for,
-      unless a `Decision:` line says why; suites the CI ran green on the recorded commit cited, not rerun.
+- [ ] No baseline run, no rerun on an unchanged tree, and no test run a step's verify did not ask for.
+- [ ] The plan closed with the last step: tests selected by node id from the diff, run in one command
+      (`-n auto` in evo-agents), failures fixed, then merged and deployed at once, with no wait on the pull
+      request's CI or a review; the full suite left to the release tag's CI.
 - [ ] Commits checked and step recorded in one call, the evidence citing the last commit hash and every
       `Decision:` line of the report, with evo-cli 0.29.0 or later. In a hub harness no YAML was edited
       by hand.
@@ -384,7 +406,7 @@ where it differs from sections 1 to 8, it wins.
       the contract, or when a failure left nothing else ready. A wrong premise became a `Decision:`
       line, not a question.
 - [ ] Every claim in a status line checked against a report or command output of this session.
-- [ ] After a push or pull request whose CI a step's verify or a merge needs: `references/ci-wait.md`
-      read, required checks watched in the background, and its checklist met.
+- [ ] When a step waits on a release tag's CI or a deploy run: `references/ci-wait.md` read, the run
+      watched in the background, and its checklist met.
 - [ ] In a worker plan run (`EVO_RUN_KIND=plan`): `references/worker-plan-run.md` read before the first
       cluster, and its checklist met.
