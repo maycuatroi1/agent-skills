@@ -21,10 +21,28 @@ evo-agents worker plan --json | python3 -c 'import sys, json; b = json.load(sys.
 `.evo-run/plan.yaml` holds each step's full text as claimed. Compute the frontier as section 2 says. Checkpoint steps
 stay barriers, and they are the agent's to do.
 
-**Clusters.** Steps in different repos may run in parallel, each in its repo's worktree. Steps in the same repo run
-one after another in that worktree: `evo-agents worker step <id> done` commits whatever the worktree holds, so a
-second step in flight would land in the first one's commit. Never switch a worktree's branch; the worker refuses to
-commit or push from any branch but the run's.
+**Clusters.** Every ready step starts at once, each in a fresh subagent, as section 3 says; the Agent tool runs
+them in parallel when one message spawns them all. Run #1969 of evo-agents (2026-11-05) did steps 2, 3, 4 and 6 of
+a plan one after another although all four were ready. Where each step works:
+
+- The first ready step of each repo works in that repo's worktree, as the run's prompt lists it (`mode: serial`).
+- Every other ready step of a repo already busy works in a git worktree of its own under the run directory, on a
+  local branch of its own (`mode: parallel`). `evo-agents worker step <id> done` commits whatever the run's
+  worktree holds, so two steps in flight there would land in one commit. Make the worktrees for a cluster in one
+  call before spawning:
+
+  ```
+  git -C <run directory>/<repo> worktree add <run directory>/<repo>-wt/step-<id> -b evo-run/$EVO_RUN_ID/<repo>-step-<id> HEAD
+  ```
+
+  Keep them outside every repo's worktree, so that `done` never stages them; the run directory is writable for
+  the agent, and neither the file floor nor the wait hook refuses `git worktree`.
+- Run same-repo steps one after another instead only when they will certainly conflict on merge, as section 3
+  lists (both add a migration, both edit a generated golden file, both register in the same router or index).
+  Say which and why in the step's evidence as a `Decision:` line.
+
+Never switch the branch of the run's worktree; the worker refuses to commit or push from any branch but the run's.
+Only the run's branches are pushed: a step's local branch never leaves the machine.
 
 **Subagents.** Spawn plan-step subagents as section 4 says, with `plan_file` in place of `harness`:
 
@@ -32,18 +50,20 @@ commit or push from any branch but the run's.
 plan: <plan id>
 plan_file: <run directory>/.evo-run/plan.yaml
 step: <id>
-repo: <that repo's worktree, as the run's prompt lists it>
+repo: <the run's worktree of that repo, or the step's own worktree>
 branch: <the branch that worktree is on>
-mode: serial
+mode: serial | parallel
 commit: yes
 context: <as in section 4>
 ```
 
-`mode` is always `serial` here, so a subagent whose verify failed stashes its changes and the next step's `done`
-does not commit them. Each subagent starts fresh and reads the handoff for its step, as section 4 says; the
-worker's own note to the agent asks the same. `EVO_RUN_PLAN` and `EVO_RUN_PROJECT` name the plan and the project
-for `evo-agents hub plan handoff`, which needs this machine to be signed in to the hub. When it is not, the
-subagent reads the evidence of the steps its step depends on from `evo-agents worker plan --json`.
+With `mode: serial` a subagent whose verify failed stashes its changes, so the next step's `done` does not commit
+them. With `mode: parallel` it leaves its worktree as it is and runs no verify through the worker, since
+`evo-agents worker step <id> verify` checks the run's worktree, not its own: the main session runs the verify once
+the step's branch is merged (Record each step). Each subagent starts fresh and reads the handoff for its step, as
+section 4 says; the worker's own note to the agent asks the same. `EVO_RUN_PLAN` and `EVO_RUN_PROJECT` name the plan
+and the project for `evo-agents hub plan handoff`, which needs this machine to be signed in to the hub. When it is
+not, the subagent reads the evidence of the steps its step depends on from `evo-agents worker plan --json`.
 
 **Record each step.** Subagents never report to the hub. The main session marks a step when it spawns the subagent
 and records it after reading the report:
@@ -53,6 +73,23 @@ evo-agents worker step <id> in_progress --repo <repo>
 evo-agents worker step <id> done --repo <repo> --evidence "<text>" --verify "<command>" --proof "<a-id>=<value>"
 evo-agents worker step <id> pending --repo <repo> --evidence "<what landed, what failed, the stash>"
 ```
+
+A step that worked in its own worktree (`mode: parallel`) is recorded once its branch is in the run's branch. As
+each such subagent reports a passing step, and while no `done` of the same repo runs, merge its branch into the
+run's worktree, then record it:
+
+```
+git -C <run directory>/<repo> merge --no-ff -m "Merge step <id>: <title>" evo-run/$EVO_RUN_ID/<repo>-step-<id>
+evo-agents worker step <id> done --repo <repo> --evidence "<text>" --verify "<command>" --proof "<a-id>=<value>"
+git -C <run directory>/<repo> worktree remove <run directory>/<repo>-wt/step-<id>
+git -C <run directory>/<repo> branch -d evo-run/$EVO_RUN_ID/<repo>-step-<id>
+```
+
+`done` runs the step's verify on the merged tree, as it must: the step was never checked beside the steps merged
+before it. A merge conflict is the main session's to resolve: read both sides, keep the intent of each, regenerate
+a generated file with its own tool, commit the merge, then `done`. A verify that fails after the merge goes to a
+fresh `mode: serial` subagent in the run's worktree to fix. A step whose subagent failed keeps its branch and
+worktree unmerged, and `pending` names them in its evidence.
 
 When the step's acceptance names criteria of the plan's acceptance (`a4`), `done` takes one `--proof ID=VALUE`
 for each, copied from the report's `proofs`: the test that proves it (`path::test_name`), the command that shows it,
@@ -253,12 +290,15 @@ this file. The Work and Commit sections of `agents/plan-step.md` still hold for 
 commits; recording the step is this session's own job, with the commands its prompt gives. The handoff is already in
 the prompt: read the plan with `evo-agents worker plan` only for what it left out. When one part of the step would
 crowd this session's context, hand that part to a fresh subagent as section 4 says. The daemon starts the next step's
-session after this one ends.
+session after this one ends, so no two steps of such a run ever run at the same time, however many are ready. A plan
+whose ready steps could run together goes faster as a plan run in one session, where the clusters above apply.
 
 ## Checklist
 
 - [ ] In a worker plan run (`EVO_RUN_KIND=plan`): plan read with `evo-agents worker plan` before each
-      cluster, same-repo steps serial in the run's worktree, steps recorded only with
+      cluster, every ready step spawned in one message, a second step of a busy repo in a worktree of
+      its own under the run directory and merged into the run's worktree before its `done`, steps
+      recorded only with
       `evo-agents worker step` and runnable `--verify` commands, each step's whole verify run once through
       `evo-agents worker step <id> verify` and reused by `done`, the owner asked only in the listed
       categories, each question with `--recommended` and `--recommended-reason` (an act with `--reversible`,
