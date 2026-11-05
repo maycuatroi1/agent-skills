@@ -145,6 +145,10 @@ an invariant, a non-goal or a contract the plan fixes, or would need something u
    pass while the worktree stays as it is, so change no file after it, and commit without `git add -A`
    as below; a change, even a fix after a failure, makes `done` run it again. Copy the `verify:` lines it
    printed into `verify_output`.
+   With `mode: parallel` in a worker plan run, `repo` is a worktree of your step's own and that command
+   would check the run's worktree instead, so do not run it: run the tests of what you changed, commit,
+   and write `verify_output: not run: the main session verifies after merging <branch>`. The main
+   session merges your branch into the run's worktree and its `done` runs the whole verify there.
 4. Inspect your own diff once: `git diff --stat`, then the hunks you are unsure of.
 
 ## Commit, when `commit: yes` and the verify passed

@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status, runs the tests the diff needs at the end, then merges and deploys. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.21.0
+version: 0.22.0
 ---
 
 # Execute exec-plan
@@ -162,7 +162,8 @@ resumed for another step or another fix round. How to spawn one depends on the r
 
 - **Claude Code.** The Agent tool with `subagent_type: "plan-step"`. Never `subagent_type: "fork"`, and
   never send a new step to a finished subagent with SendMessage: both carry history the step does not
-  need. When the `plan-step` agent type is missing, link it once:
+  need. Spawn every subagent of a cluster in one message: the calls of one message run at the same
+  time, and one call per message runs the cluster one step after another. When the `plan-step` agent type is missing, link it once:
 
   ```
   mkdir -p ~/.claude/agents && ln -sf <this skill's directory>/agents/plan-step.md ~/.claude/agents/plan-step.md
