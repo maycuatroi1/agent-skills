@@ -188,8 +188,25 @@ once, `gh pr checks <pr> --repo <owner/repo> --required` (or `gh run list --repo
 push without a PR), and act on what it shows as `ci-wait.md` does on the watch's exit status: every required check
 passed is its `0`, a failed one its `1` with the same fix subagents, no check reported yet its first `1`. Checks still
 pending mean wait again, until 90 minutes have passed since the push, which is its `124`. The same holds for anything
-else elsewhere the plan waits on: a package on an index, a build or a run on the hub, a deploy. A test suite or a build
-on this machine is work, not a wait, and may still run in the background. `evo-agents worker step <id> done` runs
+else elsewhere the plan waits on: a package on an index, a build or a run on the hub. A test suite or a build on this
+machine is work, not a wait, and may still run in the background.
+
+A GitHub Actions run, such as the CI of a release tag or the deploy of a merge into the default branch, is waited for
+on the run itself rather than on a timer. Take its id, the `databaseId` of
+`gh run list --repo <owner/repo> --workflow <file> --branch <tag or branch> --limit 1 --json databaseId` (repeat it a
+few seconds after the push when the list is still empty), then:
+
+```
+evo-agents worker wait --reason "<release CI of v1.2.3, or the deploy of the merge>" --on github.workflow_run --contains repo=<owner/repo> --contains run_id=<id> --until +90m --step <id>
+```
+
+The hub reads that run every minute and wakes this session on its first failed job, while the other jobs still run,
+or when it completes; the message carries the run's status, conclusion and failed jobs. On a failed job, read its log
+(`gh run view <id> --repo <owner/repo> --log-failed`) and fix a red tag forward with the next patch release at once:
+its build and publish need the CI, so nothing is published while the other jobs finish. Waiting for the end alone, such
+as a deploy whose result is all that counts, adds `--contains status=completed`; a later attempt of the same run,
+`--contains attempt=<n>`. A hub without this kind (before evo-agents PR #459) answers 422, and so does one that cannot
+read the run's repo: then wait with `--until +15m` as above. `evo-agents worker step <id> done` runs
 `--verify` before it pushes, so a step whose verify needs CI of a commit not yet on the remote is pushed by the agent
 first, as the paragraph above allows, then recorded with `done` once the checks are green. The agent pushes fix commits
 to the run's branch itself, never forced, with the notice above when that is a default branch. A merge that needs the
