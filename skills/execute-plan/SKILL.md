@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status and waits on CI. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.19.0
+version: 0.20.0
 ---
 
 # Execute exec-plan
@@ -315,7 +315,8 @@ wait is the main session's. Before pushing such a branch or opening such a PR, r
 exit status, a red check and a push without a PR included.
 In an evo-agents worker plan run (`EVO_RUN_KIND=plan`), the watch stays out of the session:
 `references/worker-plan-run.md` (CI) waits with `evo-agents worker wait`, which parks the run, and looks
-once each time the wait wakes.
+once each time the wait wakes; a GitHub Actions run, such as a release tag's CI or a deploy, is waited for with
+`--on github.workflow_run`, which wakes the run on its first failed job or when it completes.
 
 ## 7. Resuming is the normal case
 
