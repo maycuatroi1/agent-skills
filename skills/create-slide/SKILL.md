@@ -1,7 +1,7 @@
 ---
 name: create-slide
-description: This skill should be used when the user asks to "create a slide", "make a deck", "tạo slide", "tạo presentation", "build pptx", "generate PowerPoint", "make a lecture deck", or mentions building a `.pptx` from TypeScript content, lecture slides, or instructor decks. Wraps the open-source `omelet-slide-generator` CLI (28 layouts, 3 themes, native OMML math, Shiki code highlighting) so a content file can be authored and rendered to `.pptx` in one shot.
-version: 0.1.0
+description: This skill should be used when the user asks to "create a slide", "make a deck", "tạo slide", "tạo presentation", "build pptx", "generate PowerPoint", "make a lecture deck", or mentions building a `.pptx` from TypeScript content, lecture slides, or instructor decks. Wraps the open-source `omelet-slide-generator` CLI (27 layouts, 5 themes, native OMML math, Shiki code highlighting) so a content file can be authored and rendered to `.pptx` in one shot.
+version: 0.1.1
 ---
 
 # create-slide
@@ -82,7 +82,7 @@ The CLI sets `CONTENT_DIR` to the content file's directory, so any `imagePath` i
 
 ## Layouts at a glance
 
-Set `layout: '<name>'` on each slide. All 28 layouts accept `title`, `subtitle`, and `notes`.
+Set `layout: '<name>'` on each slide. All 27 layouts accept `title`, `subtitle`, and `notes`.
 
 | Layout | Required fields | Use for |
 |---|---|---|
@@ -192,7 +192,7 @@ Contribution checklist lives in **`references/contributing.md`** with the exact 
 
 ### References
 
-- **`references/layouts.md`** — Full catalog of all 28 layouts with field shapes and a copy-paste example for each.
+- **`references/layouts.md`** — Full catalog of all 27 layouts with field shapes and a copy-paste example for each.
 - **`references/themes.md`** — `ThemeConfig` interface, the three built-in palettes, and a template for registering a custom theme.
 - **`references/content-structure.md`** — `ContentModule` / `SlideData` interfaces, multi-file deck layout, speaker-notes conventions.
 - **`references/programmatic-api.md`** — `PresentationBuilder` usage, math OMML post-processing, embedding into a build pipeline.

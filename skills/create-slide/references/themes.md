@@ -9,6 +9,8 @@ A theme controls colors, fonts, slide dimensions, header/footer style, and box s
 | `n8n` (default) | banner (colored bar) | `filled` | Vibrant blue/purple/orange — instructor-facing |
 | `minimalism` | minimal (line) | `semi-transparent` | Light, neutral, lots of whitespace |
 | `midnight` | banner (colored bar) | `filled` | Dark mode, navy + cyan accent |
+| `mono` | minimal (line) | `bordered` | Near-black on white, Georgia titles, corner logo — print-friendly |
+| `fpt-mono` | minimal (line) | `bordered` | FPT orange (`F26F21`) on warm off-white, Segoe UI, FPT logo slot |
 
 All three use `slideWidth: 13.33`, `slideHeight: 7.5` (16:9 widescreen).
 
