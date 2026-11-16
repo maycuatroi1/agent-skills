@@ -102,7 +102,7 @@ writer role or the token of a run of the project; without either, take single de
 evo-agents hub kg branch create lumen-billing-links --project P
 evo-agents hub kg branch apply lumen-billing-links --project P --ops ops.json   # all or none; --ops - reads stdin
 evo-agents hub kg branch diff lumen-billing-links --project P     # nodes and edges added, changed, removed
-evo-agents hub kg branch check lumen-billing-links --project P    # ontology violations it adds; exit 1: it would not merge
+evo-agents hub kg branch check lumen-billing-links --project P    # ontology violations it adds; exit 1: it would not merge (a hard rule, or main moved)
 evo-agents hub kg branch merge lumen-billing-links --project P
 evo-agents hub kg branch drop lumen-billing-links --project P     # an open branch you will not merge
 ```
