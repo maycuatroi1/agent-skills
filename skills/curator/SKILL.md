@@ -1,7 +1,7 @@
 ---
 name: curator
 description: Review a harness from its own recent sessions and runs on the evo-agents hub and propose context, CLI, skill, rule, hook, permission or knowledge-graph changes with evidence, through the evo-agents CLI; nothing changes until the proposal is accepted. Use for "/curator", "curate the harness", "review recent sessions", "tối ưu harness", "tối ưu context", "context quá lớn", "tối ưu knowledge graph", "kg tìm không ra", "kg_init", "cấu hình knowledge graph mới", "configure a new knowledge graph", or to turn repeated commands into a CLI and repeated workflows into a skill.
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Curator
@@ -197,7 +197,7 @@ The hub also retires an entry shown in `evolve.exposure_limit` review runs (30 b
 | `skills_memory` | `skills`, `learned_skills`: loads, the snags after a load, what the runs that load them did | a new skill, a gotcha added to one, a skill scoped down |
 | `runtime`, `cost` | `runtime`, `sessions`, `runs`: tokens, cache, peak context, compactions, hook and tool time, cost | less context per run, a cheaper model for a subagent, a slow hook made quiet |
 | `failed_runs` | `failed_runs`, `stuck_steps` | what would have kept the run going |
-| `kg_health` | `kg_health`: edited files the graph missed, empty lookups, grep after a lookup, eval, review queue, lagging sources | a graph decision, a ranking or build change measured by `kg eval`, a source fix |
+| `kg_health` | `kg_health`: edited files the graph missed, empty lookups, grep after a lookup, eval, review queue, lagging sources | a graph decision or a draft branch (`hub kg branch`), a ranking or build change measured by `kg eval` on the hub, a source fix |
 | `agent_system` | `traces` of a system with an `optimizes` edge: an agent's failed turns, escalations, cost, empty kg queries | a review run's `agent_config` change of an agent's instructions, skill or model, or of a graph's sources |
 | `kg_init` | the data profile, the build coverage, the strategy list, the starter-set measures (a run of its own, not a night's turn) | a decision: strategy and settings, applied by the hub, with the numbers behind each part |
 | CLI candidates (`harness`, `cost`) | `repeated_commands` | a script or subcommand, registered in the map |
@@ -236,4 +236,4 @@ The hub also has `tech_debt`, `code_health`, `docs_drift`, `security`, `product_
 | `references/context.md` | how to organize context, and the moves that make it smaller |
 | `references/building.md` | the guard ladder; how to build a CLI command, a skill (and evolve one), a rule, a hook, a permission, a playbook entry, a memory |
 | `references/proposals.md` | findings and proposals on the hub: evidence, the draft plan, a change in several repos, kinds and tiers (the `kg_impact` rule), the probe, evolving the change |
-| `references/kg.md` | the knowledge graph: where its numbers come from, each signal, how to change the graph, and the kg_init run that configures a new one |
+| `references/kg.md` | the knowledge graph: where its numbers come from, each signal, how to change the graph (decisions, draft branches, ontology rules), and the kg_init run that configures a new one |

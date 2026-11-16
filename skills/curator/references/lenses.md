@@ -117,7 +117,7 @@ with; a hook made asynchronous or quiet. Name the numbers; a cost proposal witho
 
 **Read:** `kg_health`: `retrieval` (lookups, empty ones, the searches after them, files edited that no result ranked in
 its top 5, grep after a lookup, tokens per lookup), `eval` (hit@5 overall, on the holdout, per question type),
-`review.open` (the review queue by rule), `sources` (commits behind, files missing, stale, deleted), `coverage`.
+`review.open` (the review queue by rule, the ontology rules as `kg_review_ontology`), `sources` (commits behind, files missing, stale, deleted), `coverage`.
 
 **Check and propose:** `kg.md`.
 
