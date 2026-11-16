@@ -28,7 +28,9 @@ results by tool), `heaviest` (the sessions that carried the most), `spool`. Also
 it describes and leave a one-line pointer; move a skill used by one harness out of the user-global directory; disable
 an MCP server the harness never calls; add a quiet flag or a `--json` field selection to a command whose output is
 large; give a file read in many sessions' first calls a one-line answer in the map. Kind `docs`, `skill` or
-`global_config` (a file outside the repos).
+`global_config` (a file outside the repos). When the file is one `evolve.evolvable_paths` names and replay tasks or
+probes measure it, the accepted proposal can be evolved rather than edited once (`SKILL.md`, "Evolving a harness"):
+the evolution may rewrite the whole file, longer or shorter, with no character budget.
 
 **Misleads when:** one long resumed session dominates `heaviest`; a token estimate (characters over
 `chars_per_token`) is taken literally for code or text with diacritics.
@@ -88,7 +90,9 @@ the backlog of continuous-learning.
 agent that went wrong. A skill nobody loads in the window: is the window long enough?
 
 **Propose:** a gotcha added to the skill, a step fixed, a skill scoped to the harness that uses it, a new skill for a
-workflow `clusters` shows again and again. Kind `skill` or `memory`.
+workflow `clusters` shows again and again. Kind `skill` or `memory`. A skill whose snags spread over several steps is
+a candidate for an evolution of its `SKILL.md` and files once the proposal is accepted, rather than one gotcha at a
+time.
 
 ## runtime and cost
 
@@ -119,6 +123,23 @@ its top 5, grep after a lookup, tokens per lookup), `eval` (hit@5 overall, on th
 
 **Misleads when:** misses count every file edited after any lookup, including new files and files the lookup was not
 about; a question type with a handful of questions swings by chance; the night's numbers lag a build made since.
+
+## agent_system
+
+**Read:** `traces` of each agent system with an `optimizes` edge: an agent's turns and those that failed or were
+refused, its escalations, what its runs cost, a graph's kg queries and the empty ones, and the edges taken off the
+design, each with a few `span:ID` to cite.
+
+**Check:** open the spans; a refusal the design asks for is not a failure. Read the agent's current profile version
+before proposing its instructions anew.
+
+**Propose:** a review run proposes kind `agent_config` with a system change (`worker propose --system-change-file`):
+an agent's whole `instructions`, its `skill` or its `model`, or a graph's sources or decision. Accepting it pins the
+next profile version. An evolution of the agent (`evo-agents hub curator evolve run --system-id ID --agent NAME`)
+measures candidate instructions on light tasks of the `select` split, but pins nothing yet: the holdout gate it needs is not
+measured by any run today.
+
+**Misleads when:** a system with few traces in the window; one long failing trace that dominates the counts.
 
 ## kg_init
 

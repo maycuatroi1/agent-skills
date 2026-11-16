@@ -1,7 +1,7 @@
 ---
 name: curator
 description: Review a harness from its own recent sessions and runs on the evo-agents hub and propose context, CLI, skill, rule, hook, permission or knowledge-graph changes with evidence, through the evo-agents CLI; nothing changes until the proposal is accepted. Use for "/curator", "curate the harness", "review recent sessions", "tối ưu harness", "tối ưu context", "context quá lớn", "tối ưu knowledge graph", "kg tìm không ra", "kg_init", "cấu hình knowledge graph mới", "configure a new knowledge graph", or to turn repeated commands into a CLI and repeated workflows into a skill.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Curator
@@ -67,6 +67,7 @@ evo-agents hub curator findings --limit 20
 evo-agents hub curator earlier                        # what earlier nights found and what became of it
 evo-agents hub curator playbook                       # what has helped before
 evo-agents hub curator changes                        # accepted proposals: plan, branch, PR, verdict, merge
+evo-agents hub curator evolve status                  # evolutions of a harness or an agent, and their fronts
 ```
 
 A signal an open proposal or a recent finding already covers is not a new one: read that proposal, answer it, or add
@@ -104,7 +105,8 @@ evo-agents hub curator propose --lens tool_errors --kind fix --title "..." \
 Evidence is `session:ID[:FIELD:INDEX]`, `transcript:ID[:FILE]:LINE`, `run:ID:SEQ`, `code:REPO:PATH[:LINE]` or
 `memory:ID:REV`; the hub resolves each and refuses what it cannot find. A proposal names its kind (which sets its
 first tier), the paths it would edit, the findings and evidence it rests on, a summary, and a draft plan in outcome
-steps. A proposal whose evidence cites a correction and whose paths hold an AGENTS.md, a CLAUDE.md, a skill or
+steps. A proposal that edits files of several repos names a path in each and orders its draft owner before consumer, as
+the seams of `contracts.yaml` run (`references/proposals.md`, "A change in several repos"). A proposal whose evidence cites a correction and whose paths hold an AGENTS.md, a CLAUDE.md, a skill or
 `.claude` settings needs a probe (`--probe-file`). The format, kinds and tiers: `references/proposals.md`. How to
 design each change: `references/context.md` for the context, `references/building.md` for CLI commands, skills,
 rules, hooks, permissions and memory, `references/kg.md` for the knowledge graph.
@@ -135,8 +137,54 @@ protected path, is built by hand: a branch and a pull request of its own, follow
 the repos (`~/.claude/CLAUDE.md`, `~/.claude/settings.json`, a global skill) changes every session on the machine:
 copy it first, and change it only once the person accepted that file by name.
 
+A change to a harness file (a skill's `SKILL.md` and its files, an `AGENTS.md`, a `CLAUDE.md`) or to an agent's
+configuration can be evolved instead of written once: see "Evolving a harness" below.
+
 The hub measures each merged change against the figures it was proposed on and proposes its revert when they got
 worse (`evo-agents hub curator replay`, `probe`). Read those on the next review before proposing more.
+
+### Evolving a harness
+
+A Builder makes one edit. An evolution rewrites the whole file over a few rounds, measures every candidate on light
+replay tasks of the `select` split and the active probes of its paths, and keeps the Pareto front: the candidates no
+other beats on every task. Only its best candidate goes on, through the holdout gate. Start one, with the writer role,
+when the charter's `evolve.enabled` holds and the change is a harness the tasks can measure:
+
+```bash
+# target git: files that the charter's evolve.evolvable_paths names, on the branch of accepted proposal 12
+evo-agents hub curator evolve run --repo agent-skills --path skills/curator/SKILL.md --proposal 12
+# target agent_config: the instructions and skill axis of an agent that an optimizes edge of system 2 reaches
+evo-agents hub curator evolve run --system-id 2 --agent reviewer
+evo-agents hub curator evolve status                  # newest first; --state queued|running|done|failed
+evo-agents hub curator evolve show 7                  # its candidates, their scores per task, the front
+```
+
+- No length cap: a candidate may rewrite the whole file, or the whole `instructions`, and need not keep the
+  current text's size. Do not ask the proposal for line-by-line deltas or a character budget.
+- The evolution sees the `select` split and the probes alone. Never read, cite or hand an agent a task, a result or a
+  log of the `holdout` split: the holdout is the gate, and a candidate fitted to it proves nothing.
+- Of target `git`, the best candidate is pushed to the branch of the accepted proposal `--proposal` names, and its
+  change goes on as a Builder's would: a pull request, the Judge, CI, the holdout replays and the tier rules. Without
+  an accepted proposal the branch stays and no change is made, so accept the proposal first.
+- Of target `agent_config`, the hub pins the best candidate as the profile's next version only once it wins, or
+  regresses on no task, on the system's `holdout` split. Today no evolution measures that split (the worker reads no
+  holdout task), so an agent's evolution ends `done` with its front and pins nothing. Say so when you start one:
+  the change still lands only as an `agent_config` proposal of a review run (lens `agent_system`) an admin accepts.
+- The baseline is measured once per task; a later evolution of the same base reuses the cached arm.
+
+### The playbook
+
+`evo-agents hub curator playbook` lists the entries the review runs keep, with how often each was shown and helped.
+An entry that holds only until a proposal lands (a workaround, a "do not touch X until #12 lands") is added with
+`--until-proposal`, so the hub retires it once that proposal's change merges; text that says `until proposal #12 lands`
+is read the same way. The agent of a review run writes the deltas; a session cannot:
+
+```bash
+evo-agents worker playbook add --lens tool_errors --text "Wait with the helper, not sleep and tail" \
+  --evidence transcript:<id>:812 --until-proposal 12
+```
+
+The hub also retires an entry shown in `evolve.exposure_limit` review runs (30 by default) that none found helpful.
 
 ## What the lenses look for
 
@@ -150,6 +198,7 @@ worse (`evo-agents hub curator replay`, `probe`). Read those on the next review 
 | `runtime`, `cost` | `runtime`, `sessions`, `runs`: tokens, cache, peak context, compactions, hook and tool time, cost | less context per run, a cheaper model for a subagent, a slow hook made quiet |
 | `failed_runs` | `failed_runs`, `stuck_steps` | what would have kept the run going |
 | `kg_health` | `kg_health`: edited files the graph missed, empty lookups, grep after a lookup, eval, review queue, lagging sources | a graph decision, a ranking or build change measured by `kg eval`, a source fix |
+| `agent_system` | `traces` of a system with an `optimizes` edge: an agent's failed turns, escalations, cost, empty kg queries | a review run's `agent_config` change of an agent's instructions, skill or model, or of a graph's sources |
 | `kg_init` | the data profile, the build coverage, the strategy list, the starter-set measures (a run of its own, not a night's turn) | a decision: strategy and settings, applied by the hub, with the numbers behind each part |
 | CLI candidates (`harness`, `cost`) | `repeated_commands` | a script or subcommand, registered in the map |
 
@@ -185,6 +234,6 @@ The hub also has `tech_debt`, `code_health`, `docs_drift`, `security`, `product_
 |---|---|
 | `references/lenses.md` | each lens: the figures' keys to read, what to check, what to propose, its false positives |
 | `references/context.md` | how to organize context, and the moves that make it smaller |
-| `references/building.md` | the guard ladder; how to build a CLI command, a skill, a rule, a hook, a permission, a memory |
-| `references/proposals.md` | findings and proposals on the hub: evidence, kinds, tiers, the draft plan, the probe |
+| `references/building.md` | the guard ladder; how to build a CLI command, a skill (and evolve one), a rule, a hook, a permission, a playbook entry, a memory |
+| `references/proposals.md` | findings and proposals on the hub: evidence, the draft plan, a change in several repos, kinds and tiers (the `kg_impact` rule), the probe, evolving the change |
 | `references/kg.md` | the knowledge graph: where its numbers come from, each signal, how to change the graph, and the kg_init run that configures a new one |
