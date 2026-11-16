@@ -51,6 +51,13 @@ signed in to the hub, and when it fails, the `evidence` of the steps in your ste
 `evidence` in the plan file. The handoff is a budgeted summary; a note at its end names what it left out, and
 the plan has it whole.
 
+The handoff of a hub that rates steps ends with `Difficulty: <level>; recommended model: <model>.` The main
+session read the same `difficulty` and `recommended_model` (or mapped the step's own `difficulty`: `easy` to
+`haiku`, `medium` to `sonnet`, `hard` to `opus`) and spawned you on that model, so you may run on a lighter
+model than the main session. Do the whole step all the same: do not narrow it to fit the tier. When the
+step turns out harder than its difficulty says (a migration, a concurrency or security boundary, a seam
+across repos the plan did not mark), say so in `notes`: a retry after a failed verify runs one tier up.
+
 ## Outcome steps and prescribed steps
 
 A step with an `acceptance` list is an outcome step. Each item is the id of a plan criterion (look it up

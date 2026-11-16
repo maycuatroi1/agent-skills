@@ -1,7 +1,7 @@
 ---
 name: execute-plan
 description: Run an existing exec-plan to completion. Use when the user asks to "execute the plan", "run the plan", "implement plan <slug>", "làm tiếp plan", "thực hiện plan", "chạy plan", "triển khai plan", or names a plan under plans/active to build rather than write. Each step runs in a fresh plan-step subagent; the main session writes status, runs the tests the diff needs at the end, then merges and deploys. Works in Claude Code and Codex, and drives an evo-agents worker plan run (EVO_RUN_KIND=plan).
-version: 0.22.0
+version: 0.23.0
 ---
 
 # Execute exec-plan
@@ -208,6 +208,35 @@ without a hub has no handoff; there the subagent reads the `evidence` of the ste
 in the plan file. Set `commit: no` only when the plan assigns the commit to a later step or checkpoint.
 An outcome step may come back with several commits.
 
+### Choose the subagent's model by the step's difficulty
+
+A subagent left without a model inherits the main session's, usually the heaviest and the one whose weekly
+quota runs out first. Most steps do not need it. Before each spawn, choose the model from the step's
+difficulty:
+
+1. **From the hub.** `evo-agents hub plan handoff <slug> --step <id> --json --budget-tokens 1000` (or the
+   evo-hub MCP tool `plan_handoff` with the same plan and step) returns `difficulty` (`easy`, `medium` or
+   `hard`: the step's own `difficulty`, else as the hub's rules rate it) and `recommended_model`, the model
+   the project's Token strategy (`routing.*` of its policy) gives that difficulty under the quota left now,
+   with `routing_reason` saying why. The text form ends with
+   `Difficulty: <level>; recommended model: <model>.` The main session needs only these fields, so the
+   smallest budget does; the subagent reads the full handoff itself.
+2. **Without the hub** (a harness without `hub:`, the call failing, or no `difficulty` in the answer, as
+   from an older hub or CLI): take the step's own `difficulty`. A step without one is rated as the hub
+   rates it: `hard` when its text speaks of a
+   migration, security, concurrency or a redesign, when it is the plan's last step (the tests of the diff,
+   then merge and deploy), or when it is prescribed (no `acceptance`); `easy` when it changes documents or
+   exports alone; `medium` for any other outcome step.
+3. **Pass it.** In Claude Code, set the Agent tool's `model`: `recommended_model` when it is `haiku`,
+   `sonnet` or `opus`; otherwise (null, or a gateway model such as `zai/glm-5.3` that the Agent tool cannot
+   take) the tier of the difficulty, `easy` to `haiku`, `medium` to `sonnet`, `hard` to `opus`. In Codex
+   and other runtimes, pass the model when the spawn tool takes one, and leave it out otherwise.
+4. Name the model in the step's evidence, for example `model: sonnet (medium, hub)`, so that a retry
+   (section 8) knows the tier it starts from.
+
+A chain of steps in one subagent takes the hardest of their difficulties. A step the main session does
+itself (section "Why subagents") runs on the main session's model.
+
 Do not spawn a separate review agent by default. Add an independent review only when per-symbol impact
 is HIGH or CRITICAL, the step changes an authorization, secret or destructive-mutation boundary, or the
 user asks for review.
@@ -355,6 +384,13 @@ Do not retry the same subagent prompt verbatim, and do not silently narrow the s
 step `pending` with evidence of what happened, keep running ready steps that do not depend on it, and
 ask the user once nothing else is ready.
 
+A subagent that ran on the `easy` or `medium` tier and failed its verify, for any reason but an
+environmental one, is retried one tier up: `haiku` to `sonnet`, `sonnet` to `opus` (`easy` to `medium`,
+`medium` to `hard`). Take the tier from the failed attempt's evidence, not from a new handoff: the handoff's
+`recommended_model` does not know about the failure. A step that failed on `opus` is retried on `opus`
+with the failure as its `context`. Write the change into the evidence, for example
+`model: opus (escalated from sonnet after a failed verify)`.
+
 - Verify failed for an environmental reason (missing credential, service down): report the blocker.
 - The step's premise is wrong (the file it names does not exist, the API shape differs): that is a
   route problem, not a failure. The subagent finds the way to the step's outcome and reports the choice
@@ -394,6 +430,9 @@ where it differs from sections 1 to 8, it wins.
       `fork` subagent type; Codex: `spawn_agent` with `fork_turns: "none"`), and read the plan's
       handoff (`evo-agents hub plan handoff`, or the evo-hub tool `plan_handoff`) instead of this
       session's history.
+- [ ] Each subagent spawned with the model of its step's difficulty (`recommended_model` of the handoff,
+      else `easy` to `haiku`, `medium` to `sonnet`, `hard` to `opus`), never left to inherit the main
+      session's by default, and a retry after a failed verify on `easy` or `medium` one tier up.
 - [ ] Main session read no product code and accepted current verbatim evidence instead of re-running it.
 - [ ] No baseline run, no rerun on an unchanged tree, and no test run a step's verify did not ask for.
 - [ ] The plan closed with the last step: tests selected by node id from the diff, run in one command

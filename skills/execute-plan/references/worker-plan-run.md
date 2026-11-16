@@ -65,6 +65,17 @@ section 4 says; the worker's own note to the agent asks the same. `EVO_RUN_PLAN`
 and the project for `evo-agents hub plan handoff`, which needs this machine to be signed in to the hub. When it is
 not, the subagent reads the evidence of the steps its step depends on from `evo-agents worker plan --json`.
 
+**The model of each subagent.** The main session chooses it per step as section 4 (Choose the subagent's model)
+says, never leaving it to inherit the run's model by default. Read the step's `difficulty` and `recommended_model`
+with
+`evo-agents hub plan handoff "$EVO_RUN_PLAN" --step <id> --project "$EVO_RUN_PROJECT" --json --budget-tokens 1000`;
+the model the hub recommends follows the project's Token strategy and the quota of the member's accounts now. When
+that call fails, or returns no `difficulty`, take the step's `difficulty` from `evo-agents worker plan --json` and
+map it (`easy` to `haiku`, `medium` to `sonnet`, `hard` to `opus`), or rate a step without one as section 4 says.
+A gateway model (`<prefix>/<model>`), which the Agent tool cannot take, gives the tier of the difficulty instead.
+A step whose subagent failed its verify on `easy` or `medium` goes to the
+next subagent one tier up, as section 8 says; write the model and any escalation into the step's evidence.
+
 **Record each step.** Subagents never report to the hub. The main session marks a step when it spawns the subagent
 and records it after reading the report:
 
@@ -307,5 +318,8 @@ whose ready steps could run together goes faster as a plan run in one session, w
       once with no wait on its CI, a notice after each push or merge into a default branch, a release tag's
       CI or a deploy waited for with `evo-agents worker wait`, and `.evo-run/result.json` written once, at
       the end.
+- [ ] In a worker plan run: each subagent spawned with the model of its step's difficulty (the handoff's
+      `recommended_model`, else the tier of `difficulty`), and one tier up after a failed verify on `easy`
+      or `medium`.
 - [ ] In a plan run with a session per step (the prompt says `in an agent session of its own`): only
       the named step done, recorded with the commands its prompt gives, no frontier and no other step.

@@ -1,7 +1,7 @@
 ---
 name: create-exec-plan
 description: Investigate a project, ask only decision-bearing questions, and write one complete, validated plans/active/<slug>.yaml exec-plan, stopping before implementation. Use when the user asks to "create an execution plan", "write an implementation plan", "plan this change", "create a cross-repo plan", "tạo kế hoạch triển khai", "điều tra rồi lập kế hoạch". Also drives an evo-agents worker author run (EVO_RUN_KIND=author).
-version: 0.13.0
+version: 0.14.0
 ---
 
 # Create exec plan
@@ -327,6 +327,14 @@ Every step:
   `note` and let `verify` check a trace of it that a command can read: an answered hub decision, a line in a
   report file, a link in the evidence.
 - States why it is blocking or non-blocking when that is not obvious.
+- Carries a `difficulty` of `easy`, `medium` or `hard`, the tier of model its work needs. The hub's Token
+  strategy and `execute-plan` pick the model of the step's run or subagent from it, and a retry after a
+  failed verify runs one tier up, so a light tier costs little when it proves wrong. `easy`: documents,
+  an export, a small configuration change, a version bump. `medium`: an ordinary implementation inside one
+  repo. `hard`: a migration, concurrency, security or authorization, a seam across repos, a design across
+  modules, and the last step that selects the tests and merges. Without the field the hub rates the step by
+  its text, and rates any prescribed step `hard`; set it whenever you know better. `evo-agents harness
+  validate` of evo-agents 0.70.3 or older refuses the key: update evo-agents before writing it.
 
 An outcome step's `what`:
 
@@ -397,6 +405,7 @@ steps:
       The behavior that becomes true, each criterion it satisfies restated in words, the contracts and
       invariants it must keep, and starting points the investigation found. No file-by-file route.
     acceptance: [a1]
+    difficulty: medium
     depends_on: []
     verify: Cheap check of a1 and the invariants it could break (lint, import rules, a grep), from the repo root.
     status: pending
@@ -407,6 +416,7 @@ steps:
     title: Short outcome label of an irreversible operation.
     what: >
       Exact operations in order, with files, commands and the checkpoint before the irreversible one.
+    difficulty: hard
     depends_on: [1]
     verify: Exact shell command line; a manual check goes in note, and this checks its trace.
     status: pending
@@ -419,6 +429,7 @@ steps:
       Select the tests the plan's diff needs by node id (the changed files' tests, their callers', the
       tests the criteria name, the contract tests), run them in one command, fix what fails, then merge
       the pull request and deploy at once, without waiting for its CI.
+    difficulty: hard
     depends_on: [1, 2]
     verify: gh pr view feat/outcome-slug --json state -q .state | grep -qx MERGED
     status: pending
@@ -492,6 +503,7 @@ Before writing, verify that:
   problems could not be read. Outside a hub harness, the plan has no `problems` key.
 - Merge order follows every touched seam.
 - Every step has a non-empty `title` of at most 60 characters.
+- Every step has a `difficulty` (`easy`, `medium` or `hard`) as "Step construction" says.
 - Every blocking step has verification.
 - Every step's `verify` is one shell command line with no prose in it, and every command it calls exists
   (check a CLI's subcommands with `--help` rather than guessing them).
