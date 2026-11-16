@@ -101,6 +101,12 @@ and gotchas from the evidence: what people asked for and what went wrong.
 **Verify:** start a fresh session with a request the sessions contained and check the skill is picked and its
 steps work.
 
+**Evolving one:** a skill directory, an `AGENTS.md` or a `CLAUDE.md` that the charter's `evolve.evolvable_paths` names
+can be evolved after its proposal is accepted (`evo-agents hub curator evolve run --repo REPO --path PATH --proposal
+ID`). Each candidate rewrites the whole file; there is no character cap and no rule to send line deltas. Candidates
+are measured on the `select` replay tasks and the probes of the paths, never on the `holdout` split, which gates the
+best one. The size advice above is for a skill written by hand; an evolution keeps what the tasks reward.
+
 **Retiring a skill:** never delete. Scope it down to the harness that uses it, or disable it, after checking a
 window long enough to catch occasional use. Say where it went.
 
@@ -130,6 +136,15 @@ is safe.
 
 Add only commands that read or that are confined to the repo, in the project's settings, not the user's. Never
 allow a pattern that matches a destructive command.
+
+## A playbook entry
+
+**When:** a review run learned a lesson the next nights need (a cause to check first, a false positive of a lens).
+The agent of a review run adds it with `evo-agents worker playbook add`; a session has no run to add it from.
+
+A lesson that holds only until a fix lands (a workaround, "skip this check until #12 lands") takes
+`--until-proposal ID`, so the hub retires it once that proposal's change merges and it stops steering later nights.
+An entry no review run finds helpful in `evolve.exposure_limit` showings is retired too.
 
 ## A memory
 

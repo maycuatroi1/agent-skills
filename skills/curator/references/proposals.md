@@ -64,6 +64,41 @@ steps:
   mistake). Run the task yourself on the harness as it is: when the mistake no longer happens, there is nothing to
   guard.
 
+## A change in several repos
+
+A proposal whose paths name files in several repos of the project becomes one plan in them all, on one branch name
+(`curator/<proposal>-<slug>`): the hub opens a pull request in each repo, judges each on its own, and merges a
+consumer's pull request only after its owner's merged. Write the draft so that order holds:
+
+- Give `--path` once for each file in each repo; the repos of the plan are the repos of the paths.
+- Put `repo` on every step; a step in a repo no path names is refused.
+- Order the steps owner before consumer, as the seams of the harness's `contracts.yaml` run (`owner` first, then each
+  of its `consumers`). Read the seam the change crosses before writing: when it changes a CLI, an API or a schema
+  that another repo calls, the owner's steps come first and the consumer's steps adapt to what the owner's step
+  shipped. The hub orders the repos by the seams of the project's graph; without a seam between two repos it keeps
+  the order of the draft, so the draft's order is the order of the merges.
+- Give each repo's steps a `verify` that runs in that repo, and name the seam's own `verify` in the consumer's last
+  step when the seam has one.
+
+```yaml
+id: curator-hub-cli-flag
+title: Rename the --wait flag of hub run logs and its callers
+goal: One flag name across the CLI and the skills that call it.
+steps:
+  - id: 1
+    repo: evo-agents            # owner of seam hub-cli-v1
+    what: The CLI takes --follow; --wait stays as an alias for a release.
+    verify: uv run pytest -q tests/hub/test_contract.py
+    acceptance:
+      - the contract golden lists --follow
+  - id: 2
+    repo: agent-skills          # a consumer of hub-cli-v1
+    what: The skills call --follow.
+    verify: evo-agents hub contract check skills/execute-plan/SKILL.md
+    acceptance:
+      - no skill names --wait
+```
+
 ## Kinds and tiers
 
 The kind sets the first tier: `docs`, `memory`, `test_add`, `kg_source`, `fix`, `refactor`, `lint`, `skill`, `cli`,
@@ -73,6 +108,19 @@ and the kinds always at tier 3: `test_loosen`, `verify_change`, `ci_change`, `cr
 The hub computes the tier, never the agent: from the kind, the paths (a protected glob of the charter or CI, lint and
 test configuration: tier 3; a migration or schema: at least 2; any code: at least 1), and what the knowledge graph says
 the paths reach. The answer says the tier and why.
+
+What the paths reach (`kg_impact`) raises the tier by the API a protected file uses, not by the import alone:
+
+- Before the pull request, a protected file (or one of `HARD_PATHS`) that a path reaches counts at most tier 2, so the
+  Builder can still build the branch whose diff decides.
+- Once the pull request is open, the hub reads what the diff does to the top-level names and signatures of each
+  Python file it edits. A reached protected file raises the change to tier 3 only when the diff removes or changes a
+  name that file imports or calls; one the diff breaks nothing of keeps the tier the other rules give.
+- Editing a protected file directly is still tier 3, except a harness file the charter's `evolve.evolvable_paths`
+  names: a change that edits a harness alone, whose Judge passed and whose holdout replays won, merges at tier 0.
+
+So run `kg_impact` on the paths before proposing, and keep a public name's signature when the change does not need to
+break it: an added parameter with a default reaches nothing protected, a renamed one does.
 
 | Tier | After accepting |
 |---|---|
@@ -88,6 +136,14 @@ The charter's `planned_tiers` may plan other tiers, 3 included.
 A proposal with the kind and paths (or the kind and title) of one rejected in the last 30 days is stored `dropped`,
 unless its evidence is at least twice the rejected one's. A run, the session's local run included, records at most 200
 findings and 50 proposals. A fix proposal (`--fix-of`) is the night's alone.
+
+## Evolving the change
+
+A proposal of a harness file (kind `docs`, `skill` or `global_config` on a path `evolve.evolvable_paths` names) can be
+evolved once accepted, instead of built as one edit: `evo-agents hub curator evolve run --repo REPO --path PATH
+--proposal ID` (`SKILL.md`, "Evolving a harness"). The best candidate takes the branch of that proposal's change. Say in
+the summary when an evolution is the better route: the file is long, the tasks that measure it exist, and one edit
+would not settle it.
 
 ## Answers
 
