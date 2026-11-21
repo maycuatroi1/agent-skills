@@ -6,7 +6,9 @@ version: 0.2.1
 
 # life-cli
 
-`life` is a personal life management CLI backed by Firestore (single source of truth, shared with the web app at http://life.omelet.tech). 14 command groups: todo, plan, journal, health, cal, mail, day, people, places, notes, drive, fb, tiktok, teach.
+Manage red-life centrally on https://agents.omelet.tech/p/red-life. Use the Hub UI and its life-cockpit / winwin tools first. The standalone web deployment is retired; do not deploy it or direct the user to it.
+
+`life` remains the backend/CLI utility backed by Firestore (the operational data store). Use it when a required operation is not exposed on Hub; this does not require a standalone web app. 14 command groups: todo, plan, journal, health, cal, mail, day, people, places, notes, drive, fb, tiktok, teach.
 
 | Group | Purpose |
 | --- | --- |
