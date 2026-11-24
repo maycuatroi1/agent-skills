@@ -9,7 +9,7 @@ REPO = Path(__file__).resolve().parent
 SOURCE = REPO / 'skills'
 
 IGNORED_DIRS = {'__pycache__', '.git', '.claude', '.venv', 'node_modules'}
-IGNORED_FILES = {'.skillfish.json', '.DS_Store'}
+IGNORED_FILES = {'.skillfish.json', '.evo-hub.json', '.DS_Store'}
 IGNORED_SUFFIXES = {'.pyc', '.pyo'}
 
 TARGETS = {

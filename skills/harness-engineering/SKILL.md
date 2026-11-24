@@ -1,7 +1,7 @@
 ---
 name: harness-engineering
 description: Build, audit and maintain the agent harness of a cluster of tightly-related repos (AGENTS.md maps, docs, acceptance specs, linters, cross-repo plans) with the audit, doctor, garden and plan scripts. Use for "build a harness", "harness engineering", "audit my agent setup", "set up AGENTS.md across my repos", "my repos keep breaking each other", "multi-repo agent context", "doc gardening". To author a full exec-plan, use create-exec-plan.
-version: 0.2.3
+version: 0.2.4
 ---
 
 # Harness engineering
