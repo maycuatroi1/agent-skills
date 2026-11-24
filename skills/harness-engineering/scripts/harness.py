@@ -326,7 +326,10 @@ def inventory(p):
         "lint": [n for n in LINT_NAMES if (p / n).exists()],
         "ci": [n for n in CI_DIRS if (p / n).exists()],
         "plans_dir": (p / "docs" / "exec-plans").is_dir() or (p / "plans").is_dir(),
-        "skills": sorted([d.name for d in skills.iterdir() if d.is_dir() and not d.name.startswith(".")]) if skills.is_dir() else [],
+        "skills": sorted([
+            d.name for d in skills.iterdir()
+            if d.is_dir() and not d.name.startswith(".") and d.name != "learned" and (d / "SKILL.md").is_file()
+        ]) if skills.is_dir() else [],
     }
     return inv
 

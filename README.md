@@ -37,9 +37,8 @@ npx skillfish add maycuatroi1/agent-skills
 
 ## Fallback: install.py
 
-`install.py` copies `skills/` into the runtimes of a machine that does not sync from the hub. Do not run
-it on one that does: it deletes every file the source lacks, including the `.evo-hub.json` marker that
-sync keeps in each skill it wrote, and sync then treats those directories as copies made by hand.
+`install.py` copies `skills/` into the runtimes of a machine that does not sync from the hub. It preserves
+any existing `.evo-hub.json` marker so hub-synced directories stay recognized by `evo-agents hub skills sync`.
 
 `setup.py` only writes `~/.claude/CLAUDE.md`; it never copied a single skill. Without hub sync or
 `install.py` the checked-in skills and the ones the agents actually load drift apart in silence - on
@@ -52,7 +51,7 @@ python install.py           # copy skills/ into ~/.claude/skills/ and ~/.opencod
 ```
 
 - Idempotent. `--check` after an install prints `in sync` and exits 0.
-- Skips `__pycache__`, `.skillfish.json`, `.claude/` and `*.pyc` - runtime-generated, target-side only.
+- Skips `__pycache__`, `.skillfish.json`, `.evo-hub.json`, `.claude/` and `*.pyc` - runtime-generated, target-side only.
 - Compares text files with line endings normalized, so a CRLF checkout on Windows is not reported as drift.
 - Backs the target skill up to `<root>/.backup-<timestamp>/` before overwriting anything.
 - A runtime whose parent directory is absent (no `~/.opencode`) is skipped out loud, not created.
