@@ -17,6 +17,32 @@ TARGETS = {
     'opencode': Path.home() / '.opencode' / 'skills',
 }
 
+GLOBAL_SKILLS = frozenset({
+    'continuous-learning',
+    'create-exec-plan',
+    'credentials-utils',
+    'curator',
+    'execute-plan',
+    'harness-engineering',
+    'hub-inbox',
+    'problem-intake',
+    'stop-slop',
+    'update-evo-agents',
+})
+
+PROJECT_SKILLS = {
+    'add-tasks': ('red-life',),
+    'create-slide': ('fu-teaching',),
+    'dokploy-cli': ('evo-lms', 'evo-agents'),
+    'generate-image': ('omelet-blog',),
+    'life-cli': ('red-life',),
+    'manim-explainer-video': ('omelet-blog', 'fu-teaching'),
+    'speak': ('red-life',),
+}
+
+RETIRED_SKILLS = frozenset({'gitnexus'})
+NON_GLOBAL_SKILLS = frozenset(PROJECT_SKILLS) | RETIRED_SKILLS
+
 
 def is_ignored(rel):
     if any(part in IGNORED_DIRS for part in rel.parts):
@@ -40,7 +66,7 @@ def iter_files(root):
     return sorted(found)
 
 
-def source_skills(names=None):
+def source_skills(names=None, all_skills=False):
     if not SOURCE.is_dir():
         return []
     skills = sorted(p.name for p in SOURCE.iterdir() if p.is_dir() and p.name not in IGNORED_DIRS)
@@ -50,8 +76,10 @@ def source_skills(names=None):
         if unknown:
             print(f'unknown skill(s): {", ".join(sorted(unknown))}', file=sys.stderr)
             sys.exit(2)
-        skills = [s for s in skills if s in wanted]
-    return skills
+        return [s for s in skills if s in wanted]
+    if all_skills:
+        return [s for s in skills if s not in RETIRED_SKILLS]
+    return [s for s in skills if s in GLOBAL_SKILLS]
 
 
 def normalized(path):
@@ -169,7 +197,12 @@ def main():
     parser.add_argument(
         '--skill',
         action='append',
-        help='limit to one skill, repeatable (default: every skill in skills/)',
+        help='limit to one skill, repeatable (default: global skills in GLOBAL_SKILLS)',
+    )
+    parser.add_argument(
+        '--all-skills',
+        action='store_true',
+        help='install all non-retired skills (global + project-scoped)',
     )
     parser.add_argument(
         '--dest',
@@ -177,10 +210,11 @@ def main():
     )
     args = parser.parse_args()
 
-    skills = source_skills(args.skill)
+    skills = source_skills(args.skill, all_skills=args.all_skills)
     if not skills:
         print(f'no skills found under {SOURCE}', file=sys.stderr)
         return 2
+    prune_non_global = not args.skill and not args.all_skills
 
     if args.dest:
         targets = [('dest', Path(args.dest).expanduser().resolve())]
@@ -201,16 +235,23 @@ def main():
     for name, root in targets:
         lines = []
         pending = []
+        stale = []
         for skill in skills:
             missing, differs, extra = diff_skill(skill, root)
             if missing or differs or extra:
                 lines.extend(report(skill, missing, differs, extra))
                 pending.append((skill, missing, differs, extra))
-        if not pending:
-            print(f'[{name}] {root}: in sync ({len(skills)} skills)')
+        if prune_non_global and root.is_dir():
+            for skill in sorted(NON_GLOBAL_SKILLS):
+                if (root / skill).exists() or (root / skill).is_symlink():
+                    lines.append(f'  non-global skill at global target: {skill}')
+                    stale.append(skill)
+        if not pending and not stale:
+            print(f'[{name}] {root}: in sync ({len(skills)} global skills)')
             continue
         drift += len(lines)
-        print(f'[{name}] {root}: {len(lines)} file(s) differ across {len(pending)} skill(s)')
+        total_touched = len(pending) + len(stale)
+        print(f'[{name}] {root}: {len(lines)} change(s) across {total_touched} skill(s)')
         for line in lines:
             print(line)
         if args.check:
@@ -221,13 +262,23 @@ def main():
             if kept:
                 saved.append(kept)
             sync_skill(skill, root, missing, differs, extra)
+        for skill in stale:
+            kept = backup(root, skill, stamp)
+            if kept:
+                saved.append(kept)
+            target_dir = root / skill
+            if target_dir.is_symlink() or target_dir.is_file():
+                target_dir.unlink(missing_ok=True)
+            elif target_dir.is_dir():
+                import shutil
+                shutil.rmtree(target_dir)
         if saved:
             print(f'[{name}] backed up {len(saved)} skill(s) to {root / f".backup-{stamp}"}')
-        print(f'[{name}] installed {len(pending)} skill(s)')
+        print(f'[{name}] synced {len(pending)} skill(s), pruned {len(stale)} non-global skill(s)')
 
     if args.check:
         if drift:
-            print(f'out of sync: {drift} file(s)')
+            print(f'out of sync: {drift} change(s)')
             return 1
         print('in sync')
         return 0
@@ -238,9 +289,11 @@ def main():
         for skill in skills:
             missing, differs, extra = diff_skill(skill, root)
             left += len(missing) + len(differs) + len(extra)
+        if prune_non_global and root.is_dir():
+            left += sum(1 for skill in NON_GLOBAL_SKILLS if (root / skill).exists() or (root / skill).is_symlink())
         remaining += left
         if left:
-            print(f'[{name}] still out of sync after install: {left} file(s)', file=sys.stderr)
+            print(f'[{name}] still out of sync after install: {left} item(s)', file=sys.stderr)
     return 1 if remaining else 0
 
 
