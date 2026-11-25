@@ -5,15 +5,30 @@ Agent skills for AI coding agents, following the [Agent Skills](https://agentski
 ## Installation
 
 The skills reach the team's machines through the
-[evo-agents hub](https://github.com/maycuatroi1/evo-agents/blob/main/docs/hub.md). A hub admin publishes
-every skill directory from a clean checkout of `main`; a skill whose files did not change keeps its
-version.
+[evo-agents hub](https://github.com/maycuatroi1/evo-agents/blob/main/docs/hub.md). Only the 10 core
+infrastructure skills (`GLOBAL_SKILLS` in `install.py`) are published at `--scope global`; the 7 domain-specific
+skills (`PROJECT_SKILLS` in `install.py`) are published to their respective Hub projects (`--scope project:<slug>`)
+so unrelated harnesses stay lean:
 
 ```bash
-for name in $(ls skills); do
+COMMIT=$(git rev-parse HEAD)
+# 10 global infrastructure skills
+for name in continuous-learning create-exec-plan credentials-utils curator execute-plan \
+            harness-engineering hub-inbox problem-intake stop-slop update-evo-agents; do
   evo-agents hub skills publish skills/$name --scope global \
-    --source-repo agent-skills --source-commit $(git rev-parse HEAD)
+    --source-repo agent-skills --source-commit "$COMMIT"
 done
+
+# 7 project-scoped domain skills
+evo-agents hub skills publish skills/life-cli --scope project:red-life --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/add-tasks --scope project:red-life --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/speak --scope project:red-life --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/create-slide --scope project:fu-teaching --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/dokploy-cli --scope project:evo-lms --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/dokploy-cli --scope project:evo-agents --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/generate-image --scope project:omelet-blog --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/manim-explainer-video --scope project:omelet-blog --source-repo agent-skills --source-commit "$COMMIT"
+evo-agents hub skills publish skills/manim-explainer-video --scope project:fu-teaching --source-repo agent-skills --source-commit "$COMMIT"
 ```
 
 Each machine, signed in with `evo-agents hub login`, then writes the latest versions into every agent

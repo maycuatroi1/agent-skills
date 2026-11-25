@@ -11,21 +11,28 @@ Shared skills and companion MCP servers loaded across Claude Code, Codex, OpenCo
 ## Layout
 
 ```
-skills/                 17 active skills (and retired gitnexus tombstone)
+skills/                 10 global infrastructure skills + 7 project-scoped skills (+ retired gitnexus tombstone)
+  # Global infrastructure skills (--scope global):
   harness-engineering/  cluster manifest, contracts, deployments, audit, doctor, garden
   curator/              evidence-backed Hub curator workflows and KG operations
   create-exec-plan/     cross-repo execution plan authoring
   execute-plan/         step-by-step plan runner + plan-step subagent
   continuous-learning/  SessionEnd/Stop pattern extraction and curation
-  life-cli/             mirror of red-life CLI surface (14 command groups)
-  add-tasks/            context-enriched todo creation over life CLI
   credentials-utils/    mirror of evo cred surface (ships no scripts)
-  dokploy-cli/          @dokploy/cli installer and reference
-  speak/                TTS narration skill paired with mcp/tts/server.py
+  hub-inbox/            triage and clear open Hub decisions, runs, and notices
+  problem-intake/       turn raw sources into Hub intake problems with evidence
   stop-slop/            prose anti-slop rules and Vietnamese ERE blacklist
   update-evo-agents/    workstation updater for evo-agents nightly
+  # Project-scoped domain skills (--scope project:<slug>, never global):
+  life-cli/             mirror of red-life CLI surface (project:red-life)
+  add-tasks/            context-enriched todo creation over life CLI (project:red-life)
+  speak/                TTS narration skill paired with mcp/tts/server.py (project:red-life)
+  create-slide/         omelet-slide-generator deck authoring (project:fu-teaching)
+  dokploy-cli/          @dokploy/cli installer and reference (project:evo-lms, project:evo-agents)
+  generate-image/       Gemini image generation via omelet CLI (project:omelet-blog)
+  manim-explainer-video/ Manim explainer video + dubbing (project:omelet-blog, project:fu-teaching)
 mcp/tts/server.py       FastMCP wrapper importing evo_cli.tts (PEP 723 inline deps)
-install.py              offline skill installer for ~/.claude/skills and ~/.opencode/skills
+install.py              offline global skill installer for ~/.claude/skills and ~/.opencode/skills
 setup.py                appends global typography rules to ~/.claude/CLAUDE.md
 docs/                   methodology references (harness-engineering-methodology.md)
 ```
@@ -34,7 +41,7 @@ docs/                   methodology references (harness-engineering-methodology.
 
 This repo participates in cross-repo contracts verified by sibling harnesses (`~/github/red-life-harness/checks/run_all.py` and `~/github/evo-agents-harness/contracts.yaml`):
 
-- **Producer (`skills-distribution`)**: Installed copies in `~/.claude/skills` and symlinks in `~/.gemini/config/plugins/agent-skills` must match `skills/` on `main`. After merging a change to `skills/`, publish via `evo-agents hub skills publish` and run `evo-agents hub skills sync` (or `python3 install.py`).
+- **Producer (`skills-distribution`)**: Global runtimes (`~/.claude/skills` and `~/.gemini/config/plugins/agent-skills/skills`) carry only the 10 global infrastructure skills (`GLOBAL_SKILLS` in `install.py`), while the 7 domain skills are published to their respective Hub projects (`--scope project:<slug>`) so unrelated harnesses do not load them. After merging a change to `skills/`, publish global skills with `--scope global`, project skills with `--scope project:<slug>`, and run `evo-agents hub skills sync` (plus `python3 install.py` for non-Hub runtimes like OpenCode).
 - **Producer (`harness-manifest-schema`)**: `skills/harness-engineering/scripts/harness.py` writes `harness.yaml` and `~/.claude/harness/registry.json`, consumed by `evo-cli`.
 - **Consumer (`life-cli-surface`, `omelet-credentials`, `tts-engine-api`, `hub-cli-v1`)**: Skills mirror external CLI surfaces (`life`, `evo cred`, `evo-agents hub`) and `mcp/tts/server.py` imports `evo_cli.tts`. Update owners before updating mirrors here.
 
