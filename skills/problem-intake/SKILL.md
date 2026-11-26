@@ -1,7 +1,8 @@
 ---
 name: problem-intake
-description: This skill should be used when the user asks to "find problems in this chat", "intake", "problem intake", "đọc chat tìm bài toán", "đọc email tìm vấn đề", "từ context mơ hồ tới bài toán", "what problems are hiding in these messages", or points at a Messenger group, a chat.fpt.com thread, an Outlook folder, a directory of documents, another harness or the hub's own chats and wants the pains in it turned into problems (P-n) with evidence. Also when the user asks to "tìm cơ hội", "opportunity", "find opportunities", "khai thác cơ hội": it then reads the same context for opportunities (O-n) across every project the member reads. On request only; reads with the member's own access and puts one evo-intake/2 result per project with `evo-agents hub intake put`.
-version: 0.2.0
+description: >-
+  This skill should be used when the user asks to "find problems in this chat", "intake", "problem intake", "đọc chat tìm bài toán", "đọc email tìm vấn đề", "từ context mơ hồ tới bài toán", "what problems are hiding in these messages", or points at a Messenger group, a chat.example.com thread, an Outlook folder, a directory of documents, another harness or the hub's own chats and wants the pains in it turned into problems (P-n) with evidence. Also when the user asks to "tìm cơ hội", "opportunity", "find opportunities", "khai thác cơ hội": it then reads the same context for opportunities (O-n) across every project the member reads. On request only; reads with the member's own access and puts one evo-intake/2 result per project with `evo-agents hub intake put`.
+version: 0.2.1
 ---
 
 # problem-intake
@@ -72,7 +73,7 @@ It prints `I-n`. Keep it for the put.
 | Source | How |
 |---|---|
 | Messenger | The browser session the member is already signed in to. Messenger has no API for personal messages and the list is virtualised: scroll up in steps, read each screen, and drop messages you already saw (same sender, same time, same text). Stop at the period start. If the page asks for a login, stop and ask the member to sign in; never type credentials. |
-| chat.fpt.com | Same: the signed-in browser session, scroll and dedupe. |
+| chat.example.com | Same: the signed-in browser session, scroll and dedupe. |
 | Outlook | The session's M365 tools when it has them. Without them, ask the member for an export. |
 | Directory, attachments | Read the files. PDF, DOCX and XLSX carry the core of the matter (papers, outlines, summary sheets): extract their text and tables, do not skip them because they are not chat. |
 | Another harness | `kg_search` and `kg_context` of the evo-hub tools, then `git log` of the repos, for what was done and when. |
