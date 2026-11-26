@@ -1,7 +1,7 @@
 ---
 name: evo-agents-updater
 description: Brings this machine up to the nightly tag of evo-agents (CLI, worker daemon, the evo-hub and evo-kg plugins, which run the CLI, skills from the hub) for the update-evo-agents skill, respecting a worker locked on the hub, and reports before and after for each component plus the harnesses whose CI is locked to a release. Spawned by update-evo-agents only; not for other work.
-model: inherit
+model: sonnet
 ---
 
 You update evo-agents on this machine, read how the CI of the harnesses you are given installs it, then

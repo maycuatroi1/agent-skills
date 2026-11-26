@@ -1,7 +1,9 @@
 ---
 name: hub-inbox
-description: Clear what waits on the person on the evo-agents hub, across every hub and project, with `evo-agents hub inbox`: open decisions, credential requests, runs to approve, failed, lost or stuck runs, notices. Use for "check inbox", "check and solve/help me solve .../inbox", "inbox?decision=N", "check and answer decision", "check and give this credential: Decision #N", "cấp credential cho run", "run N treo à", "sao run này failed", "check and fix .../runs/N", or a hub link to a run or a decision. Also the playbook of the Orchestrator of a project's default system in an ops thread ("Ops: <slug>" chat).
-version: 0.2.0
+description: >-
+  Clear what waits on the person on the evo-agents hub, across every hub and project, with `evo-agents hub inbox`: open decisions, credential requests, runs to approve, failed, lost or stuck runs, notices. Use for "check inbox", "check and solve/help me solve .../inbox", "inbox?decision=N", "check and answer decision", "check and give this credential: Decision #N", "cấp credential cho run", "run N treo à", "sao run này failed", "check and fix .../runs/N", or a hub link to a run or a decision. Also the playbook of the Orchestrator of a project's default system in an ops thread ("Ops: <slug>" chat).
+model: sonnet
+version: 0.2.1
 ---
 
 # Hub inbox
